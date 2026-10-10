@@ -89,4 +89,10 @@ public class ExecutionProducer {
     public MigrationPolicy produceMigrationPolicy() {
         return new DefaultMigrationPolicy();
     }
+
+    @Produces
+    @ApplicationScoped
+    public tech.kayys.andalus.agent.kernel.interaction.AgentInteractionService produceAgentInteractionService() {
+        return tech.kayys.andalus.agent.kernel.interaction.AgentInteractionService.inMemory();
+    }
 }
