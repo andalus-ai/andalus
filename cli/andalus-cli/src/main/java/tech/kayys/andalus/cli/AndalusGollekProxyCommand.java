@@ -11,9 +11,9 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.util.concurrent.Callable;
 
-@Command(name = "gollek", description = "Proxy commands to the local gollek CLI.", mixinStandardHelpOptions = true,
-        subcommands = { AndalusGollekProxyCommand.ListCommand.class, AndalusGollekProxyCommand.PullCommand.class })
-public class AndalusGollekProxyCommand implements Callable<Integer> {
+@Command(name = "aqli", description = "Proxy commands to the local aqli CLI.", mixinStandardHelpOptions = true,
+        subcommands = { AndalusAqliProxyCommand.ListCommand.class, AndalusAqliProxyCommand.PullCommand.class })
+public class AndalusAqliProxyCommand implements Callable<Integer> {
 
     @Override
     public Integer call() {
@@ -35,7 +35,7 @@ public class AndalusGollekProxyCommand implements Callable<Integer> {
         return rc;
     }
 
-    @Command(name = "list", description = "Delegate to 'gollek list' to show available manifests/models.")
+    @Command(name = "list", description = "Delegate to 'aqli list' to show available manifests/models.")
     public static class ListCommand implements Callable<Integer> {
         @Option(names = {"--manifest", "-m"}, description = "List manifests instead of models")
         boolean manifests;
@@ -47,7 +47,7 @@ public class AndalusGollekProxyCommand implements Callable<Integer> {
                 if (manifests) {
                     // prefer SDK if available
                     try {
-                        Object sdk = Class.forName("tech.kayys.gollek.factory.GollekSdkFactory").getMethod("createLocalSdk").invoke(null);
+                        Object sdk = Class.forName("tech.kayys.aqli.factory.AqliSdkFactory").getMethod("createLocalSdk").invoke(null);
                         Method listManifests = sdk.getClass().getMethod("listModels");
                         Object res = listManifests.invoke(sdk);
                         if (res instanceof java.util.List) {
@@ -55,12 +55,12 @@ public class AndalusGollekProxyCommand implements Callable<Integer> {
                         }
                         return 0;
                     } catch (Throwable t) {
-                        return runProcessAndPipe(out, "gollek", "manifest", "list");
+                        return runProcessAndPipe(out, "aqli", "manifest", "list");
                     }
                 } else {
                     try {
                         // Prefer SDK
-                        java.util.List<?> models = tech.kayys.andalus.client.AndalusGollekFacade.listModels();
+                        java.util.List<?> models = tech.kayys.andalus.client.AndalusAqliFacade.listModels();
                         if (models == null || models.isEmpty()) {
                             out.println("No models found.");
                             return 0;
@@ -68,17 +68,17 @@ public class AndalusGollekProxyCommand implements Callable<Integer> {
                         for (Object m : models) out.println(m == null ? "null" : m.toString());
                         return 0;
                     } catch (Throwable t) {
-                        return runProcessAndPipe(out, "gollek", "list");
+                        return runProcessAndPipe(out, "aqli", "list");
                     }
                 }
             } catch (IOException | InterruptedException e) {
-                out.println("Error: failed to run gollek list: " + e.getMessage());
+                out.println("Error: failed to run aqli list: " + e.getMessage());
                 return 2;
             }
         }
     }
 
-    @Command(name = "pull", description = "Delegate to 'gollek pull <model>' to download model files.")
+    @Command(name = "pull", description = "Delegate to 'aqli pull <model>' to download model files.")
     public static class PullCommand implements Callable<Integer> {
         @Parameters(index = "0", description = "Model id to pull")
         String modelId;
@@ -103,13 +103,13 @@ public class AndalusGollekProxyCommand implements Callable<Integer> {
                 }
                 // Prefer SDK-backed pull when available
                 try {
-                    int rc = tech.kayys.andalus.client.AndalusGollekFacade.pullModel(out, modelId);
+                    int rc = tech.kayys.andalus.client.AndalusAqliFacade.pullModel(out, modelId);
                     return rc;
                 } catch (Throwable t) {
-                    return runProcessAndPipe(out, "gollek", "pull", modelId);
+                    return runProcessAndPipe(out, "aqli", "pull", modelId);
                 }
             } catch (IOException | InterruptedException e) {
-                out.println("Error: failed to run gollek pull: " + e.getMessage());
+                out.println("Error: failed to run aqli pull: " + e.getMessage());
                 return 2;
             }
         }

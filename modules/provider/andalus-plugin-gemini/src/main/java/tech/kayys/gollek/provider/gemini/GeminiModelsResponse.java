@@ -1,4 +1,4 @@
-package tech.kayys.gollek.provider.gemini;
+package tech.kayys.aqli.provider.gemini;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import tech.kayys.andalus.inference.ModelInfo;

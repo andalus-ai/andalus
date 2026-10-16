@@ -3,9 +3,9 @@ package tech.kayys.andalus.tool.image;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import tech.kayys.gollek.spi.image.GeneratedImage;
-import tech.kayys.gollek.spi.image.ImageGenRequest;
-import tech.kayys.gollek.spi.image.ImageGenerationPipeline;
+import tech.kayys.aqli.spi.image.GeneratedImage;
+import tech.kayys.aqli.spi.image.ImageGenRequest;
+import tech.kayys.aqli.spi.image.ImageGenerationPipeline;
 import tech.kayys.andalus.tool.Tool;
 import tech.kayys.andalus.tool.ToolContext;
 import tech.kayys.andalus.tool.ToolDescriptor;
@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Andalus Agent Tool for text-to-image generation powered by Gollek image pipelines (FLUX, SD).
+ * Andalus Agent Tool for text-to-image generation powered by Aqli image pipelines (FLUX, SD).
  */
 @ApplicationScoped
 public class ImageGenerationTool implements Tool {
@@ -36,7 +36,7 @@ public class ImageGenerationTool implements Tool {
 
             @Override
             public String description() {
-                return "Generates high-quality illustrations or artwork from a text prompt using Gollek FLUX / Stable Diffusion pipelines.";
+                return "Generates high-quality illustrations or artwork from a text prompt using Aqli FLUX / Stable Diffusion pipelines.";
             }
 
             @Override

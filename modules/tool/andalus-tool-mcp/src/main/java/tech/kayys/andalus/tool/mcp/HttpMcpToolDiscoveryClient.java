@@ -21,7 +21,7 @@ public class HttpMcpToolDiscoveryClient implements McpToolDiscoveryClient {
     static final String CONTEXT_CLIENT_VERSION = "mcpClientVersion";
     static final String CONTEXT_MAX_DISCOVERY_PAGES = "mcpMaxDiscoveryPages";
 
-    private static final String DEFAULT_CLIENT_NAME = "andalus-gollek";
+    private static final String DEFAULT_CLIENT_NAME = "andalus-aqli";
     private static final String DEFAULT_CLIENT_VERSION = "1.0.0";
     private static final int DEFAULT_MAX_DISCOVERY_PAGES = 25;
 

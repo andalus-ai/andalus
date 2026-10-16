@@ -1,4 +1,4 @@
-id: gollek
+id: aqli
 properties:
   strategy: grpc
   grpc.host: localhost
@@ -9,9 +9,9 @@ properties:
   auto.install: true
   
   # Download source configuration
-  install.dir: ~/.andalus/gollek
-  download.script: https://raw.githubusercontent.com/bhangun/gollek/main/scripts/install.sh
-  download.url: https://github.com/bhangun/gollek/releases/latest/download/gollek
+  install.dir: ~/.andalus/aqli
+  download.script: https://raw.githubusercontent.com/bhangun/aqli/main/scripts/install.sh
+  download.url: https://github.com/bhangun/aqli/releases/latest/download/aqli
   
   # Fallback behavior
   fallback.provider: gemini

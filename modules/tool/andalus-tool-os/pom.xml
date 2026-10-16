@@ -42,7 +42,7 @@
         </dependency>
         <dependency>
             <groupId>tech.kayys.andalus</groupId>
-            <artifactId>andalus-gollek-sdk</artifactId>
+            <artifactId>andalus-aqli-sdk</artifactId>
             <version>1.0.0-SNAPSHOT</version>
         </dependency>
     </dependencies>

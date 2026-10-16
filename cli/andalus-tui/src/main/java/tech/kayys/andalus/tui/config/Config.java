@@ -107,12 +107,12 @@ public final class Config {
     public static Config defaultConfig() {
         Config c = new Config();
 
-        ProviderConfig gollek = new ProviderConfig();
-        gollek.name = "gollek";
-        gollek.type = "engine";
-        gollek.baseUrl = "http://localhost:8080/api/v1/coder/run";
-        gollek.apiKeyEnv = null;
-        c.providers.add(gollek);
+        ProviderConfig aqli = new ProviderConfig();
+        aqli.name = "aqli";
+        aqli.type = "engine";
+        aqli.baseUrl = "http://localhost:8080/api/v1/coder/run";
+        aqli.apiKeyEnv = null;
+        c.providers.add(aqli);
 
         ProviderConfig anthropic = new ProviderConfig();
         anthropic.name = "anthropic";
@@ -143,7 +143,7 @@ public final class Config {
 
         Profile def = new Profile();
         def.name = "default";
-        def.provider = "gollek";
+        def.provider = "aqli";
         def.model = null; // No default model, requires user to select or configure one
         def.systemPrompt = "You are a helpful coding assistant running in a terminal UI.";
         def.uiMode = UiMode.REPL;

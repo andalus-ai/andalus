@@ -29,18 +29,18 @@ quarkus-app/
 
 # Source modules whose names overlap with generated native runner artifacts
 # or broad local excludes.
-!/core/gollek-model-runner/
-!/core/gollek-model-runner/**
+!/core/aqli-model-runner/
+!/core/aqli-model-runner/**
 !/runtime/
-!/runtime/gollek-runtime/
-!/runtime/gollek-runtime/build.gradle.kts
-!/runtime/gollek-runtime-distributed/
-!/runtime/gollek-runtime-distributed/build.gradle.kts
-/core/gollek-model-runner/build/
-/runtime/gollek-runtime/build/
-/runtime/gollek-runtime-distributed/build/
-/runtime/gollek-runtime/src/
-/runtime/gollek-runtime-distributed/src/
+!/runtime/aqli-runtime/
+!/runtime/aqli-runtime/build.gradle.kts
+!/runtime/aqli-runtime-distributed/
+!/runtime/aqli-runtime-distributed/build.gradle.kts
+/core/aqli-model-runner/build/
+/runtime/aqli-runtime/build/
+/runtime/aqli-runtime-distributed/build/
+/runtime/aqli-runtime/src/
+/runtime/aqli-runtime-distributed/src/
 
 # Native Image specific build files
 **/*.graal.log
@@ -130,9 +130,9 @@ out/
 **/libggml*.a
 
 # Standard native library location (user-specific, not tracked)
-~/.gollek/libs/
-.gollek/libs/
-**/.gollek/libs/
+~/.aqli/libs/
+.aqli/libs/
+**/.aqli/libs/
 
 # CUDA / GPU libraries
 **/*.cu
@@ -154,7 +154,7 @@ out/
 **/cmake-build-*/
 **/CMakeCache.txt
 **/Makefile
-!backend/metal/gollek-backend-metal/src/main/cpp/metal/Makefile
+!backend/metal/aqli-backend-metal/src/main/cpp/metal/Makefile
 
 # Build logs and configuration
 **/CMakeConfigureLog.yaml

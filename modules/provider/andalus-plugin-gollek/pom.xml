@@ -11,8 +11,8 @@
         <relativePath>../../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>andalus-plugin-gollek</artifactId>
-    <name>Andalus Provider Plugin - Gollek</name>
+    <artifactId>andalus-plugin-aqli</artifactId>
+    <name>Andalus Provider Plugin - Aqli</name>
 
     <dependencies>
         <!-- Andalus SPI -->
@@ -22,43 +22,43 @@
             <version>${project.version}</version>
         </dependency>
 
-        <!-- Gollek SDK Core -->
+        <!-- Aqli SDK Core -->
         <dependency>
-            <groupId>tech.kayys.gollek</groupId>
-            <artifactId>gollek-sdk-core</artifactId>
+            <groupId>tech.kayys.aqli</groupId>
+            <artifactId>aqli-sdk-core</artifactId>
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
 
-        <!-- Gollek SPI -->
+        <!-- Aqli SPI -->
         <dependency>
-            <groupId>tech.kayys.gollek</groupId>
-            <artifactId>gollek-spi</artifactId>
+            <groupId>tech.kayys.aqli</groupId>
+            <artifactId>aqli-spi</artifactId>
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
 
-        <!-- Gollek SPI Inference -->
+        <!-- Aqli SPI Inference -->
         <dependency>
-            <groupId>tech.kayys.gollek</groupId>
-            <artifactId>gollek-spi-inference</artifactId>
+            <groupId>tech.kayys.aqli</groupId>
+            <artifactId>aqli-spi-inference</artifactId>
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
 
-        <!-- Gollek Tokenizer Core for ChatTemplateFormatter -->
+        <!-- Aqli Tokenizer Core for ChatTemplateFormatter -->
         <dependency>
-            <groupId>tech.kayys.gollek</groupId>
-            <artifactId>gollek-tokenizer-core</artifactId>
+            <groupId>tech.kayys.aqli</groupId>
+            <artifactId>aqli-tokenizer-core</artifactId>
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
 
-        <!-- Gollek SDK -->
+        <!-- Aqli SDK -->
         <dependency>
-            <groupId>tech.kayys.gollek</groupId>
-            <artifactId>gollek-sdk</artifactId>
+            <groupId>tech.kayys.aqli</groupId>
+            <artifactId>aqli-sdk</artifactId>
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.gollek</groupId>
-            <artifactId>gollek-sdk-protobuf</artifactId>
+            <groupId>tech.kayys.aqli</groupId>
+            <artifactId>aqli-sdk-protobuf</artifactId>
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>

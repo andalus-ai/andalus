@@ -1,11 +1,11 @@
-package tech.kayys.andalus.agent.backend.gollek;
+package tech.kayys.andalus.agent.backend.aqli;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import org.jboss.logging.Logger;
-import tech.kayys.gollek.sdk.core.GollekSdk;
-import tech.kayys.gollek.spi.Message;
-import tech.kayys.gollek.spi.inference.StreamingInferenceChunk;
+import tech.kayys.aqli.sdk.core.AqliSdk;
+import tech.kayys.aqli.spi.Message;
+import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.andalus.agent.spi.BackendCapabilities;
 import tech.kayys.andalus.agent.spi.InferenceBackend;
 import tech.kayys.andalus.agent.spi.InferenceRequest;
@@ -35,20 +35,20 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Backend adapter that wraps Gollek SDK to implement the backend-agnostic
+ * Backend adapter that wraps Aqli SDK to implement the backend-agnostic
  * {@link InferenceBackend} SPI.
  *
  * <p>
- * This adapter translates between andalus-gollek's backend-agnostic SPI types
- * and Gollek SDK's native types, enabling any code that depends on
- * {@code InferenceBackend} to work with Gollek without direct coupling.
+ * This adapter translates between andalus-aqli's backend-agnostic SPI types
+ * and Aqli SDK's native types, enabling any code that depends on
+ * {@code InferenceBackend} to work with Aqli without direct coupling.
  * </p>
  *
  * <h3>Usage:</h3>
  * <pre>{@code
  * // Programmatic (no Quarkus)
- * GollekSdk sdk = GollekSdk.builder().build();
- * InferenceBackend backend = new GollekBackendAdapter(sdk);
+ * AqliSdk sdk = AqliSdk.builder().build();
+ * InferenceBackend backend = new AqliBackendAdapter(sdk);
  * backend.initialize(config);
  *
  * Uni<InferenceResponse> response = backend.infer(request);
@@ -58,7 +58,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <ul>
  *   <li>Full inference support (sync + streaming)</li>
  *   <li>Provider discovery and health checking</li>
- *   <li>Capability detection from Gollek provider registry</li>
+ *   <li>Capability detection from Aqli provider registry</li>
  *   <li>Graceful lifecycle management</li>
  * </ul>
  *
@@ -66,21 +66,21 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @version 0.1.0
  * @since 2026-04-06
  */
-public class GollekBackendAdapter implements InferenceBackend {
+public class AqliBackendAdapter implements InferenceBackend {
 
-    private static final Logger LOG = Logger.getLogger(GollekBackendAdapter.class);
+    private static final Logger LOG = Logger.getLogger(AqliBackendAdapter.class);
 
-    private final GollekSdk gollekSdk;
+    private final AqliSdk aqliSdk;
     private volatile BackendCapabilities capabilities = BackendCapabilities.none();
     private volatile boolean initialized;
 
-    public GollekBackendAdapter(GollekSdk gollekSdk) {
-        this.gollekSdk = Objects.requireNonNull(gollekSdk, "gollekSdk");
+    public AqliBackendAdapter(AqliSdk aqliSdk) {
+        this.aqliSdk = Objects.requireNonNull(aqliSdk, "aqliSdk");
     }
 
     @Override
     public String name() {
-        return "gollek";
+        return "aqli";
     }
 
     @Override
@@ -92,15 +92,15 @@ public class GollekBackendAdapter implements InferenceBackend {
     public Uni<InferenceResponse> infer(InferenceRequest request) {
         ensureInitialized();
 
-        tech.kayys.gollek.spi.inference.InferenceRequest gollekRequest = toGollekRequest(request);
+        tech.kayys.aqli.spi.inference.InferenceRequest aqliRequest = toAqliRequest(request);
         long startedAt = System.currentTimeMillis();
 
         return Uni.createFrom()
-                .completionStage(gollekSdk.createCompletionAsync(gollekRequest))
-                .map(response -> fromGollekResponse(request, response, startedAt))
+                .completionStage(aqliSdk.createCompletionAsync(aqliRequest))
+                .map(response -> fromAqliResponse(request, response, startedAt))
                 .onFailure().transform(error -> {
-                    LOG.errorf(error, "Gollek inference failed for request %s", request.requestId());
-                    return new RuntimeException("Gollek inference failed: " + error.getMessage(), error);
+                    LOG.errorf(error, "Aqli inference failed for request %s", request.requestId());
+                    return new RuntimeException("Aqli inference failed: " + error.getMessage(), error);
                 });
     }
 
@@ -108,7 +108,7 @@ public class GollekBackendAdapter implements InferenceBackend {
     public Multi<StreamingChunk> stream(InferenceRequest request) {
         ensureInitialized();
 
-        tech.kayys.gollek.spi.inference.InferenceRequest gollekRequest = toGollekRequest(
+        tech.kayys.aqli.spi.inference.InferenceRequest aqliRequest = toAqliRequest(
                 new InferenceRequest(
                         request.requestId(),
                         request.model(),
@@ -123,11 +123,11 @@ public class GollekBackendAdapter implements InferenceBackend {
                         request.timeout(),
                         request.metadata()));
 
-        return gollekSdk.streamCompletion(gollekRequest)
-                .map(this::fromGollekChunk)
+        return aqliSdk.streamCompletion(aqliRequest)
+                .map(this::fromAqliChunk)
                 .onFailure().transform(error -> {
-                    LOG.errorf(error, "Gollek streaming failed for request %s", request.requestId());
-                    return new RuntimeException("Gollek streaming failed: " + error.getMessage(), error);
+                    LOG.errorf(error, "Aqli streaming failed for request %s", request.requestId());
+                    return new RuntimeException("Aqli streaming failed: " + error.getMessage(), error);
                 });
     }
 
@@ -135,11 +135,11 @@ public class GollekBackendAdapter implements InferenceBackend {
     public List<ProviderInfo> listProviders() {
         ensureInitialized();
         try {
-            return gollekSdk.listAvailableProviders().stream()
-                    .map(this::fromGollekProvider)
+            return aqliSdk.listAvailableProviders().stream()
+                    .map(this::fromAqliProvider)
                     .toList();
         } catch (Exception error) {
-            LOG.warnf("Failed to list Gollek providers: %s", error.getMessage());
+            LOG.warnf("Failed to list Aqli providers: %s", error.getMessage());
             return List.of();
         }
     }
@@ -150,11 +150,11 @@ public class GollekBackendAdapter implements InferenceBackend {
             return false;
         }
         try {
-            return gollekSdk.listAvailableProviders().stream()
+            return aqliSdk.listAvailableProviders().stream()
                     .anyMatch(provider -> provider.healthStatus()
-                            == tech.kayys.gollek.spi.provider.ProviderHealth.Status.HEALTHY);
+                            == tech.kayys.aqli.spi.provider.ProviderHealth.Status.HEALTHY);
         } catch (Exception error) {
-            LOG.debugf("Gollek health check failed: %s", error.getMessage());
+            LOG.debugf("Aqli health check failed: %s", error.getMessage());
             return false;
         }
     }
@@ -194,13 +194,13 @@ public class GollekBackendAdapter implements InferenceBackend {
         initialized = false;
     }
 
-    private tech.kayys.gollek.spi.inference.InferenceRequest toGollekRequest(InferenceRequest request) {
-        tech.kayys.gollek.spi.inference.InferenceRequest.Builder builder =
-                tech.kayys.gollek.spi.inference.InferenceRequest.builder()
+    private tech.kayys.aqli.spi.inference.InferenceRequest toAqliRequest(InferenceRequest request) {
+        tech.kayys.aqli.spi.inference.InferenceRequest.Builder builder =
+                tech.kayys.aqli.spi.inference.InferenceRequest.builder()
                         .requestId(request.requestId())
                         .model(request.model())
-                        .messages(request.messages().stream().map(this::toGollekMessage).toList())
-                        .tools(request.tools().stream().map(this::toGollekTool).toList())
+                        .messages(request.messages().stream().map(this::toAqliMessage).toList())
+                        .tools(request.tools().stream().map(this::toAqliTool).toList())
                         .toolChoice(request.toolChoice())
                         .temperature(request.temperature())
                         .maxTokens(request.maxTokens())
@@ -219,7 +219,7 @@ public class GollekBackendAdapter implements InferenceBackend {
         return builder.build();
     }
 
-    private Message toGollekMessage(ChatMessage message) {
+    private Message toAqliMessage(ChatMessage message) {
         return switch (message) {
             case SystemMessage system -> Message.system(system.content());
             case UserMessage user -> Message.user(userContent(user));
@@ -246,17 +246,17 @@ public class GollekBackendAdapter implements InferenceBackend {
         };
     }
 
-    private tech.kayys.gollek.spi.tool.ToolDefinition toGollekTool(ToolDefinition tool) {
-        return tech.kayys.gollek.spi.tool.ToolDefinition.builder()
+    private tech.kayys.aqli.spi.tool.ToolDefinition toAqliTool(ToolDefinition tool) {
+        return tech.kayys.aqli.spi.tool.ToolDefinition.builder()
                 .name(tool.name())
                 .description(tool.description())
                 .parameters(tool.parameters())
                 .build();
     }
 
-    private InferenceResponse fromGollekResponse(
+    private InferenceResponse fromAqliResponse(
             InferenceRequest request,
-            tech.kayys.gollek.spi.inference.InferenceResponse response,
+            tech.kayys.aqli.spi.inference.InferenceResponse response,
             long startedAt) {
 
         AssistantMessage message = new AssistantMessage(
@@ -275,21 +275,21 @@ public class GollekBackendAdapter implements InferenceBackend {
     }
 
     private List<ToolCall> toAndalusToolCalls(
-            List<tech.kayys.gollek.spi.inference.InferenceResponse.ToolCall> toolCalls) {
+            List<tech.kayys.aqli.spi.inference.InferenceResponse.ToolCall> toolCalls) {
         if (toolCalls == null || toolCalls.isEmpty()) {
             return List.of();
         }
         AtomicInteger index = new AtomicInteger();
         return toolCalls.stream()
                 .map(call -> new ToolCall(
-                        "gollek-tool-call-" + index.incrementAndGet(),
+                        "aqli-tool-call-" + index.incrementAndGet(),
                         "function",
                         call.name(),
                         String.valueOf(call.arguments())))
                 .toList();
     }
 
-    private StreamingChunk fromGollekChunk(StreamingInferenceChunk chunk) {
+    private StreamingChunk fromAqliChunk(StreamingInferenceChunk chunk) {
         TokenUsage usage = chunk.usage() == null
                 ? null
                 : TokenUsage.of(safeInt(chunk.usage().inputTokens()), safeInt(chunk.usage().outputTokens()));
@@ -302,10 +302,10 @@ public class GollekBackendAdapter implements InferenceBackend {
                 usage);
     }
 
-    private ProviderInfo fromGollekProvider(tech.kayys.gollek.spi.provider.ProviderInfo provider) {
+    private ProviderInfo fromAqliProvider(tech.kayys.aqli.spi.provider.ProviderInfo provider) {
         String model = provider.supportedModels().stream().findFirst().orElse("");
         boolean healthy = provider.healthStatus()
-                == tech.kayys.gollek.spi.provider.ProviderHealth.Status.HEALTHY;
+                == tech.kayys.aqli.spi.provider.ProviderHealth.Status.HEALTHY;
 
         Map<String, Object> metadata = new LinkedHashMap<>();
         putIfPresent(metadata, "vendor", provider.vendor());
@@ -325,7 +325,7 @@ public class GollekBackendAdapter implements InferenceBackend {
 
     private BackendCapabilities detectCapabilities() {
         try {
-            List<tech.kayys.gollek.spi.provider.ProviderInfo> providers = gollekSdk.listAvailableProviders();
+            List<tech.kayys.aqli.spi.provider.ProviderInfo> providers = aqliSdk.listAvailableProviders();
             boolean streaming = false;
             boolean toolCalling = false;
             boolean multimodal = false;
@@ -334,9 +334,9 @@ public class GollekBackendAdapter implements InferenceBackend {
             boolean embedding = false;
             Set<String> supportedModels = new LinkedHashSet<>();
 
-            for (tech.kayys.gollek.spi.provider.ProviderInfo provider : providers) {
+            for (tech.kayys.aqli.spi.provider.ProviderInfo provider : providers) {
                 supportedModels.addAll(provider.supportedModels());
-                tech.kayys.gollek.spi.provider.ProviderCapabilities caps = provider.capabilities();
+                tech.kayys.aqli.spi.provider.ProviderCapabilities caps = provider.capabilities();
                 if (caps == null) {
                     continue;
                 }
@@ -361,13 +361,13 @@ public class GollekBackendAdapter implements InferenceBackend {
                     Math.max(1, providers.size()),
                     new ArrayList<>(supportedModels));
         } catch (Exception error) {
-            LOG.warnf("Failed to detect Gollek capabilities, using defaults: %s", error.getMessage());
+            LOG.warnf("Failed to detect Aqli capabilities, using defaults: %s", error.getMessage());
             return BackendCapabilities.none();
         }
     }
 
     private String responseId(
-            tech.kayys.gollek.spi.inference.InferenceResponse response,
+            tech.kayys.aqli.spi.inference.InferenceResponse response,
             InferenceRequest request) {
         Object responseId = response.getMetadata() == null ? null : response.getMetadata().get("responseId");
         if (responseId != null) {
@@ -380,7 +380,7 @@ public class GollekBackendAdapter implements InferenceBackend {
         return finishReason == null ? "stop" : finishReason.toString().toLowerCase();
     }
 
-    private long durationMs(tech.kayys.gollek.spi.inference.InferenceResponse response, long startedAt) {
+    private long durationMs(tech.kayys.aqli.spi.inference.InferenceResponse response, long startedAt) {
         return response.getDurationMs() > 0
                 ? response.getDurationMs()
                 : System.currentTimeMillis() - startedAt;

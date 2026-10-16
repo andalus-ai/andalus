@@ -4,7 +4,7 @@
  * Copyright (c) 2026 Kayys.tech
  */
 
-package tech.kayys.gollek.plugin.cloud.openai;
+package tech.kayys.aqli.plugin.cloud.openai;
 
 import tech.kayys.andalus.extension.Id;
 import tech.kayys.andalus.extension.Metadata;

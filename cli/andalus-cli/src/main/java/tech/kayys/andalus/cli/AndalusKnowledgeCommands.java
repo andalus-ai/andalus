@@ -34,7 +34,7 @@ public final class AndalusKnowledgeCommands {
             })
     public static final class KnowledgeCommand implements Callable<Integer> {
         @ParentCommand
-        AndalusGollekCli parent;
+        AndalusAqliCli parent;
 
         @Override
         public Integer call() {

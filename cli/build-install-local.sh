@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # build-install-local.sh
-# Builds the Andalus‑Gollek CLI and installs a 'andalus' binary locally.
+# Builds the Andalus‑Aqli CLI and installs a 'andalus' binary locally.
 # No module-selection-*.env dependency.
 
 set -euo pipefail
@@ -56,7 +56,7 @@ else
 fi
 
 # Step 1: build and install the SDK into local Maven repo
-SDK_PROJECT="${REPO_ROOT}/sdk/andalus-gollek-sdk"
+SDK_PROJECT="${REPO_ROOT}/sdk/andalus-aqli-sdk"
 echo "INFO: Building SDK dependency ..."
 "$MVN" clean install -f "$SDK_PROJECT/pom.xml" -DskipTests --no-transfer-progress
 
@@ -81,7 +81,7 @@ echo "INFO: JAR built at: $JAR_FILE"
 
 # ---------- install ----------
 mkdir -p "$INSTALL_DIR" "$SHARE_DIR"
-cp "$JAR_FILE" "${SHARE_DIR}/andalus-gollek-cli.jar"
+cp "$JAR_FILE" "${SHARE_DIR}/andalus-aqli-cli.jar"
 
 WRAPPER="${INSTALL_DIR}/${BINARY_NAME}"
 cat > "$WRAPPER" <<EOF
@@ -89,7 +89,7 @@ cat > "$WRAPPER" <<EOF
 exec java \
   --add-modules jdk.incubator.vector \
   -Djava.util.logging.manager=org.jboss.logmanager.LogManager \
-  -jar "$SHARE_DIR/andalus-gollek-cli.jar" "\$@"
+  -jar "$SHARE_DIR/andalus-aqli-cli.jar" "\$@"
 EOF
 chmod +x "$WRAPPER"
 

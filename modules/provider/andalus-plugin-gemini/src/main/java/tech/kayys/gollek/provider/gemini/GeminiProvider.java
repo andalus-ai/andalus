@@ -1,4 +1,4 @@
-package tech.kayys.gollek.provider.gemini;
+package tech.kayys.aqli.provider.gemini;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;

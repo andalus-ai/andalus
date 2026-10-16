@@ -3,7 +3,7 @@ plugins {
     `maven-publish`
 }
 
-group = "tech.kayys.gollek"
+group = "tech.kayys.aqli"
 version = "0.1.0-SNAPSHOT"
 
 java {
@@ -52,7 +52,7 @@ tasks.jar {
     manifest {
         attributes(
             mapOf(
-                "Plugin-Class" to "tech.kayys.gollek.provider.anthropic.AnthropicProvider",
+                "Plugin-Class" to "tech.kayys.aqli.provider.anthropic.AnthropicProvider",
                 "Plugin-Id" to "anthropic-provider",
                 "Plugin-Version" to "0.1.0-SNAPSHOT"
             )

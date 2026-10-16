@@ -1,4 +1,4 @@
-package tech.kayys.gollek.provider.anthropic;
+package tech.kayys.aqli.provider.anthropic;
 
 import tech.kayys.andalus.extension.Id;
 import tech.kayys.andalus.extension.Metadata;

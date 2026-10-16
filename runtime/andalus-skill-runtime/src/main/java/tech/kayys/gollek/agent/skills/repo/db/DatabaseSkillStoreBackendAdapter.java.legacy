@@ -1,9 +1,9 @@
-package tech.kayys.gollek.agent.skills.repo.db;
+package tech.kayys.aqli.agent.skills.repo.db;
 
 import jakarta.enterprise.inject.spi.CDI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.kayys.gollek.agent.skills.repo.spi.SkillContent;
+import tech.kayys.aqli.agent.skills.repo.spi.SkillContent;
 import tech.kayys.andalus.skill.spi.SkillDefinition;
 import tech.kayys.andalus.skills.store.SkillEntry;
 import tech.kayys.andalus.skills.store.SkillStoreBackend;
@@ -63,7 +63,7 @@ public class DatabaseSkillStoreBackendAdapter implements SkillStoreBackend {
     @Override
     public CompletionStage<Void> save(SkillDefinition def) {
         SkillContent content = new SkillContent.Builder()
-                .metadata(new tech.kayys.gollek.agent.skills.repo.spi.SkillMetadata.Builder()
+                .metadata(new tech.kayys.aqli.agent.skills.repo.spi.SkillMetadata.Builder()
                         .id(def.id())
                         .name(def.name())
                         .version(def.version())

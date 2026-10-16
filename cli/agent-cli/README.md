@@ -4,7 +4,7 @@
 [![Java](https://img.shields.io/badge/Java-21%2B-blue.svg)](https://openjdk.java.net/)
 [![Quarkus](https://img.shields.io/badge/Quarkus-3.x-blue.svg)](https://quarkus.io/)
 
-**Gamelan CLI** is a modern, Claude Code-inspired command-line interface for AI-driven development, powered by the **Gollek** local inference engine and conforming to the [Agent Skills specification](https://agentskills.io/specification).
+**Gamelan CLI** is a modern, Claude Code-inspired command-line interface for AI-driven development, powered by the **Aqli** local inference engine and conforming to the [Agent Skills specification](https://agentskills.io/specification).
 
 ## Features
 
@@ -12,7 +12,7 @@
 - **Interactive REPL** - Chat with AI agent with persistent history
 - **One-shot execution** - Run tasks non-interactively for scripts/CI
 - **Skill system** - Extensible skills conforming to agentskills.io spec
-- **Local inference** - Run models locally via Gollek (GGUF, ONNX, etc.)
+- **Local inference** - Run models locally via Aqli (GGUF, ONNX, etc.)
 - **Tool calling** - Native tool execution with approval modes
 - **Session management** - Save, load, and resume conversations
 
@@ -42,17 +42,17 @@
 
 ```bash
 # Build the CLI
-mvn clean install -pl andalus-gollek/agent/agent-cli -am -DskipTests
+mvn clean install -pl andalus-aqli/agent/agent-cli -am -DskipTests
 
 # Run directly with Quarkus dev mode
-./mvnw quarkus:dev -pl andalus-gollek/agent/agent-cli
+./mvnw quarkus:dev -pl andalus-aqli/agent/agent-cli
 ```
 
 ### Native Image (Optional)
 
 ```bash
 # Build native binary (requires GraalVM)
-./mvnw package -Pnative -pl andalus-gollek/agent/agent-cli
+./mvnw package -Pnative -pl andalus-aqli/agent/agent-cli
 
 # The binary will be at:
 # target/gamelan-1.0.0-SNAPSHOT-runner
@@ -230,13 +230,13 @@ session_persist: true
 │         │                                                │
 │         ├──► SkillSelector                              │
 │         ├──► PromptBuilder                               │
-│         ├──► GollekSdk (Inference Engine)                │
+│         ├──► AqliSdk (Inference Engine)                │
 │         ├──► ToolExecutor (with approval checks)         │
 │         └──► ConversationSession (History/Persistence)   │
 ├─────────────────────────────────────────────────────────┤
-│  Gollek SDK (tech.kayys.gollek)                         │
+│  Aqli SDK (tech.kayys.aqli)                         │
 │         │                                                │
-│         ├──► LocalGollekSdk (GGUF, ONNX, etc.)           │
+│         ├──► LocalAqliSdk (GGUF, ONNX, etc.)           │
 │         ├──► Model Management                            │
 │         └──✓ Native Tool Calling                         │
 ├─────────────────────────────────────────────────────────┤
@@ -250,7 +250,7 @@ session_persist: true
 
 ### Tool Calling Protocol
 
-Gamelan uses **Gollek's native tool calling** with structured `ToolDefinition` objects:
+Gamelan uses **Aqli's native tool calling** with structured `ToolDefinition` objects:
 
 1. **Tools registered** → `List<ToolDefinition>` passed to LLM
 2. **LLM responds** → `InferenceResponse` with `List<ToolCall>`
@@ -263,18 +263,18 @@ Gamelan uses **Gollek's native tool calling** with structured `ToolDefinition` o
 ```
 User Input → Skill Selection → Build System Prompt
        ↓
-GollekSdk.createCompletion(messages, tools)
+AqliSdk.createCompletion(messages, tools)
        ↓
 Parse Response:
   ├── Text only → Return to user (done)
   └── Tool calls → Execute tools → Continue loop
 ```
 
-## Integration with Gollek Ecosystem
+## Integration with Aqli Ecosystem
 
-Gamelan CLI integrates seamlessly with the broader Gollek platform:
+Gamelan CLI integrates seamlessly with the broader Aqli platform:
 
-- **Local Inference**: Uses `LocalGollekSdk` for on-device model execution
+- **Local Inference**: Uses `LocalAqliSdk` for on-device model execution
 - **Model Management**: Pull models from HuggingFace, manage local cache
 - **Tool Ecosystem**: Access to 50+ Golok tools (file I/O, shell, git, etc.)
 - **Skill System**: Compatible with agentskills.io specification
@@ -293,7 +293,7 @@ Skills: ~/.gamelan/skills | Type /help for commands
 
 🤖 I'll help you refactor UserService.java to use dependency injection...
 
-⚡ [read_file] Reading src/main/java/tech/kayys/gollek/UserService.java
+⚡ [read_file] Reading src/main/java/tech/kayys/aqli/UserService.java
 ⚡ [analyze_code] Analyzing class structure...
 ⚡ [write_file] Writing refactored version...
 ⚡ [compile_java] Verifying compilation...
@@ -398,12 +398,12 @@ gamelan config set verbose true
 
 | Feature | Claude Code | Gamelan CLI |
 |---------|-------------|-------------|
-| Local inference | ❌ Cloud-only | ✅ Gollek (GGUF/ONNX) |
+| Local inference | ❌ Cloud-only | ✅ Aqli (GGUF/ONNX) |
 | Approval modes | ✅ Yes | ✅ Yes (3 modes) |
 | Tool permissions | ✅ Trusted tools | ✅ Granular control |
 | Skill system | ❌ Proprietary | ✅ agentskills.io spec |
 | Session persistence | ✅ Yes | ✅ JSON-based |
-| Multi-model support | ✅ Anthropic only | ✅ Any Gollek model |
+| Multi-model support | ✅ Anthropic only | ✅ Any Aqli model |
 | Open source | ❌ | ✅ MIT License |
 | Extensibility | Limited | Full skill system |
 
@@ -445,7 +445,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- [Gollek](https://github.com/kayys-tech/gollek) - Local inference engine
+- [Aqli](https://github.com/kayys-tech/aqli) - Local inference engine
 - [agentskills.io](https://agentskills.io) - Skill specification
 - [Claude Code](https://anthropic.com/claude-code) - Inspiration for UX patterns
 - [Picocli](https://picocli.info/) - CLI framework

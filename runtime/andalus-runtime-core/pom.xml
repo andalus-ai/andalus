@@ -27,7 +27,7 @@
   </description>
 
     <properties>
-        <gollek.version>0.1.0-SNAPSHOT</gollek.version>
+        <aqli.version>0.1.0-SNAPSHOT</aqli.version>
     </properties>
 
   <dependencies>
@@ -39,24 +39,24 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- Gollek Tools SPI (for tool integration) - optional, adapter only 
-    NOTE: These modules don't exist in gollek, comment out for now
+    <!-- Aqli Tools SPI (for tool integration) - optional, adapter only 
+    NOTE: These modules don't exist in aqli, comment out for now
     <dependency>
-      <groupId>tech.kayys.gollek</groupId>
-      <artifactId>gollek-tools-spi</artifactId>
-      <version>${gollek.version}</version>
+      <groupId>tech.kayys.aqli</groupId>
+      <artifactId>aqli-tools-spi</artifactId>
+      <version>${aqli.version}</version>
       <optional>true</optional>
     </dependency>
 
     <dependency>
-      <groupId>tech.kayys.gollek</groupId>
-      <artifactId>gollek-tools-core</artifactId>
-      <version>${gollek.version}</version>
+      <groupId>tech.kayys.aqli</groupId>
+      <artifactId>aqli-tools-core</artifactId>
+      <version>${aqli.version}</version>
       <optional>true</optional>
     </dependency>
     -->
 
-    <!-- gollek-spi and gollek-spi-inference removed: not in local repo and not used by any source -->
+    <!-- aqli-spi and aqli-spi-inference removed: not in local repo and not used by any source -->
     <dependency>
       <groupId>tech.kayys.andalus</groupId>
       <artifactId>andalus-core</artifactId>
@@ -94,9 +94,9 @@
     </dependency>
     <!--
     <dependency>
-      <groupId>tech.kayys.gollek</groupId>
-      <artifactId>gollek-engine</artifactId>
-      <version>${gollek.version}</version>
+      <groupId>tech.kayys.aqli</groupId>
+      <artifactId>aqli-engine</artifactId>
+      <version>${aqli.version}</version>
       <optional>true</optional>
     </dependency>
     -->
@@ -190,11 +190,11 @@
       <version>${project.version}</version>
     </dependency>
 
-    <!-- Gollek SDK facade — discovers local or remote implementation at runtime - optional -->
+    <!-- Aqli SDK facade — discovers local or remote implementation at runtime - optional -->
     <dependency>
-      <groupId>tech.kayys.gollek</groupId>
-      <artifactId>gollek-sdk</artifactId>
-      <version>${gollek.version}</version>
+      <groupId>tech.kayys.aqli</groupId>
+      <artifactId>aqli-sdk</artifactId>
+      <version>${aqli.version}</version>
       <optional>true</optional>
       <exclusions>
         <!-- These alkhawarizm artifacts are not in any reachable repo -->
@@ -203,25 +203,25 @@
           <artifactId>*</artifactId>
         </exclusion>
         <exclusion>
-          <groupId>tech.kayys.gollek</groupId>
-          <artifactId>gollek-sdk-protobuf</artifactId>
+          <groupId>tech.kayys.aqli</groupId>
+          <artifactId>aqli-sdk-protobuf</artifactId>
         </exclusion>
         <exclusion>
-          <groupId>tech.kayys.gollek</groupId>
-          <artifactId>gollek-sdk-api</artifactId>
+          <groupId>tech.kayys.aqli</groupId>
+          <artifactId>aqli-sdk-api</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
     <!--
     <dependency>
       <groupId>tech.kayys.andalus</groupId>
-      <artifactId>andalus-gollek-sdk</artifactId>
+      <artifactId>andalus-aqli-sdk</artifactId>
       <version>${project.version}</version>
       <optional>true</optional>
     </dependency>
     -->
 
-    <!-- Gollek Agent Skill Management - optional at runtime -->
+    <!-- Aqli Agent Skill Management - optional at runtime -->
     <!--
     <dependency>
       <groupId>tech.kayys.andalus</groupId>
@@ -231,7 +231,7 @@
     </dependency>
     -->
 
-    <!-- Gollek Agent Audit - optional at runtime -->
+    <!-- Aqli Agent Audit - optional at runtime -->
     <!--
     <dependency>
       <groupId>tech.kayys.andalus</groupId>

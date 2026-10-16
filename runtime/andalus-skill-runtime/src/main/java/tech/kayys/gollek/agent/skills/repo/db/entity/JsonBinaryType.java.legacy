@@ -1,4 +1,4 @@
-package tech.kayys.gollek.agent.skills.repo.db.entity;
+package tech.kayys.aqli.agent.skills.repo.db.entity;
 
 import org.hibernate.type.descriptor.converter.spi.BasicValueConverter;
 

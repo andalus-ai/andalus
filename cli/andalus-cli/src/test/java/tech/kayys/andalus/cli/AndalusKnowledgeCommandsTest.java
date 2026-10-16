@@ -15,7 +15,7 @@ public class AndalusKnowledgeCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(null, new PrintStream(out), new PrintStream(err), "knowledge", "query", "authentication requirements");
+        int exitCode = AndalusAqliCli.execute(null, new PrintStream(out), new PrintStream(err), "knowledge", "query", "authentication requirements");
         assertEquals(0, exitCode);
         assertTrue(out.toString().contains("KNOWLEDGE EVIDENCE SEARCH"));
     }
@@ -25,7 +25,7 @@ public class AndalusKnowledgeCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(null, new PrintStream(out), new PrintStream(err), "knowledge", "resolve", "How to configure mTLS");
+        int exitCode = AndalusAqliCli.execute(null, new PrintStream(out), new PrintStream(err), "knowledge", "resolve", "How to configure mTLS");
         assertEquals(0, exitCode);
         assertTrue(out.toString().contains("KNOWLEDGE ANSWER CONSENSUS RESOLUTION"));
     }
@@ -35,7 +35,7 @@ public class AndalusKnowledgeCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(null, new PrintStream(out), new PrintStream(err), "knowledge", "verify", "art-12345");
+        int exitCode = AndalusAqliCli.execute(null, new PrintStream(out), new PrintStream(err), "knowledge", "verify", "art-12345");
         assertEquals(0, exitCode);
         assertTrue(out.toString().contains("KNOWLEDGE ARTIFACT VERIFICATION"));
     }
@@ -45,7 +45,7 @@ public class AndalusKnowledgeCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(null, new PrintStream(out), new PrintStream(err), "knowledge", "consensus", "prop-999");
+        int exitCode = AndalusAqliCli.execute(null, new PrintStream(out), new PrintStream(err), "knowledge", "consensus", "prop-999");
         assertEquals(0, exitCode);
         assertTrue(out.toString().contains("KNOWLEDGE CONSENSUS DETAILS"));
     }
@@ -55,7 +55,7 @@ public class AndalusKnowledgeCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(null, new PrintStream(out), new PrintStream(err), "knowledge", "sync");
+        int exitCode = AndalusAqliCli.execute(null, new PrintStream(out), new PrintStream(err), "knowledge", "sync");
         assertEquals(0, exitCode);
         assertTrue(out.toString().contains("KNOWLEDGE INVENTORY RECONCILIATION"));
     }

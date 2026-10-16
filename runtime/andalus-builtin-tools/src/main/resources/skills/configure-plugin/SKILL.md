@@ -1,6 +1,6 @@
 ---
 name: configure-plugin
-description: Build and deploy custom inference-gollek plugins (model-router, quota, content-safety) for extending platform capabilities
+description: Build and deploy custom inference-aqli plugins (model-router, quota, content-safety) for extending platform capabilities
 metadata:
   short-description: Extend platform with custom plugins
   category: plugins
@@ -9,7 +9,7 @@ metadata:
 
 # Configure Plugin Skill
 
-Create, build, and deploy custom inference-gollek plugins to extend platform capabilities without modifying core code.
+Create, build, and deploy custom inference-aqli plugins to extend platform capabilities without modifying core code.
 
 ## When to Use
 
@@ -29,7 +29,7 @@ Create, build, and deploy custom inference-gollek plugins to extend platform cap
 
 - Maven 3.8+
 - JDK 17+
-- inference-gollek plugin API on classpath
+- inference-aqli plugin API on classpath
 
 ## Steps
 
@@ -48,7 +48,7 @@ mvn archetype:generate \
 ```xml
 <dependency>
   <groupId>tech.kayys.andalus.inference</groupId>
-  <artifactId>gollek-spi</artifactId>
+  <artifactId>aqli-spi</artifactId>
   <version>1.0.0</version>
   <scope>provided</scope>
 </dependency>
@@ -104,7 +104,7 @@ mvn clean package -DskipTests
 ```bash
 # Copy to plugin directory
 cp target/my-inference-plugin-1.0.0.jar \
-   /opt/inference-gollek/plugins/
+   /opt/inference-aqli/plugins/
 
 # Or register dynamically
 curl -X POST http://localhost:8080/api/plugins/register \

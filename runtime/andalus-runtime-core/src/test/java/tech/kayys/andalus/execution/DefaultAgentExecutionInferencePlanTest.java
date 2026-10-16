@@ -49,15 +49,15 @@ class DefaultAgentExecutionInferencePlanTest {
 
     private StubProvider openaiProvider;
     private StubProvider anthropicProvider;
-    private StubProvider gollekProvider;
+    private StubProvider aqliProvider;
     private List<Provider> availableProviders;
 
     @BeforeEach
     void setUp() {
         openaiProvider = new StubProvider("openai");
         anthropicProvider = new StubProvider("anthropic");
-        gollekProvider = new StubProvider("gollek");
-        availableProviders = List.of(openaiProvider, anthropicProvider, gollekProvider);
+        aqliProvider = new StubProvider("aqli");
+        availableProviders = List.of(openaiProvider, anthropicProvider, aqliProvider);
     }
 
     @Test

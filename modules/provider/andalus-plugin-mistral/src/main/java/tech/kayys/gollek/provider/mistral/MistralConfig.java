@@ -1,4 +1,4 @@
-package tech.kayys.gollek.provider.mistral;
+package tech.kayys.aqli.provider.mistral;
 
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
@@ -9,7 +9,7 @@ import java.time.Duration;
 /**
  * Configuration for Mistral provider
  */
-@ConfigMapping(prefix = "gollek.provider.mistral")
+@ConfigMapping(prefix = "aqli.provider.mistral")
 public interface MistralConfig {
 
     /**

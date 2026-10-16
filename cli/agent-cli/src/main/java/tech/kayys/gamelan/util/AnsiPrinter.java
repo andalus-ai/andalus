@@ -123,7 +123,7 @@ public class AnsiPrinter {
 
     public void banner() {
         println(BOLD + CYAN + "  Gamelan CLI" + RESET + DIM + " v1.0.0" + RESET);
-        println(DIM + "  Powered by Gollek inference engine + agentskills.io" + RESET);
+        println(DIM + "  Powered by Aqli inference engine + agentskills.io" + RESET);
         println(DIM + "  Type /help for available commands" + RESET);
         println(DIM + "  ────────────────────────────────────────" + RESET);
     }

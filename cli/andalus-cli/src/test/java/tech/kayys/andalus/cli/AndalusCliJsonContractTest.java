@@ -9,7 +9,7 @@ import tech.kayys.andalus.contract.AndalusContractDescriptor;
 import tech.kayys.andalus.contract.AndalusContractDiscovery;
 import tech.kayys.andalus.contract.AndalusContractJsonSchema;
 import tech.kayys.andalus.contract.AndalusContractQuery;
-import tech.kayys.andalus.client.AndalusGollekSdk;
+import tech.kayys.andalus.client.AndalusAqliSdk;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -42,7 +42,7 @@ class AndalusCliJsonContractTest {
         if (AndalusCliGoldenFixtures.updateEnabled()) {
             return;
         }
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
 
         for (AndalusCliGoldenFixtures.GoldenFixture fixture : AndalusCliGoldenFixtures.schemaValidated()) {
             if (fixture.schemaMode() == AndalusCliGoldenFixtures.SchemaMode.EXPLICIT) {
@@ -126,13 +126,13 @@ class AndalusCliJsonContractTest {
     }
 
     private static CliResult execute(String... args) {
-        return execute(AndalusGollekSdk.local(), args);
+        return execute(AndalusAqliSdk.local(), args);
     }
 
-    private static CliResult execute(AndalusGollekSdk sdk, String... args) {
+    private static CliResult execute(AndalusAqliSdk sdk, String... args) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 sdk,
                 new PrintStream(out, true, StandardCharsets.UTF_8),
                 new PrintStream(err, true, StandardCharsets.UTF_8),
@@ -158,7 +158,7 @@ class AndalusCliJsonContractTest {
     }
 
     private static void assertFixtureMatchesSchema(
-            AndalusGollekSdk sdk,
+            AndalusAqliSdk sdk,
             String fixture,
             AndalusContractDescriptor descriptor) throws IOException {
         AndalusContractJsonSchema schema = sdk.contractJsonSchema(descriptor);
@@ -170,7 +170,7 @@ class AndalusCliJsonContractTest {
         }
     }
 
-    private static void assertSelfDescribingFixtureMatchesSchema(AndalusGollekSdk sdk, String fixture)
+    private static void assertSelfDescribingFixtureMatchesSchema(AndalusAqliSdk sdk, String fixture)
             throws IOException {
         List<String> lines = fixture(fixture).lines()
                 .filter(line -> !line.isBlank())

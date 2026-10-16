@@ -32,7 +32,7 @@ final class AndalusSpecCommands {
             })
     static final class SpecCommand implements Runnable {
         @ParentCommand
-        AndalusGollekCli parent;
+        AndalusAqliCli parent;
 
         @Spec
         CommandSpec spec;

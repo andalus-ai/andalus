@@ -33,7 +33,7 @@ final class AndalusSkillCommands {
     static final class SkillsCommand implements Callable<Integer> {
 
         @ParentCommand
-        AndalusGollekCli parent;
+        AndalusAqliCli parent;
 
         @Override
         public Integer call() {

@@ -1,4 +1,4 @@
-package tech.kayys.gollek.provider.cerebras;
+package tech.kayys.aqli.provider.cerebras;
 
 import java.util.ArrayList;
 import java.util.List;

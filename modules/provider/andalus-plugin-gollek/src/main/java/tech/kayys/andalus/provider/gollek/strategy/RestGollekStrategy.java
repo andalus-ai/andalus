@@ -1,8 +1,8 @@
-package tech.kayys.andalus.provider.gollek.strategy;
+package tech.kayys.andalus.provider.aqli.strategy;
 
-import tech.kayys.gollek.factory.GollekSdkFactory;
-import tech.kayys.gollek.sdk.config.SdkConfig;
-import tech.kayys.gollek.sdk.core.GollekSdk;
+import tech.kayys.aqli.factory.AqliSdkFactory;
+import tech.kayys.aqli.sdk.config.SdkConfig;
+import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.andalus.provider.ChatMessage;
 import tech.kayys.andalus.provider.StreamEvent;
 import tech.kayys.andalus.provider.ToolSpec;
@@ -13,18 +13,18 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 
-import tech.kayys.gollek.spi.inference.InferenceRequest;
-import tech.kayys.gollek.spi.Message;
+import tech.kayys.aqli.spi.inference.InferenceRequest;
+import tech.kayys.aqli.spi.Message;
 
-public class RestGollekStrategy implements GollekStrategy {
+public class RestAqliStrategy implements AqliStrategy {
 
-    private final GollekSdk sdk;
+    private final AqliSdk sdk;
 
-    public RestGollekStrategy(String baseUrl, String apiKey) {
+    public RestAqliStrategy(String baseUrl, String apiKey) {
         try {
-            this.sdk = GollekSdkFactory.createRemoteSdk(baseUrl, apiKey);
+            this.sdk = AqliSdkFactory.createRemoteSdk(baseUrl, apiKey);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to initialize REST Gollek SDK", e);
+            throw new RuntimeException("Failed to initialize REST Aqli SDK", e);
         }
     }
 

@@ -2,7 +2,7 @@ package tech.kayys.andalus.cli;
 
 import tech.kayys.andalus.inference.AndalusInferenceService;
 import tech.kayys.andalus.inference.AndalusInferenceServiceFactory;
-import tech.kayys.gollek.spi.inference.StreamingInferenceChunk;
+import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.andalus.provider.ChatMessage;
 import tech.kayys.andalus.agent.AndalusSessionPersistence;
 
@@ -14,7 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
 /**
- * Chat session that delegates to gollek subprocess via AndalusInferenceService.
+ * Chat session that delegates to aqli subprocess via AndalusInferenceService.
  * No SDK initialization - just subprocess fallback directly.
  */
 public final class ShellChatSession {
@@ -162,7 +162,7 @@ public final class ShellChatSession {
 
                 StringBuilder assistantAccumulator = new StringBuilder();
 
-                fallback.inferenceStreaming(session.modelId, session.systemPrompt, java.util.List.of(tech.kayys.gollek.spi.Message.user(prompt)), java.util.List.of(), tech.kayys.gollek.sdk.core.ChatParams.of(0.7, 4096))
+                fallback.inferenceStreaming(session.modelId, session.systemPrompt, java.util.List.of(tech.kayys.aqli.spi.Message.user(prompt)), java.util.List.of(), tech.kayys.aqli.sdk.core.ChatParams.of(0.7, 4096))
                     .subscribe()
                     .with(
                         chunk -> {
@@ -235,7 +235,7 @@ public final class ShellChatSession {
         
         private void handleFallback(Consumer<Chunk> onItem, Consumer<Throwable> onFailure, Runnable onComplete) {
             try {
-                String fallback = "(simulated — Gollek SDK unavailable) Helpful response...";
+                String fallback = "(simulated — Aqli SDK unavailable) Helpful response...";
                 
                 if (onItem != null) {
                     onItem.accept(new Chunk(fallback));

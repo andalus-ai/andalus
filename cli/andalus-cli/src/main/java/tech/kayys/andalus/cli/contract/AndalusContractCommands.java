@@ -6,7 +6,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
 import tech.kayys.andalus.cli.AndalusCliContext;
 import tech.kayys.andalus.cli.AndalusCliRender;
-import tech.kayys.andalus.cli.AndalusGollekCli;
+import tech.kayys.andalus.cli.AndalusAqliCli;
 import tech.kayys.andalus.client.AndalusClient;
 import tech.kayys.andalus.contract.AndalusContractApi;
 import tech.kayys.andalus.contract.AndalusContractDescriptor;
@@ -25,7 +25,7 @@ final public class AndalusContractCommands {
     @Command(name = "contracts", aliases = "schemas", description = "List SDK-owned JSON contracts for product shells.")
     public static final class ContractsCommand implements Callable<Integer> {
         @ParentCommand
-        AndalusGollekCli parent;
+        AndalusAqliCli parent;
 
         @Mixin
         AndalusContractQueryOptions queryOptions = new AndalusContractQueryOptions();

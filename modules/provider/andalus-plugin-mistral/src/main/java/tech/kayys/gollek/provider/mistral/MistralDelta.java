@@ -1,4 +1,4 @@
-package tech.kayys.gollek.provider.mistral;
+package tech.kayys.aqli.provider.mistral;
 
 public class MistralDelta {
     private String role;

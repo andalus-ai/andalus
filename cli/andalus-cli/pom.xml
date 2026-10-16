@@ -39,8 +39,8 @@
     <dependencies>
 
         <dependency>
-            <groupId>tech.kayys.gollek</groupId>
-            <artifactId>gollek-sdk</artifactId>
+            <groupId>tech.kayys.aqli</groupId>
+            <artifactId>aqli-sdk</artifactId>
             <version>0.1.0-SNAPSHOT</version>
             <exclusions>
                 <exclusion>
@@ -50,8 +50,8 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.gollek</groupId>
-            <artifactId>gollek-sdk-core</artifactId>
+            <groupId>tech.kayys.aqli</groupId>
+            <artifactId>aqli-sdk-core</artifactId>
             <version>0.1.0-SNAPSHOT</version>
             <exclusions>
                 <exclusion>
@@ -61,8 +61,8 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.gollek</groupId>
-            <artifactId>gollek-spi</artifactId>
+            <groupId>tech.kayys.aqli</groupId>
+            <artifactId>aqli-spi</artifactId>
             <version>0.1.0-SNAPSHOT</version>
             <exclusions>
                 <exclusion>
@@ -72,8 +72,8 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.gollek</groupId>
-            <artifactId>gollek-spi-inference</artifactId>
+            <groupId>tech.kayys.aqli</groupId>
+            <artifactId>aqli-spi-inference</artifactId>
             <version>0.1.0-SNAPSHOT</version>
             <exclusions>
                 <exclusion>
@@ -93,7 +93,7 @@
             <artifactId>peutui-terminal</artifactId>
             <version>${peutui.version}</version>
         </dependency>
-        <!-- andalus-tui kept for transitive dependency chain (andalus-gollek-sdk → andalus-agent).
+        <!-- andalus-tui kept for transitive dependency chain (andalus-aqli-sdk → andalus-agent).
              AndalusPeutuiApp replaces ReplUi at the source level, but the JAR is still needed. -->
         <dependency>
             <groupId>tech.kayys.andalus</groupId>
@@ -126,16 +126,16 @@
 
         <dependency>
             <groupId>tech.kayys.andalus</groupId>
-            <artifactId>andalus-gollek-sdk</artifactId>
-            <version>${andalus-gollek-sdk.version}</version>
+            <artifactId>andalus-aqli-sdk</artifactId>
+            <version>${andalus-aqli-sdk.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>tech.kayys.alkhawarizm</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>tech.kayys.gollek</groupId>
-                    <artifactId>gollek-sdk-local</artifactId>
+                    <groupId>tech.kayys.aqli</groupId>
+                    <artifactId>aqli-sdk-local</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -265,7 +265,7 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>tech.kayys.andalus.cli.AndalusGollekCli</mainClass>
+                                    <mainClass>tech.kayys.andalus.cli.AndalusAqliCli</mainClass>
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
@@ -320,7 +320,7 @@
                         </executions>
                         <configuration>
                             <imageName>andalus-cli</imageName>
-                            <mainClass>tech.kayys.andalus.cli.AndalusGollekCli</mainClass>
+                            <mainClass>tech.kayys.andalus.cli.AndalusAqliCli</mainClass>
                             <buildArgs>
                                 <buildArg>--enable-native-access=ALL-UNNAMED</buildArg>
                                 <buildArg>-H:+JNI</buildArg>

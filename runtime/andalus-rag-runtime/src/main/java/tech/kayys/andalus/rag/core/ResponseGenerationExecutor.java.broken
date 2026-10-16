@@ -64,7 +64,7 @@ public class ResponseGenerationExecutor extends AbstractWorkflowExecutor {
         @Inject
         SecretManager secretManager;
 
-        @ConfigProperty(name = "gamelan.rag.generation.provider", defaultValue = "gollek")
+        @ConfigProperty(name = "gamelan.rag.generation.provider", defaultValue = "aqli")
         String defaultProvider;
 
         @ConfigProperty(name = "gamelan.rag.generation.model", defaultValue = "Qwen/Qwen2.5-0.5B-Instruct")

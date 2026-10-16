@@ -54,10 +54,10 @@ public class ToolExecutor {
     }
 
     /**
-     * Execute a tool call by name with arguments (Gollek native protocol).
+     * Execute a tool call by name with arguments (Aqli native protocol).
      *
      * @param toolName the tool name
-     * @param arguments the tool arguments (Map from Gollek ToolCall)
+     * @param arguments the tool arguments (Map from Aqli ToolCall)
      * @return the tool result
      */
     public ToolResult execute(String toolName, Map<String, Object> arguments) {

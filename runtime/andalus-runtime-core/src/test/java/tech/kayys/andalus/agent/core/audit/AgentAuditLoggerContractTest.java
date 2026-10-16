@@ -47,7 +47,7 @@ class AgentAuditLoggerContractTest {
     void asyncMemoryLoggerFlushesSubmittedEvents() {
         try (AgentAuditLogger logger = AgentAuditLogger.memoryBasedAsync()) {
             logger.logToolExecution("search", "{\"query\":\"docs\"}", 42, true);
-            logger.logInferenceCall("gollek", "model-a", 100, false);
+            logger.logInferenceCall("aqli", "model-a", 100, false);
 
             logger.flush();
 

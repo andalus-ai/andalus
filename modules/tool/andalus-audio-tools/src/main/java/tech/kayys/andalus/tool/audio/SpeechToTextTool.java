@@ -3,9 +3,9 @@ package tech.kayys.andalus.tool.audio;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import tech.kayys.gollek.spi.audio.AudioPipeline;
-import tech.kayys.gollek.spi.audio.SttRequest;
-import tech.kayys.gollek.spi.audio.SttResult;
+import tech.kayys.aqli.spi.audio.AudioPipeline;
+import tech.kayys.aqli.spi.audio.SttRequest;
+import tech.kayys.aqli.spi.audio.SttResult;
 import tech.kayys.andalus.descriptor.CapabilityDescriptor;
 import tech.kayys.andalus.descriptor.ParameterDescriptor;
 import tech.kayys.andalus.extension.Id;
@@ -35,7 +35,7 @@ public class SpeechToTextTool implements Tool {
     private final ResourceId.ToolId id = new ResourceId.ToolId(Id.random());
     private final Metadata metadata = Metadata.builder()
             .name("transcribe_speech")
-            .description("Transcribes speech from an audio recording or audio stream (STT) into text using Whisper / Gollek audio backends.")
+            .description("Transcribes speech from an audio recording or audio stream (STT) into text using Whisper / Aqli audio backends.")
             .version(Version.VERSION_1_0_0)
             .build();
 

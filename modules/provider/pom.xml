@@ -23,9 +23,9 @@
         <!-- <module>andalus-plugin-mistral</module> -->
         <!-- <module>andalus-plugin-openai</module> -->
         <!-- <module>andalus-plugin-anthropic</module> -->
-        <!-- andalus-plugin-gollek has stale SPI implementations that need updating to match the current provider interface.
-             Build separately after aligning GollekSubprocessProvider + GrpcGollekStrategy with current ProviderSpi contracts. -->
-        <!-- <module>andalus-plugin-gollek</module> -->
+        <!-- andalus-plugin-aqli has stale SPI implementations that need updating to match the current provider interface.
+             Build separately after aligning AqliSubprocessProvider + GrpcAqliStrategy with current ProviderSpi contracts. -->
+        <!-- <module>andalus-plugin-aqli</module> -->
     </modules>
 
 </project>

@@ -11,7 +11,7 @@ import java.util.concurrent.Callable;
 public class AndalusServeCommand implements Callable<Integer> {
 
     @ParentCommand
-    AndalusGollekCli parent;
+    AndalusAqliCli parent;
 
     @Option(names = { "--rest" }, description = "Start REST server only")
     boolean restOnly;

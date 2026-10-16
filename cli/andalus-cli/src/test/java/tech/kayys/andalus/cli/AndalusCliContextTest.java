@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import tech.kayys.andalus.client.Andalus;
 import tech.kayys.andalus.client.AndalusClient;
-import tech.kayys.andalus.client.AndalusGollekSdk;
+import tech.kayys.andalus.client.AndalusAqliSdk;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -36,7 +36,7 @@ class AndalusCliContextTest {
 
     @Test
     void contextResolvesClientLazilyAndCachesIt() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         AndalusClient client = Andalus.client(sdk);
         AtomicInteger calls = new AtomicInteger();
 

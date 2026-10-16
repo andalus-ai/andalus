@@ -43,10 +43,10 @@ append_java_tool_option() {
 
 append_java_tool_option "--enable-native-access=ALL-UNNAMED"
 append_java_tool_option "--add-modules=jdk.incubator.vector"
-# Enable embedded Gollek only when explicitly requested (safer for dev).
-# Set ENABLE_GOLLEK_EMBED=1 to force embedding on the JVM command line.
-if [[ "${ENABLE_GOLLEK_EMBED:-0}" == "1" ]]; then
-  append_java_tool_option "-Dandalus.gollek.enabled=true"
+# Enable embedded Aqli only when explicitly requested (safer for dev).
+# Set ENABLE_AQLI_EMBED=1 to force embedding on the JVM command line.
+if [[ "${ENABLE_AQLI_EMBED:-0}" == "1" ]]; then
+  append_java_tool_option "-Dandalus.aqli.enabled=true"
 fi
 export JAVA_TOOL_OPTIONS
 
@@ -61,12 +61,12 @@ if [ -f "$CFG" ] && [ -z "${ANDALUS_IGNORE_CONFIG:-}" ]; then
 
   # Try to find provider-specific model first (e.g. "cerebrasModel": "...")
   MODEL=""
-  if [ -n "$PROVIDER" ] && [ "$PROVIDER" != "gollek" ]; then
+  if [ -n "$PROVIDER" ] && [ "$PROVIDER" != "aqli" ]; then
     MODEL=$(grep -oE "\"${PROVIDER}Model\"[[:space:]]*:[[:space:]]*\"[^\"]+\"" "$CFG" | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/' | head -n1 || true)
   fi
 
-  # If not found and provider is gollek (or not set), fall back to global defaultModel
-  if [ -z "$MODEL" ] && { [ -z "$PROVIDER" ] || [ "$PROVIDER" = "gollek" ]; }; then
+  # If not found and provider is aqli (or not set), fall back to global defaultModel
+  if [ -z "$MODEL" ] && { [ -z "$PROVIDER" ] || [ "$PROVIDER" = "aqli" ]; }; then
     MODEL=$(grep -oE '"(model|defaultModel|default_model)"[[:space:]]*:[[:space:]]*"[^"]+"' "$CFG" | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/' | head -n1 || true)
   fi
 
@@ -94,7 +94,7 @@ fi
 
 
 
-# Prefer running already-built Andalus CLI artifact (no build). If not present, fall back to gollek-cli artifact.
+# Prefer running already-built Andalus CLI artifact (no build). If not present, fall back to aqli-cli artifact.
 ANDALUS_CLI_DIR="$ROOT_DIR/cli/andalus-cli"
 # Prefer assembled artifact that names the CLI explicitly and avoid repackager 'original-' jars
 ANDALUS_JAR_CANDIDATES=(

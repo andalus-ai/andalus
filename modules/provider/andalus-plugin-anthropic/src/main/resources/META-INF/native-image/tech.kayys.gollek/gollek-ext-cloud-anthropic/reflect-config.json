@@ -1,6 +1,6 @@
 [
   {
-    "name": "tech.kayys.gollek.provider.anthropic.AnthropicProvider",
+    "name": "tech.kayys.aqli.provider.anthropic.AnthropicProvider",
     "allDeclaredConstructors": true,
     "allPublicConstructors": true,
     "allDeclaredMethods": true,
@@ -9,7 +9,7 @@
     "allPublicFields": true
   },
   {
-    "name": "tech.kayys.gollek.provider.anthropic.AnthropicRequest",
+    "name": "tech.kayys.aqli.provider.anthropic.AnthropicRequest",
     "allDeclaredConstructors": true,
     "allPublicConstructors": true,
     "allDeclaredMethods": true,
@@ -18,7 +18,7 @@
     "allPublicFields": true
   },
   {
-    "name": "tech.kayys.gollek.provider.anthropic.AnthropicResponse",
+    "name": "tech.kayys.aqli.provider.anthropic.AnthropicResponse",
     "allDeclaredConstructors": true,
     "allPublicConstructors": true,
     "allDeclaredMethods": true,
@@ -27,7 +27,7 @@
     "allPublicFields": true
   },
   {
-    "name": "tech.kayys.gollek.provider.anthropic.AnthropicResponse$AnthropicContentBlock",
+    "name": "tech.kayys.aqli.provider.anthropic.AnthropicResponse$AnthropicContentBlock",
     "allDeclaredConstructors": true,
     "allPublicConstructors": true,
     "allDeclaredMethods": true,
@@ -36,7 +36,7 @@
     "allPublicFields": true
   },
   {
-    "name": "tech.kayys.gollek.provider.anthropic.AnthropicMessage",
+    "name": "tech.kayys.aqli.provider.anthropic.AnthropicMessage",
     "allDeclaredConstructors": true,
     "allPublicConstructors": true,
     "allDeclaredMethods": true,
@@ -45,7 +45,7 @@
     "allPublicFields": true
   },
   {
-    "name": "tech.kayys.gollek.provider.anthropic.AnthropicUsage",
+    "name": "tech.kayys.aqli.provider.anthropic.AnthropicUsage",
     "allDeclaredConstructors": true,
     "allPublicConstructors": true,
     "allDeclaredMethods": true,

@@ -3,9 +3,9 @@ package tech.kayys.andalus.tool.audio;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import tech.kayys.gollek.spi.audio.AudioPipeline;
-import tech.kayys.gollek.spi.audio.TtsRequest;
-import tech.kayys.gollek.spi.audio.TtsResult;
+import tech.kayys.aqli.spi.audio.AudioPipeline;
+import tech.kayys.aqli.spi.audio.TtsRequest;
+import tech.kayys.aqli.spi.audio.TtsResult;
 import tech.kayys.andalus.descriptor.CapabilityDescriptor;
 import tech.kayys.andalus.descriptor.ParameterDescriptor;
 import tech.kayys.andalus.extension.Id;
@@ -27,7 +27,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Andalus Agent Tool for Text-To-Speech (TTS) synthesis powered by Gollek / Al-Khawarizm audio backends.
+ * Andalus Agent Tool for Text-To-Speech (TTS) synthesis powered by Aqli / Al-Khawarizm audio backends.
  */
 @ApplicationScoped
 public class TextToSpeechTool implements Tool {

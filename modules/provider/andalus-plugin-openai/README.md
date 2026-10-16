@@ -1,6 +1,6 @@
 # OpenAI Cloud Provider Plugin
 
-Cloud provider plugin for OpenAI models (GPT-4, GPT-3.5-turbo, etc.) in the Gollek inference engine.
+Cloud provider plugin for OpenAI models (GPT-4, GPT-3.5-turbo, etc.) in the Aqli inference engine.
 
 ## 🚀 Features
 
@@ -15,34 +15,34 @@ Cloud provider plugin for OpenAI models (GPT-4, GPT-3.5-turbo, etc.) in the Goll
 ### Option 1: Build from Source
 
 ```bash
-cd inference-gollek/plugins/gollek-plugin-openai
+cd inference-aqli/plugins/aqli-plugin-openai
 mvn clean install
 ```
 
-This will automatically copy the JAR to `~/.gollek/plugins/`
+This will automatically copy the JAR to `~/.aqli/plugins/`
 
 ### Option 2: Download Pre-built JAR
 
 ```bash
 # Download latest release
-wget https://github.com/your-org/gollek/releases/download/v1.0.0/gollek-plugin-openai-1.0.0.jar
+wget https://github.com/your-org/aqli/releases/download/v1.0.0/aqli-plugin-openai-1.0.0.jar
 
 # Copy to plugin directory
-cp gollek-plugin-openai-1.0.0.jar ~/.gollek/plugins/
+cp aqli-plugin-openai-1.0.0.jar ~/.aqli/plugins/
 ```
 
 ### Option 3: Use Fat JAR (with all dependencies)
 
 ```bash
 mvn clean package -Pfat-jar
-cp target/gollek-plugin-openai-1.0.0-all.jar ~/.gollek/plugins/
+cp target/aqli-plugin-openai-1.0.0-all.jar ~/.aqli/plugins/
 ```
 
 ## ⚙️ Configuration
 
 ### 1. Via plugin.json
 
-Edit `~/.gollek/plugins/plugin.json`:
+Edit `~/.aqli/plugins/plugin.json`:
 
 ```json
 {
@@ -59,9 +59,9 @@ Edit `~/.gollek/plugins/plugin.json`:
 ### 2. Via System Properties
 
 ```bash
-java -Dgollek.plugin.openai-cloud-provider.apiKey=sk-... \
-     -Dgollek.plugin.openai-cloud-provider.baseUrl=https://api.openai.com/v1 \
-     -jar gollek-runtime.jar
+java -Daqli.plugin.openai-cloud-provider.apiKey=sk-... \
+     -Daqli.plugin.openai-cloud-provider.baseUrl=https://api.openai.com/v1 \
+     -jar aqli-runtime.jar
 ```
 
 ### 3. Via Environment Variables
@@ -155,10 +155,10 @@ The plugin supports hot-reload. To update:
 mvn clean package
 
 # 2. Copy to plugin directory (auto-reloads)
-cp target/gollek-plugin-openai-2.0.0.jar ~/.gollek/plugins/
+cp target/aqli-plugin-openai-2.0.0.jar ~/.aqli/plugins/
 
 # Or replace existing
-cp target/gollek-plugin-openai-2.0.0.jar ~/.gollek/plugins/gollek-plugin-openai.jar
+cp target/aqli-plugin-openai-2.0.0.jar ~/.aqli/plugins/aqli-plugin-openai.jar
 ```
 
 The plugin will automatically reload within 1 second.
@@ -169,12 +169,12 @@ The plugin will automatically reload within 1 second.
 
 **Check logs**:
 ```bash
-tail -f ~/.gollek/logs/gollek.log | grep openai
+tail -f ~/.aqli/logs/aqli.log | grep openai
 ```
 
 **Common issues**:
 - Missing API key
-- JAR not in `~/.gollek/plugins/`
+- JAR not in `~/.aqli/plugins/`
 - Version mismatch with SPI modules
 
 ### API Errors
@@ -209,8 +209,8 @@ mvn test
 
 ```bash
 java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005 \
-     -Dgollek.plugin.directory=~/.gollek/plugins \
-     -jar gollek-runtime.jar
+     -Daqli.plugin.directory=~/.aqli/plugins \
+     -jar aqli-runtime.jar
 ```
 
 ### Create New Version
@@ -258,8 +258,8 @@ provider.shutdown();
 ## 🔗 Links
 
 - [OpenAI API Documentation](https://platform.openai.com/docs)
-- [Gollek Plugin System Guide](../PLUGIN_SYSTEM_GUIDE.md)
-- [Gollek Inference Engine](../../README.md)
+- [Aqli Plugin System Guide](../PLUGIN_SYSTEM_GUIDE.md)
+- [Aqli Inference Engine](../../README.md)
 
 ## 📄 License
 

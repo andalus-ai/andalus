@@ -1,12 +1,12 @@
-package tech.kayys.andalus.provider.gollek.strategy;
+package tech.kayys.andalus.provider.aqli.strategy;
 
 import tech.kayys.andalus.provider.ChatMessage;
 import tech.kayys.andalus.provider.StreamEvent;
 import tech.kayys.andalus.provider.ToolSpec;
-import tech.kayys.gollek.protobuf.GollekServiceGrpc;
-import tech.kayys.gollek.protobuf.ChatRequest;
-import tech.kayys.gollek.protobuf.ChatResponse;
-import tech.kayys.gollek.protobuf.Message;
+import tech.kayys.aqli.protobuf.AqliServiceGrpc;
+import tech.kayys.aqli.protobuf.ChatRequest;
+import tech.kayys.aqli.protobuf.ChatResponse;
+import tech.kayys.aqli.protobuf.Message;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
@@ -16,16 +16,16 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 
-public class GrpcGollekStrategy implements GollekStrategy {
+public class GrpcAqliStrategy implements AqliStrategy {
 
     private final String grpcTarget;
     private final ManagedChannel channel;
-    private final GollekServiceGrpc.GollekServiceStub asyncStub;
+    private final AqliServiceGrpc.AqliServiceStub asyncStub;
 
-    public GrpcGollekStrategy(String grpcTarget) {
+    public GrpcAqliStrategy(String grpcTarget) {
         this.grpcTarget = grpcTarget;
         this.channel = ManagedChannelBuilder.forTarget(grpcTarget).usePlaintext().build();
-        this.asyncStub = GollekServiceGrpc.newStub(channel);
+        this.asyncStub = AqliServiceGrpc.newStub(channel);
     }
 
     @Override

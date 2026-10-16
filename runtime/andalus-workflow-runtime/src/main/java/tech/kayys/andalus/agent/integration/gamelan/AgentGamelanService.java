@@ -14,7 +14,7 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Bridge service connecting Gamelan workflow orchestration with Andalus-Gollek agents.
+ * Bridge service connecting Gamelan workflow orchestration with Andalus-Aqli agents.
  *
  * Enables agents to:
  * - Create and execute workflows as part of reasoning

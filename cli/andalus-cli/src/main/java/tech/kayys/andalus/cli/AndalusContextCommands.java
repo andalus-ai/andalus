@@ -19,7 +19,7 @@ public final class AndalusContextCommands {
     @Command(name = "workspace", aliases = "inspect", description = "Inspect workspace context for coding-agent runs.")
     public static final class WorkspaceCommand implements Callable<Integer> {
         @ParentCommand
-        public AndalusGollekCli parent;
+        public AndalusAqliCli parent;
 
         @Option(names = {"-p", "--path"}, description = "Workspace path.", defaultValue = ".")
         public String path;
@@ -57,7 +57,7 @@ public final class AndalusContextCommands {
     @Command(name = "harness", aliases = "checks", description = "Plan workspace verification checks for agentic changes.")
     public static final class HarnessCommand implements Callable<Integer> {
         @ParentCommand
-        public AndalusGollekCli parent;
+        public AndalusAqliCli parent;
 
         @Option(names = {"-p", "--path"}, description = "Workspace path.", defaultValue = ".")
         public String path;

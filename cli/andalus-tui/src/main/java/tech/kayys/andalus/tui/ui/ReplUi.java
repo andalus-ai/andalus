@@ -562,7 +562,7 @@ public final class ReplUi {
                     Ansi.fg(Theme.TOOL_OK) + "Switching to TDD Coder Orchestrator..." + Ansi.RESET,
                     Ansi.fg(Theme.WARN) + "Active provider is now TDD Coder (via REST API)." + Ansi.RESET
                 ));
-                exitAction = "provider:gollek-engine";
+                exitAction = "provider:aqli-engine";
                 running = false;
             }
             case "/tools" -> {
@@ -824,7 +824,7 @@ public final class ReplUi {
                         + Ansi.dim("  (use /models or --model <id>)")
                 : curModel;
 
-        String providerDisplay = (curProvider != null && !curProvider.isBlank()) ? curProvider : "gollek (default)";
+        String providerDisplay = (curProvider != null && !curProvider.isBlank()) ? curProvider : "aqli (default)";
         l.add(title + Ansi.dim("  — general-purpose AI assistant  ·  Model: ") + modelDisplay + Ansi.dim("  ·  Provider: ") + providerDisplay);
         l.add(Ansi.dim("  Type your message and press Enter. /help for commands."));
         l.add("");

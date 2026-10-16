@@ -33,7 +33,7 @@ class ArtifactResourceTest {
                 null,
                 "SAMPLE_WEIGHTS_DATA",
                 "application/octet-stream",
-                Map.of("modelName", "gollek-v1")
+                Map.of("modelName", "aqli-v1")
         );
 
         Response createResp = resource.createArtifact(req);

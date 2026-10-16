@@ -1,6 +1,6 @@
 ---
 name: time-series-forecasting
-description: Perform statistical and deep learning time series forecasting (ARIMA, Holt-Winters, LSTM, Chronos) using Gollek's embedded ML engine.
+description: Perform statistical and deep learning time series forecasting (ARIMA, Holt-Winters, LSTM, Chronos) using Aqli's embedded ML engine.
 metadata:
   short-description: Time series analysis and forecasting
   category: machine-learning
@@ -9,7 +9,7 @@ metadata:
 
 # Time Series Forecasting Skill
 
-Perform univariate and multivariate time series forecasting, trend decomposition, anomaly detection, and predictive modeling using Gollek's `tafkir-ml-timeseries` engine.
+Perform univariate and multivariate time series forecasting, trend decomposition, anomaly detection, and predictive modeling using Aqli's `tafkir-ml-timeseries` engine.
 
 ## When to Use
 
@@ -19,7 +19,7 @@ Perform univariate and multivariate time series forecasting, trend decomposition
 - Running zero-shot forecasting with foundation models (Amazon Chronos).
 - Calculating forecasting accuracy metrics (MAE, RMSE, MAPE, sMAPE, MASE, R2).
 
-## Core Forecasting Models in Gollek
+## Core Forecasting Models in Aqli
 
 | Model Type | Algorithm | Best Suited For | Typical Horizon |
 |---|---|---|---|
@@ -60,9 +60,9 @@ System.out.printf("MAE: %.2f | RMSE: %.2f | MAPE: %.2f%%\n",
 You can list time-series models available in the local registry:
 
 ```bash
-andalus gollek list -t timeseries
-# or directly via Gollek
-gollek list -t timeseries
+andalus aqli list -t timeseries
+# or directly via Aqli
+aqli list -t timeseries
 ```
 
 ## Supported Evaluation Metrics

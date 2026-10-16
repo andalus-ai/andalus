@@ -3,7 +3,7 @@ plugins {
     `maven-publish`
 }
 
-group = "tech.kayys.gollek"
+group = "tech.kayys.aqli"
 version = "0.1.0-SNAPSHOT"
 
 java {
@@ -18,9 +18,9 @@ repositories {
 }
 
 dependencies {
-    implementation(project(":spi:gollek-spi-plugin"))
-    implementation(project(":spi:gollek-spi"))
-    implementation(project(":spi:gollek-spi-inference"))
+    implementation(project(":spi:aqli-spi-plugin"))
+    implementation(project(":spi:aqli-spi"))
+    implementation(project(":spi:aqli-spi-inference"))
     implementation("tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT")
     implementation("tech.kayys.andalus:andalus-provider:1.0.0-SNAPSHOT")
     implementation("tech.kayys.andalus:andalus-core:1.0.0-SNAPSHOT")
@@ -52,7 +52,7 @@ tasks.jar {
     manifest {
         attributes(
             mapOf(
-                "Plugin-Class" to "tech.kayys.gollek.provider.mistral.MistralProvider",
+                "Plugin-Class" to "tech.kayys.aqli.provider.mistral.MistralProvider",
                 "Plugin-Id" to "mistral-provider",
                 "Plugin-Version" to "0.1.0-SNAPSHOT"
             )

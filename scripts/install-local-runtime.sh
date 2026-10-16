@@ -10,14 +10,14 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GRADLEW="${PROJECT_ROOT}/gradlew"
 
 
-chmod +x "$GOLLEK_CLI_BIN"
+chmod +x "$AQLI_CLI_BIN"
 
 prewarm_installed_models
 verify_installed_fast_paths
 
 # 5. Final Instructions
 echo ""
-echo -e "${GREEN}✅ andalus CLI installed locally to ${GOLLEK_CLI_BIN}${NC}"
+echo -e "${GREEN}✅ andalus CLI installed locally to ${AQLI_CLI_BIN}${NC}"
 echo ""
 
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then

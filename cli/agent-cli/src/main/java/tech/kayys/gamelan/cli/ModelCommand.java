@@ -6,14 +6,14 @@ import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Option;
 import tech.kayys.gamelan.agent.SdkProvider;
 import tech.kayys.gamelan.util.AnsiPrinter;
-import tech.kayys.gollek.sdk.core.GollekSdk;
-import tech.kayys.gollek.sdk.exception.SdkException;
-import tech.kayys.gollek.spi.model.ModelInfo;
+import tech.kayys.aqli.sdk.core.AqliSdk;
+import tech.kayys.aqli.sdk.exception.SdkException;
+import tech.kayys.aqli.spi.model.ModelInfo;
 
 import java.util.List;
 
 /**
- * Model management subcommand. Wraps the Gollek SDK model operations.
+ * Model management subcommand. Wraps the Aqli SDK model operations.
  *
  * <pre>
  * Usage:
@@ -25,7 +25,7 @@ import java.util.List;
  */
 @Command(
     name = "models",
-    description = "Manage local LLM models via the Gollek engine",
+    description = "Manage local LLM models via the Aqli engine",
     mixinStandardHelpOptions = true,
     subcommands = {
         ModelCommand.ListCmd.class,
@@ -52,7 +52,7 @@ public class ModelCommand implements Runnable {
         @Override
         public void run() {
             AnsiPrinter printer = new AnsiPrinter(true);
-            GollekSdk sdk = sdkProvider.sdk();
+            AqliSdk sdk = sdkProvider.sdk();
             try {
                 List<ModelInfo> models = format != null
                         ? sdk.listModelsByFormat(format.toUpperCase())
@@ -93,7 +93,7 @@ public class ModelCommand implements Runnable {
         @Override
         public void run() {
             AnsiPrinter printer = new AnsiPrinter(true);
-            GollekSdk sdk = sdkProvider.sdk();
+            AqliSdk sdk = sdkProvider.sdk();
             printer.info("Pulling model: " + modelSpec);
             try {
                 sdk.pullModel(modelSpec, progress -> {
@@ -129,7 +129,7 @@ public class ModelCommand implements Runnable {
         @Override
         public void run() {
             AnsiPrinter printer = new AnsiPrinter(true);
-            GollekSdk sdk = sdkProvider.sdk();
+            AqliSdk sdk = sdkProvider.sdk();
             try {
                 sdk.deleteModel(modelId);
                 printer.success("Deleted: " + modelId);
@@ -151,7 +151,7 @@ public class ModelCommand implements Runnable {
         @Override
         public void run() {
             AnsiPrinter printer = new AnsiPrinter(true);
-            GollekSdk sdk = sdkProvider.sdk();
+            AqliSdk sdk = sdkProvider.sdk();
             try {
                 sdk.getModelInfo(modelId).ifPresentOrElse(info -> {
                     printer.sectionHeader("Model: " + info.getModelId());

@@ -3,10 +3,10 @@ package tech.kayys.andalus.cli.bootstrap;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 
-public class GollekHealthProbe {
+public class AqliHealthProbe {
 
     /**
-     * Checks if the Gollek gRPC server is reachable.
+     * Checks if the Aqli gRPC server is reachable.
      * Since we might not have the full gRPC client initialized yet, 
      * a simple socket connection check is sufficient for probing startup.
      */

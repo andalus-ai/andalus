@@ -2,9 +2,9 @@ package tech.kayys.andalus.cli;
 
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
-import tech.kayys.andalus.cli.AndalusGollekCli;
+import tech.kayys.andalus.cli.AndalusAqliCli;
 import tech.kayys.andalus.cli.AndalusTuiCommands;
-import tech.kayys.andalus.client.AndalusGollekSdk;
+import tech.kayys.andalus.client.AndalusAqliSdk;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -23,8 +23,8 @@ class AndalusTuiCommandsTest {
     }
 
     private static CommandLine commandLine() {
-        return new CommandLine(new AndalusGollekCli(
-                AndalusGollekSdk.local(),
+        return new CommandLine(new AndalusAqliCli(
+                AndalusAqliSdk.local(),
                 stream(new ByteArrayOutputStream()),
                 stream(new ByteArrayOutputStream())));
     }

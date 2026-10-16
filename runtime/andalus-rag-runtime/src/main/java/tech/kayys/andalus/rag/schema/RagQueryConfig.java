@@ -31,8 +31,8 @@ public class RagQueryConfig {
     private Float minSimilarity = 0.5f;
 
     @JsonProperty("provider")
-    @JsonPropertyDescription("Shorthand for generation.provider — LLM provider. E.g. gollek, openai, anthropic. Defaults to 'gollek'.")
-    private String provider = "gollek";
+    @JsonPropertyDescription("Shorthand for generation.provider — LLM provider. E.g. aqli, openai, anthropic. Defaults to 'aqli'.")
+    private String provider = "aqli";
 
     @JsonProperty("model")
     @JsonPropertyDescription("Shorthand for generation.model — LLM model id. E.g. Qwen/Qwen2.5-0.5B-Instruct.")

@@ -1,4 +1,4 @@
-package tech.kayys.gollek.provider.gemini;
+package tech.kayys.aqli.provider.gemini;
 
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
@@ -9,7 +9,7 @@ import java.time.Duration;
 /**
  * Configuration for Gemini provider
  */
-@ConfigMapping(prefix = "gollek.provider.gemini")
+@ConfigMapping(prefix = "aqli.provider.gemini")
 public interface GeminiConfig {
 
     /**

@@ -1,4 +1,4 @@
-package tech.kayys.gollek.agent.skills.repo.db;
+package tech.kayys.aqli.agent.skills.repo.db;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,8 +10,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.kayys.gollek.agent.skills.repo.db.entity.SkillEntity;
-import tech.kayys.gollek.agent.skills.repo.spi.*;
+import tech.kayys.aqli.agent.skills.repo.db.entity.SkillEntity;
+import tech.kayys.aqli.agent.skills.repo.spi.*;
 
 import java.time.Duration;
 import java.util.List;

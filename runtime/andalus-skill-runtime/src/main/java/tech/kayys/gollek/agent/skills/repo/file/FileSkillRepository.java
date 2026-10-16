@@ -1,4 +1,4 @@
-package tech.kayys.gollek.agent.skills.repo.file;
+package tech.kayys.aqli.agent.skills.repo.file;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -25,9 +25,9 @@ import java.util.stream.Stream;
 /**
  * File-based skill repository with L1/L2 caching.
  *
- * <p>Stores skills in ~/.gollek/skills/ directory structure:
+ * <p>Stores skills in ~/.aqli/skills/ directory structure:
  * <pre>
- * ~/.gollek/skills/
+ * ~/.aqli/skills/
  * ├── {skill-id}/
  * │   ├── manifest.json    # Skill manifest
  * │   ├── content.json     # Skill implementation
@@ -46,7 +46,7 @@ public class FileSkillRepository implements SkillRepository {
 
     private static final Logger log = LoggerFactory.getLogger(FileSkillRepository.class);
 
-    private static final String DEFAULT_BASE_DIR = System.getProperty("user.home") + "/.gollek/skills";
+    private static final String DEFAULT_BASE_DIR = System.getProperty("user.home") + "/.aqli/skills";
     private static final Duration CACHE_TTL = Duration.ofMinutes(10);
     private static final int MAX_CACHE_SIZE = 500;
 

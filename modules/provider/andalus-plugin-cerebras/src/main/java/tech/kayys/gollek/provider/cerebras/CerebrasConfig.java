@@ -1,4 +1,4 @@
-package tech.kayys.gollek.provider.cerebras;
+package tech.kayys.aqli.provider.cerebras;
 
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
@@ -9,7 +9,7 @@ import java.time.Duration;
 /**
  * Configuration for Cerebras provider
  */
-@ConfigMapping(prefix = "gollek.provider.cerebras")
+@ConfigMapping(prefix = "aqli.provider.cerebras")
 public interface CerebrasConfig {
 
     /**

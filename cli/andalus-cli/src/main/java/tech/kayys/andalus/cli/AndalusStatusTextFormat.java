@@ -14,10 +14,10 @@ final class AndalusStatusTextFormat {
                 .append(" ")
                 .append(status.version())
                 .append(System.lineSeparator());
-        output.append("Boundary: Andalus is the agentic platform; Gollek and Gamelan stay external engines.")
+        output.append("Boundary: Andalus is the agentic platform; Aqli and Gamelan stay external engines.")
                 .append(System.lineSeparator())
                 .append(System.lineSeparator());
-        append(output, status.gollek());
+        append(output, status.aqli());
         append(output, status.gamelan());
         append(output, status.agentCore());
         append(output, status.rag());

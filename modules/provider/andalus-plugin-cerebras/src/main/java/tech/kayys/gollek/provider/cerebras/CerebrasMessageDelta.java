@@ -1,4 +1,4 @@
-package tech.kayys.gollek.provider.cerebras;
+package tech.kayys.aqli.provider.cerebras;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;

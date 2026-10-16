@@ -1,4 +1,4 @@
-package tech.kayys.gollek.provider.anthropic;
+package tech.kayys.aqli.provider.anthropic;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;

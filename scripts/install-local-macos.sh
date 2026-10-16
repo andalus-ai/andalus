@@ -10,10 +10,26 @@ MAGENTA="$(printf '\033[35m')"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Resolve Aqli root directory: check env var, adjacent directory, or platform Families/Aqli/aqli
+if [[ -n "${AQLI_HOME:-}" && -d "${AQLI_HOME}" ]]; then
+  AQLI_DIR="${AQLI_HOME}"
+elif [[ -d "$ROOT_DIR/../aqli" ]]; then
+  AQLI_DIR="$(cd "$ROOT_DIR/../aqli" && pwd)"
+elif [[ -d "$ROOT_DIR/../../../Aqli/aqli" ]]; then
+  AQLI_DIR="$(cd "$ROOT_DIR/../../../Aqli/aqli" && pwd)"
+else
+  AQLI_DIR=""
+fi
+
 for arg in "$@"; do
   case "$arg" in
     -h|--help|--prewarm-plan|--prewarm-plan=*|--verify-fast-only|--verify-fast-only=*|--verify-fast-m4-smoke-only)
-      (cd "$ROOT_DIR/../gollek" && exec bash "scripts/install-local-runtime.sh" "$@")
+      if [[ -n "$AQLI_DIR" && -d "$AQLI_DIR" ]]; then
+        (cd "$AQLI_DIR" && exec bash "scripts/install-local-runtime.sh" "$@")
+      else
+        echo "Error: aqli directory not found." >&2
+        exit 1
+      fi
       ;;
   esac
 done
@@ -26,13 +42,13 @@ cd "$ROOT_DIR"
 : "${LLM_TARGETS:=}"
 : "${RESOLVED_BACKEND_PROPERTY:=}"
 : "${BUILD_PROFILE:=}"
-: "${GOLLEK_BIN_DIR:=}"
+: "${AQLI_BIN_DIR:=}"
 : "${ARCHITECTURE_TARGETS:=}"
 : "${ARCHITECTURE_TARGET:=}"
 : "${MODULES:=}"
 ARCHITECTURE_VALUE="${ARCHITECTURE_TARGETS:-${ARCHITECTURE_TARGET:-native-java,binding}}"
-PUBLISH_RUNTIME_LOCAL="${GOLLEK_PUBLISH_RUNTIME_LOCAL:-false}"
-export GOLLEK_SKIP_LEGACY_SOURCE_HOTPATCHES="${GOLLEK_SKIP_LEGACY_SOURCE_HOTPATCHES:-true}"
+PUBLISH_RUNTIME_LOCAL="${AQLI_PUBLISH_RUNTIME_LOCAL:-false}"
+export AQLI_SKIP_LEGACY_SOURCE_HOTPATCHES="${AQLI_SKIP_LEGACY_SOURCE_HOTPATCHES:-true}"
 
 if command -v /usr/libexec/java_home >/dev/null 2>&1; then
   JAVA_25_HOME="$(/usr/libexec/java_home -v 25 2>/dev/null || true)"
@@ -47,8 +63,8 @@ if [[ -n "${JAVA_HOME:-}" ]]; then
   GRADLE_JAVA_HOME_ARG+=("-Dorg.gradle.java.home=${JAVA_HOME}")
 fi
 GRADLE_MAX_WORKERS_ARG=()
-if [[ -n "${GOLLEK_GRADLE_MAX_WORKERS:-1}" ]]; then
-  GRADLE_MAX_WORKERS_ARG+=("--max-workers=${GOLLEK_GRADLE_MAX_WORKERS:-1}")
+if [[ -n "${AQLI_GRADLE_MAX_WORKERS:-1}" ]]; then
+  GRADLE_MAX_WORKERS_ARG+=("--max-workers=${AQLI_GRADLE_MAX_WORKERS:-1}")
 fi
 
 append_java_tool_option() {
@@ -71,8 +87,8 @@ bool_enabled() {
 }
 
 stop_build_daemons_after_install() {
-  if ! bool_enabled "${GOLLEK_INSTALL_STOP_BUILD_DAEMONS:-true}"; then
-    echo "${YELLOW}⚠ Leaving Gradle build daemons running. Set GOLLEK_INSTALL_STOP_BUILD_DAEMONS=true to restore benchmark hygiene.${RESET}"
+  if ! bool_enabled "${AQLI_INSTALL_STOP_BUILD_DAEMONS:-true}"; then
+    echo "${YELLOW}⚠ Leaving Gradle build daemons running. Set AQLI_INSTALL_STOP_BUILD_DAEMONS=true to restore benchmark hygiene.${RESET}"
     return 0
   fi
 
@@ -102,7 +118,7 @@ stop_build_daemons_after_install() {
 
 is_legacy_gradle_module() {
   case "$1" in
-    :ml:*|:trainer:*|:examples:gollek-ml-examples|:models:gollek-model-common|:runner:onnx:gollek-ml-export-onnx|:runner:onnx:gollek-ml-onnx|:runner:diffuser:gollek-diffuser) return 0 ;;
+    :ml:*|:trainer:*|:examples:aqli-ml-examples|:models:aqli-model-common|:runner:onnx:aqli-ml-export-onnx|:runner:onnx:aqli-ml-onnx|:runner:diffuser:aqli-diffuser) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -147,10 +163,14 @@ if [[ ${#SKIPPED_MODULES[@]} -gt 0 ]]; then
   done
 fi
 
-echo "${BOLD}${GREEN}:) Step 1/2:${RESET} packaging and installing gollek via the macOS local installer"
-echo "${BOLD}${YELLOW}:| Install path:${RESET} ${GOLLEK_BIN_DIR:-$HOME/.local/bin}/gollek"
+echo "${BOLD}${GREEN}:) Step 1/2:${RESET} packaging and installing aqli via the macOS local installer"
+echo "${BOLD}${YELLOW}:| Install path:${RESET} ${AQLI_BIN_DIR:-$HOME/.local/bin}/aqli"
+if [[ -z "$AQLI_DIR" || ! -d "$AQLI_DIR" ]]; then
+  echo "Error: aqli directory not found." >&2
+  exit 1
+fi
 (
-  cd "$ROOT_DIR/../gollek"
+  cd "$AQLI_DIR"
   bash "scripts/install-local-runtime.sh" "$@"
 )
 
@@ -158,11 +178,11 @@ echo "${BOLD}${GREEN}:) Step 2/2:${RESET} optional compatibility publish to loca
 if [[ "${PUBLISH_RUNTIME_LOCAL}" == "true" ]]; then
   if [[ ${#GRADLE_INSTALL_TASKS[@]} -gt 0 ]]; then
     if ./gradlew "${GRADLE_JAVA_HOME_ARG[@]}" "${GRADLE_MAX_WORKERS_ARG[@]}" "${GRADLE_INSTALL_TASKS[@]}" \
-      -Pgollek.backend="${RESOLVED_BACKEND_PROPERTY}" \
-      -Pgollek.profile="${BUILD_PROFILE}" \
-      -Pgollek.model.formats="${FORMAT_TARGETS}" \
-      -Pgollek.llm.types="${LLM_TARGETS}" \
-      -Pgollek.architecture="${ARCHITECTURE_VALUE}"; then
+      -Paqli.backend="${RESOLVED_BACKEND_PROPERTY}" \
+      -Paqli.profile="${BUILD_PROFILE}" \
+      -Paqli.model.formats="${FORMAT_TARGETS}" \
+      -Paqli.llm.types="${LLM_TARGETS}" \
+      -Paqli.architecture="${ARCHITECTURE_VALUE}"; then
       echo "${GREEN}✓ Published supported runtime artifacts to local artifact cache${RESET}"
     else
       echo "${YELLOW}⚠ Optional Gradle publish failed after local install; CLI install is still complete.${RESET}"
@@ -171,9 +191,9 @@ if [[ "${PUBLISH_RUNTIME_LOCAL}" == "true" ]]; then
     echo "${YELLOW}⚠ No supported Gradle runtime modules were selected for publish.${RESET}"
   fi
 else
-  echo "${YELLOW}⚠ Skipping local artifact publish by default. Set GOLLEK_PUBLISH_RUNTIME_LOCAL=true to enable it.${RESET}"
+  echo "${YELLOW}⚠ Skipping local artifact publish by default. Set AQLI_PUBLISH_RUNTIME_LOCAL=true to enable it.${RESET}"
 fi
 
 stop_build_daemons_after_install
 
-echo "${BOLD}${GREEN}:D Done.${RESET} Gollek is installed locally, and compatibility publish is optional."
+echo "${BOLD}${GREEN}:D Done.${RESET} Aqli is installed locally, and compatibility publish is optional."

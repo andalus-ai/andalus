@@ -92,20 +92,20 @@ class ImportStatementValidatorTest {
     }
 
     @Test
-    void testValidateAljabrToGollekMigration() throws IOException {
-        Path pkgDir = tempDir.resolve("tech/kayys/gollek/tokenizer/spi");
+    void testValidateAljabrToAqliMigration() throws IOException {
+        Path pkgDir = tempDir.resolve("tech/kayys/aqli/tokenizer/spi");
         pkgDir.toFile().mkdirs();
         Path tokenizerFile = pkgDir.resolve("Tokenizer.java");
         Files.writeString(tokenizerFile,
-                "package tech.kayys.gollek.tokenizer.spi;\npublic interface Tokenizer {}");
+                "package tech.kayys.aqli.tokenizer.spi;\npublic interface Tokenizer {}");
 
         List<ImportValidationIssue> issues = validator.validateContent(
                 Path.of("/test/Test.java"),
                 "package test;\nimport tech.kayys.alkhawarizm.tokenizer.spi.Tokenizer;\npublic class Test {}");
-        assertFalse(issues.isEmpty(), "Should detect alkhawarizm import when class is in gollek");
+        assertFalse(issues.isEmpty(), "Should detect alkhawarizm import when class is in aqli");
         assertTrue(issues.get(0).getSuggestedFix() != null &&
-                issues.get(0).getSuggestedFix().contains("tech.kayys.gollek.tokenizer.spi.Tokenizer"),
-                "Should suggest gollek import for alkhawarizm import");
+                issues.get(0).getSuggestedFix().contains("tech.kayys.aqli.tokenizer.spi.Tokenizer"),
+                "Should suggest aqli import for alkhawarizm import");
     }
 
     @Test

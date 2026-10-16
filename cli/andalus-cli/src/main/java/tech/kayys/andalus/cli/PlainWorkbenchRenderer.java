@@ -14,10 +14,10 @@ final class PlainWorkbenchRenderer implements AndalusWorkbenchRenderer<String> {
         StringBuilder out = new StringBuilder();
         out.append("Andalus Workbench\n");
         out.append("Version: ").append(status.version()).append('\n');
-        out.append("Boundary: Andalus agent platform above Gollek inference/training and Gamelan workflows\n\n");
+        out.append("Boundary: Andalus agent platform above Aqli inference/training and Gamelan workflows\n\n");
 
         out.append("Components\n");
-        appendComponent(out, status.gollek());
+        appendComponent(out, status.aqli());
         appendComponent(out, status.gamelan());
         appendComponent(out, status.agentCore());
         appendComponent(out, status.rag());

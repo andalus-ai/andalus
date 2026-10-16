@@ -30,7 +30,7 @@ final class AndalusProviderCapabilityCommands {
             })
     static final class ProvidersCommand implements Callable<Integer> {
         @ParentCommand
-        AndalusGollekCli parent;
+        AndalusAqliCli parent;
 
         @Option(names = "--json", description = "Render provider capabilities as compact JSON.")
         boolean json;

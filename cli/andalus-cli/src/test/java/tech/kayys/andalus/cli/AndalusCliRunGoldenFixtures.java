@@ -1,12 +1,12 @@
 package tech.kayys.andalus.cli;
 
-import tech.kayys.andalus.client.AndalusGollekSdk;
+import tech.kayys.andalus.client.AndalusAqliSdk;
 
 import java.util.List;
 import java.util.function.Supplier;
 
 final class AndalusCliRunGoldenFixtures {
-    private static final Supplier<AndalusGollekSdk> LIFECYCLE_SDK = ContractLifecycleSdk::new;
+    private static final Supplier<AndalusAqliSdk> LIFECYCLE_SDK = ContractLifecycleSdk::new;
     private static final List<AndalusCliGoldenFixtures.GoldenFixture> ALL = List.of(
             lifecycleSelfDescribing(
                     "run-preflight-json.golden",

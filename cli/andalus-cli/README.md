@@ -5,7 +5,7 @@ agentic platform.
 
 ## Boundary
 
-- Gollek remains the inference, serving, and training engine.
+- Aqli remains the inference, serving, and training engine.
 - Gamelan remains the workflow execution engine.
 - Andalus owns the agentic platform surface above both engines: agents,
   skills, tools, MCP, RAG, memory, workflows, and harness operations.
@@ -15,14 +15,14 @@ CLI model is closer to agent workbench tools such as Gemini CLI or Claude Code:
 workspace-aware, command-driven, and able to operate agents, tools, workflows,
 retrieval, memory, and harness checks from one terminal surface.
 
-The CLI consumes `andalus-gollek-sdk` for the agent contract. Requests, run
+The CLI consumes `andalus-aqli-sdk` for the agent contract. Requests, run
 results, product surfaces, platform status, workbench state, and the bridge into
 `AgentRequest` live in the SDK so CLI, TUI, API, and future product shells do
 not grow parallel agent models.
 
 Future adapters can wire the same command surface to local Quarkus services,
 remote platform APIs, packaged coding-agent runtimes, assistant-agent products,
-or low-code agentic workflow products without coupling this module to Gollek's
+or low-code agentic workflow products without coupling this module to Aqli's
 own CLI.
 
 ## Commands
@@ -115,7 +115,7 @@ andalus workbench --surface assistant-agent --json
 andalus tui
 ```
 
-`andalus-gollek` remains a compatibility alias for the command name and Maven
+`andalus-aqli` remains a compatibility alias for the command name and Maven
 artifact/module names remain stable while the product-facing platform name is
 shortened to Andalus.
 
@@ -153,15 +153,15 @@ andalus --sdk-mode REMOTE --endpoint https://andalus.example.com status
 
 The remote mode is intentionally provider-backed. Until a remote SDK provider is
 on the classpath, the CLI exits clearly instead of pretending to call an API.
-Add `andalus-gollek-sdk-remote` to the runtime classpath to enable the HTTP
-remote provider, or use the packaged `andalus-gollek-cli-remote` distribution.
+Add `andalus-aqli-sdk-remote` to the runtime classpath to enable the HTTP
+remote provider, or use the packaged `andalus-aqli-cli-remote` distribution.
 
 `tui` uses TamboUI for the terminal dashboard. The command/service boundary is
 Andalus-owned so TamboUI can evolve as an adapter instead of becoming the core
 platform contract.
 
 `code` starts a Gemini CLI / Claude Code style coding-agent session on top of
-Gollek inference. Each session receives a Andalus-owned system prompt with the
+Aqli inference. Each session receives a Andalus-owned system prompt with the
 current workspace, profile, memory mode, harness mode, and coding-agent
 operating rules. The prompt keeps the CLI focused on repository inspection,
 small changes, SDK/API separation of concern, verification, and honest handling
@@ -329,8 +329,8 @@ Draft 2020-12 JSON Schema documents for all matching contracts.
 Schema-backed golden payload fixtures are validated against these published
 schemas in CLI tests so output and contracts move together.
 Regenerate source golden fixtures with
-`mvn -q -pl andalus-gollek-cli -am -Dandalus.golden.update=true -Dtest=AndalusCliJsonContractTest -Dsurefire.failIfNoSpecifiedTests=false test`
-from the `andalus-gollek` module, then rerun the same test without the update
+`mvn -q -pl andalus-aqli-cli -am -Dandalus.golden.update=true -Dtest=AndalusCliJsonContractTest -Dsurefire.failIfNoSpecifiedTests=false test`
+from the `andalus-aqli` module, then rerun the same test without the update
 property to verify copied resources and schemas. Add
 `-Dandalus.golden.update.include=<fixture>[,<fixture>]` to refresh only selected
 fixtures; names may include or omit the `.golden` suffix.

@@ -189,7 +189,7 @@ class SkillDefinitionPersistenceStrategyContractTest {
                 .subSkillPrompts(Map.of("REVIEW", "Review carefully."))
                 .temperature(0.4)
                 .maxTokens(512)
-                .defaultProvider("gollek")
+                .defaultProvider("aqli")
                 .fallbackProvider("openai")
                 .tools(List.of("search", "rag"))
                 .orchestration(new SkillDefinition.OrchestrationConfig(

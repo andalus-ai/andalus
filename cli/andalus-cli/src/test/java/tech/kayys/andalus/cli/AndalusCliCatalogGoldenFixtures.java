@@ -7,7 +7,7 @@ import tech.kayys.andalus.contract.AndalusContractCoverageContract;
 import tech.kayys.andalus.contract.AndalusContractDescriptor;
 import tech.kayys.andalus.contract.AndalusContractDiscovery;
 import tech.kayys.andalus.contract.AndalusContractQuery;
-import tech.kayys.andalus.client.AndalusGollekSdk;
+import tech.kayys.andalus.client.AndalusAqliSdk;
 import tech.kayys.andalus.client.AndalusPlatformContract;
 import tech.kayys.andalus.capability.AndalusProviderCapabilityContract;
 import tech.kayys.andalus.readiness.AndalusReadinessContract;
@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 final class AndalusCliCatalogGoldenFixtures {
-    private static final Supplier<AndalusGollekSdk> LOCAL_SDK = AndalusGollekSdk::local;
+    private static final Supplier<AndalusAqliSdk> LOCAL_SDK = AndalusAqliSdk::local;
     private static final List<AndalusCliGoldenFixtures.GoldenFixture> ALL = List.of(
             localPayload(
                     "status-json.golden",

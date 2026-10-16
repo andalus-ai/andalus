@@ -1,14 +1,14 @@
 # ═══════════════════════════════════════════════════════════════════
-# Gollek Agent System — Application Configuration
+# Aqli Agent System — Application Configuration
 # ═══════════════════════════════════════════════════════════════════
-# All agent-specific properties are under the `gollek.agent` namespace.
+# All agent-specific properties are under the `aqli.agent` namespace.
 # Engine-level properties (providers, session pools, batching) live in
-# the gollek-engine module and are documented separately.
+# the aqli-engine module and are documented separately.
 # ═══════════════════════════════════════════════════════════════════
 
 quarkus:
   application:
-    name: gollek-agent
+    name: aqli-agent
     version: 1.0.0
 
   # ── HTTP ────────────────────────────────────────────────────────
@@ -24,7 +24,7 @@ quarkus:
   log:
     level: INFO
     category:
-      "tech.kayys.gollek.agent":
+      "tech.kayys.aqli.agent":
         level: DEBUG
 
   # ── OpenTelemetry (structured tracing) ──────────────────────────
@@ -36,16 +36,16 @@ quarkus:
           endpoint: http://localhost:4317
 
 # ═══════════════════════════════════════════════════════════════════
-# Gollek Engine — Inference backend
+# Aqli Engine — Inference backend
 # ═══════════════════════════════════════════════════════════════════
-gollek:
+aqli:
   models:
     default-model: gemma-4-E2B-it
     default-provider: gguf
     auto-download-enabled: true
 
 # ═══════════════════════════════════════════════════════════════════
-# Gollek Agent Framework
+# Aqli Agent Framework
 # ═══════════════════════════════════════════════════════════════════
   agent:
 
@@ -53,7 +53,7 @@ gollek:
     default-strategy: react
     default-max-steps: 10
     default-timeout-seconds: 120
-    default-model: ${gollek.models.default-model}
+    default-model: ${aqli.models.default-model}
 
     # ── Multi-tenancy ──────────────────────────────────────────────
     multitenancy:
@@ -67,7 +67,7 @@ gollek:
 
       redis:
         url: redis://localhost:6379
-        key-prefix: "gollek:agent:"
+        key-prefix: "aqli:agent:"
         ttl-seconds: 3600
 
       pg-vector:
@@ -103,13 +103,13 @@ gollek:
 
       inference:
         enabled: true
-        default-model: ${gollek.agent.default-model}
+        default-model: ${aqli.agent.default-model}
         default-max-tokens: 1024
         default-temperature: 0.7
 
       rag:
         enabled: true
-        default-model: ${gollek.agent.default-model}
+        default-model: ${aqli.agent.default-model}
         default-collection: agent-knowledge
         default-top-k: 5
         embedding-model: default
@@ -150,7 +150,7 @@ gollek:
       level: DEBUG
     http:
       port: 8080
-  gollek:
+  aqli:
     agent:
       default-max-steps: 5
       default-timeout-seconds: 60
@@ -162,7 +162,7 @@ gollek:
   quarkus:
     log:
       level: WARN
-  gollek:
+  aqli:
     agent:
       memory:
         backend: in-memory
@@ -173,7 +173,7 @@ gollek:
   quarkus:
     log:
       level: INFO
-  gollek:
+  aqli:
     agent:
       memory:
         backend: redis

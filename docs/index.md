@@ -5,7 +5,7 @@
 > **Primary implementation language:** Java / Quarkus  
 > **Documentation format:** Markdown + Mermaid + LaTeX  
 >
-> This document describes the Andalus runtime/framework as represented by the supplied source snapshots. The snapshots contain some legacy `Gollek Agentic Core` terminology and package paths alongside the current `tech.kayys.andalus.*` implementation. Where that occurs, this document preserves the underlying architecture and calls out the terminology rather than silently inventing a different implementation.
+> This document describes the Andalus runtime/framework as represented by the supplied source snapshots. The snapshots contain some legacy `Aqli Agentic Core` terminology and package paths alongside the current `tech.kayys.andalus.*` implementation. Where that occurs, this document preserves the underlying architecture and calls out the terminology rather than silently inventing a different implementation.
 
 ---
 
@@ -107,7 +107,7 @@ Instead:
 └──────────────────────────────────────────────────────────┘
         │             │              │              │
         ▼             ▼              ▼              ▼
-     Gollek        Gamelan       MCP/REST       External
+     Aqli        Gamelan       MCP/REST       External
     inference     workflows       /gRPC          agents
 ```
 
@@ -1691,7 +1691,7 @@ Prefer:
 andalus-runtime-core
        │
        ├── andalus-backend-gamelan
-       ├── andalus-backend-gollek
+       ├── andalus-backend-aqli
        ├── andalus-a2a
        ├── andalus-mcp
        └── optional domain extensions
@@ -1820,7 +1820,7 @@ andalus:
     strategy: direct
 ```
 
-> The supplied runtime snapshot contains historical `gollek.agent.*` configuration. The current Andalus package structure uses `tech.kayys.andalus.*`. Configuration namespaces should therefore be verified against the current application module before deployment.
+> The supplied runtime snapshot contains historical `aqli.agent.*` configuration. The current Andalus package structure uses `tech.kayys.andalus.*`. Configuration namespaces should therefore be verified against the current application module before deployment.
 
 ## 20.2 Agent configuration represented in the source
 
@@ -2501,7 +2501,7 @@ Recommended integration boundaries:
 
 ```text
 Andalus Runtime
-   ↔ Gollek provider
+   ↔ Aqli provider
    ↔ Gamelan
    ↔ Redis
    ↔ PostgreSQL
@@ -2713,7 +2713,7 @@ The supplied files also show:
 
 ```text
 andalus-backend-gamelan
-andalus-backend-gollek
+andalus-backend-aqli
 andalus-a2a
 andalus-agent-runtime
 andalus-runtime-core
@@ -2741,7 +2741,7 @@ The exact Gradle/Maven module graph should be generated from the current build f
               ▼            ▼           ▼
            Inference    Workflow      Tools
               │            │           │
-           Gollek       Gamelan    MCP/REST/etc.
+           Aqli       Gamelan    MCP/REST/etc.
 ```
 
 ## 28.2 Inference is replaceable
@@ -2868,9 +2868,9 @@ The durable A2A implementation is explicitly designed so that the ledger can sur
 Some runtime documentation is still named:
 
 ```text
-Gollek Agentic Core System
-gollek.agent.*
-inference-gollek/plugins/agent/agent-core
+Aqli Agentic Core System
+aqli.agent.*
+inference-aqli/plugins/agent/agent-core
 ```
 
 while the framework implementation uses:
@@ -2978,7 +2978,7 @@ flowchart TB
     end
 
     subgraph External["External Systems"]
-        Gollek[Gollek / Inference Providers]
+        Aqli[Aqli / Inference Providers]
         Gamelan[Gamelan]
         MCP[MCP]
         REST[REST/OpenAPI]
@@ -3012,7 +3012,7 @@ flowchart TB
 
     Orchestrator --> Prompt
     Router --> ModelRegistry
-    Router --> Gollek
+    Router --> Aqli
 
     ToolRegistry --> ToolAdapter
     ToolAdapter --> MCP

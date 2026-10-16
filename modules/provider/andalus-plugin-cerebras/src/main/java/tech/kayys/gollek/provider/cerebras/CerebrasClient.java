@@ -1,7 +1,7 @@
-package tech.kayys.gollek.provider.cerebras;
+package tech.kayys.aqli.provider.cerebras;
 
 /* 
- * Obsolete REST client - replaced by tech.kayys.gollek.provider.cerebras.CerebrasProvider 
+ * Obsolete REST client - replaced by tech.kayys.aqli.provider.cerebras.CerebrasProvider 
  * using java.net.http.HttpClient for better compatibility.
  *
 import io.smallrye.mutiny.Multi;

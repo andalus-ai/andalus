@@ -55,8 +55,8 @@ final class AndalusCliGoldenFixtureIO {
     private static Path contractsDirectory() {
         List<Path> candidates = List.of(
                 Paths.get("src", "test", "resources", "contracts"),
-                Paths.get("andalus-gollek-cli", "src", "test", "resources", "contracts"),
-                Paths.get("andalus-gollek", "andalus-gollek-cli", "src", "test", "resources", "contracts"));
+                Paths.get("andalus-aqli-cli", "src", "test", "resources", "contracts"),
+                Paths.get("andalus-aqli", "andalus-aqli-cli", "src", "test", "resources", "contracts"));
         return candidates.stream()
                 .filter(Files::exists)
                 .findFirst()

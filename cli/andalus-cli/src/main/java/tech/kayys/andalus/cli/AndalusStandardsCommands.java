@@ -22,7 +22,7 @@ final class AndalusStandardsCommands {
             description = "Show SDK standard-alignment health for protocol adapter reports.")
     static final class StandardsCommand implements Callable<Integer> {
         @ParentCommand
-        AndalusGollekCli parent;
+        AndalusAqliCli parent;
 
         @Mixin
         AndalusStandardPolicyOptions policyOptions = new AndalusStandardPolicyOptions();

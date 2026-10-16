@@ -54,7 +54,7 @@ final class AndalusLogsCommand implements Callable<Integer> {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @ParentCommand
-    AndalusGollekCli parent;
+    AndalusAqliCli parent;
 
     @Option(names = {"-n", "--lines"},
             description = "Number of lines to show (default: 40).",
@@ -279,7 +279,7 @@ final class AndalusLogsCommand implements Callable<Integer> {
         if (containsAny(line, "WARNING", "WARN")) {
             return colorize(color, YELLOW, "  " + line);
         }
-        if (containsAny(line, "[Gollek-Native]", "INFO", "Rebuild", "Indexed")) {
+        if (containsAny(line, "[Aqli-Native]", "INFO", "Rebuild", "Indexed")) {
             return colorize(color, DIM, "  " + line);
         }
         return "  " + line;

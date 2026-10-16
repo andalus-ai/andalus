@@ -3,8 +3,8 @@ package tech.kayys.andalus.cli;
 import picocli.CommandLine.Option;
 import tech.kayys.andalus.agent.store.AgentRunStoreBackupRetentionPolicy;
 import tech.kayys.andalus.agent.store.AgentRunStoreRetentionPolicy;
-import tech.kayys.andalus.client.AndalusGollekSdkConfig;
-import tech.kayys.andalus.client.AndalusGollekSdkProvider;
+import tech.kayys.andalus.client.AndalusAqliSdkConfig;
+import tech.kayys.andalus.client.AndalusAqliSdkProvider;
 import tech.kayys.andalus.readiness.AndalusPlatformReadinessProfileRegistryConfig;
 
 import java.util.LinkedHashMap;
@@ -24,7 +24,7 @@ final class AndalusCliSdkOptions {
     @Option(
             names = "--sdk-mode",
             description = "SDK mode: ${COMPLETION-CANDIDATES}. Env: ANDALUS_SDK_MODE.")
-    AndalusGollekSdkProvider.Mode mode;
+    AndalusAqliSdkProvider.Mode mode;
 
     @Option(names = "--endpoint", description = "Remote Andalus API endpoint. Env: ANDALUS_ENDPOINT.")
     String endpoint;
@@ -35,7 +35,7 @@ final class AndalusCliSdkOptions {
     @Option(names = "--default-tenant", description = "Default tenant for SDK requests. Env: ANDALUS_TENANT.")
     String defaultTenantId;
 
-    @Option(names = "--default-model", description = "Default Gollek model for SDK requests. Env: ANDALUS_MODEL.")
+    @Option(names = "--default-model", description = "Default Aqli model for SDK requests. Env: ANDALUS_MODEL.")
     String defaultModelId;
 
     @Option(names = "--ignore-config", description = "Ignore ~/.andalus/config.json and prefer CLI flags/env. Env: ANDALUS_IGNORE_CONFIG.")
@@ -129,9 +129,9 @@ final class AndalusCliSdkOptions {
             description = "Default readiness profile validation policy. Env: ANDALUS_READINESS_PROFILE_VALIDATION_POLICY.")
     String readinessProfileValidationPolicy;
 
-    AndalusGollekSdkConfig toConfig() {
-        AndalusGollekSdkProvider.Mode resolvedMode = mode == null ? modeFromEnv() : mode;
-        AndalusGollekSdkConfig config = new AndalusGollekSdkConfig(
+    AndalusAqliSdkConfig toConfig() {
+        AndalusAqliSdkProvider.Mode resolvedMode = mode == null ? modeFromEnv() : mode;
+        AndalusAqliSdkConfig config = new AndalusAqliSdkConfig(
                 resolvedMode,
                 choose(endpoint, "ANDALUS_ENDPOINT", ""),
                 choose(apiKey, "ANDALUS_API_KEY", ""),
@@ -223,12 +223,12 @@ final class AndalusCliSdkOptions {
         return AndalusPlatformReadinessProfileRegistryConfig.fromMap(values);
     }
 
-    private AndalusGollekSdkProvider.Mode modeFromEnv() {
+    private AndalusAqliSdkProvider.Mode modeFromEnv() {
         String value = choose(null, "ANDALUS_SDK_MODE", "LOCAL");
         try {
-            return AndalusGollekSdkProvider.Mode.valueOf(value.trim().toUpperCase());
+            return AndalusAqliSdkProvider.Mode.valueOf(value.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            return AndalusGollekSdkProvider.Mode.LOCAL;
+            return AndalusAqliSdkProvider.Mode.LOCAL;
         }
     }
 

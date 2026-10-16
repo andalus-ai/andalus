@@ -1,4 +1,4 @@
-package tech.kayys.andalus.gollek.client.provider;
+package tech.kayys.andalus.aqli.client.provider;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Gollek SDK inference provider that delegates to {@code gollek run} subprocess.
+ * Aqli SDK inference provider that delegates to {@code aqli run} subprocess.
  *
  * <p>This provider has a public no-arg constructor and is registered via Java SPI
  * ({@code META-INF/services/tech.kayys.andalus.provider.LLMProvider}), so it
@@ -25,15 +25,15 @@ import java.util.UUID;
  * path (i.e., when CDI is unavailable in the shaded CLI JAR).
  *
  * <p>It acts as a catch-all: {@link #supports} returns {@code true} for any model,
- * and inference is performed via {@code gollek run --no-banner}. Gollek telemetry
+ * and inference is performed via {@code aqli run --no-banner}. Aqli telemetry
  * lines are filtered from stdout so that only the model's text response is returned.
  */
-public class GollekSubprocessProvider implements StreamingProvider {
+public class AqliSubprocessProvider implements StreamingProvider {
 
-    private static final String PROVIDER_ID = "gollek-subprocess";
+    private static final String PROVIDER_ID = "aqli-subprocess";
 
     /** No-arg constructor required for {@link java.util.ServiceLoader} discovery. */
-    public GollekSubprocessProvider() {}
+    public AqliSubprocessProvider() {}
 
     // ── LLMProvider ──────────────────────────────────────────────────────────
 
@@ -44,7 +44,7 @@ public class GollekSubprocessProvider implements StreamingProvider {
 
     @Override
     public String name() {
-        return "Gollek Subprocess Provider (gollek run)";
+        return "Aqli Subprocess Provider (aqli run)";
     }
 
     @Override
@@ -59,7 +59,7 @@ public class GollekSubprocessProvider implements StreamingProvider {
 
     @Override
     public boolean supports(String modelId, ProviderRequest request) {
-        // Accept any model; gollek itself validates whether the model exists.
+        // Accept any model; aqli itself validates whether the model exists.
         return true;
     }
 
@@ -104,7 +104,7 @@ public class GollekSubprocessProvider implements StreamingProvider {
         return Uni.createFrom().emitter(emitter -> {
             try {
                 StringBuilder sb = new StringBuilder();
-                runGollek(request, line -> sb.append(line).append('\n'));
+                runAqli(request, line -> sb.append(line).append('\n'));
                 emitter.complete(InferenceResponse.builder()
                         .requestId(UUID.randomUUID().toString())
                         .content(sb.toString().trim())
@@ -120,7 +120,7 @@ public class GollekSubprocessProvider implements StreamingProvider {
         return Multi.createFrom().emitter(emitter -> {
             try {
                 int[] idx = {0};
-                runGollek(request, line -> emitter.emit(StreamingInferenceChunk.textDelta(
+                runAqli(request, line -> emitter.emit(StreamingInferenceChunk.textDelta(
                         UUID.randomUUID().toString(), idx[0]++, line + "\n")));
                 emitter.complete();
             } catch (Exception e) {
@@ -132,13 +132,13 @@ public class GollekSubprocessProvider implements StreamingProvider {
     @Override
     public Uni<EmbeddingResponse> embed(EmbeddingRequest request) {
         return Uni.createFrom().failure(
-                new UnsupportedOperationException("Embeddings not supported via gollek run"));
+                new UnsupportedOperationException("Embeddings not supported via aqli run"));
     }
 
     // ── Internal ─────────────────────────────────────────────────────────────
 
-    /** Runs {@code gollek run} and passes filtered model-output lines to {@code sink}. */
-    private void runGollek(ProviderRequest request, java.util.function.Consumer<String> sink)
+    /** Runs {@code aqli run} and passes filtered model-output lines to {@code sink}. */
+    private void runAqli(ProviderRequest request, java.util.function.Consumer<String> sink)
             throws Exception {
         String modelId = request.getModel();
         String prompt = extractPrompt(request);
@@ -146,7 +146,7 @@ public class GollekSubprocessProvider implements StreamingProvider {
         double temperature = getDoubleParam(request, "temperature", 0.7);
 
         ProcessBuilder pb = new ProcessBuilder(
-                "gollek", "run", "--no-banner",
+                "aqli", "run", "--no-banner",
                 "--model", modelId,
                 "--prompt", prompt,
                 "--max-tokens", String.valueOf(maxTokens),
@@ -162,12 +162,12 @@ public class GollekSubprocessProvider implements StreamingProvider {
         pb.redirectErrorStream(false);
         pb.redirectError(ProcessBuilder.Redirect.DISCARD);
         pb.environment().put("NO_COLOR", "1");
-        pb.environment().put("GOLLEK_MAX_DIRECT_MEMORY", "12g");
+        pb.environment().put("AQLI_MAX_DIRECT_MEMORY", "12g");
         // Expand the GGUF fast-run context window to 16384 tokens so the full tool+history prompt fits.
-        // GOLLEK_GGUF_FAST_DAEMON=false forces one-shot mode; the daemon reuses its context size from
+        // AQLI_GGUF_FAST_DAEMON=false forces one-shot mode; the daemon reuses its context size from
         // when it was first started, so we must bypass it to honour our new context setting.
-        pb.environment().put("GOLLEK_JAVA_OPTS", "-Dgollek.gguf.fast_run.context=16384");
-        pb.environment().put("GOLLEK_GGUF_FAST_DAEMON", "false");
+        pb.environment().put("AQLI_JAVA_OPTS", "-Daqli.gguf.fast_run.context=16384");
+        pb.environment().put("AQLI_GGUF_FAST_DAEMON", "false");
 
         Process process = pb.start();
 
@@ -187,7 +187,7 @@ public class GollekSubprocessProvider implements StreamingProvider {
                 }
 
                 // Skip known telemetry lines inside the output region
-                if (isGollekTelemetry(line)) {
+                if (isAqliTelemetry(line)) {
                     continue;
                 }
 
@@ -207,11 +207,11 @@ public class GollekSubprocessProvider implements StreamingProvider {
 
         int exitCode = process.waitFor();
         if (exitCode != 0) {
-            throw new RuntimeException("gollek run exited with code " + exitCode);
+            throw new RuntimeException("aqli run exited with code " + exitCode);
         }
     }
 
-    private static boolean isGollekTelemetry(String line) {
+    private static boolean isAqliTelemetry(String line) {
         if (line == null) return false;
         return line.startsWith("Using llama.cpp")
                 || line.startsWith("Using safetensor")

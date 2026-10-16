@@ -52,7 +52,7 @@ The Andalus ecosystem is split into two repositories:
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐   │    │
 │  │  │   Agent     │  │  Execution  │  │   Backend           │   │    │
 │  │  │  Runtime    │  │   Pipeline  │  │   Adapters          │   │    │
-│  │  │             │  │             │  │   (Gollek/Gamelan)  │   │    │
+│  │  │             │  │             │  │   (Aqli/Gamelan)  │   │    │
 │  │  └─────────────┘  └─────────────┘  └─────────────────────┘   │    │
 │  └─────────────────────────────────────────────────────────────┘    │
 │                                    │                                │
@@ -135,7 +135,7 @@ node_agent -->|"uses tools"| node_sandbox
 node_sandbox -.->|"integrates tools"| node_mcp
 node_engine -.->|"exposes diagnostics"| node_operations
 
-click node_cli "https://github.com/bhangun/andalus/blob/main/cli/andalus-cli/src/main/java/tech/kayys/andalus/cli/AndalusGollekCli.java"
+click node_cli "https://github.com/bhangun/andalus/blob/main/cli/andalus-cli/src/main/java/tech/kayys/andalus/cli/AndalusAqliCli.java"
 click node_rest "https://github.com/bhangun/andalus/blob/main/api/andalus-api-rest/src/main/java/tech/kayys/andalus/api/rest/AgentResource.java"
 click node_grpc "https://github.com/bhangun/andalus/blob/main/api/andalus-api-grpc/src/main/java/tech/kayys/andalus/api/grpc/AndalusGrpcService.java"
 click node_engine "https://github.com/bhangun/andalus/blob/main/runtime/andalus-runtime-core/src/main/java/tech/kayys/andalus/execution/DefaultExecutionEngine.java"
@@ -235,7 +235,7 @@ node_user -.->|"checks operations"| node_hermes
 node_agentexec -->|"requests inference"| node_llm
 node_agentexec -->|"coordinates agents"| node_coordination
 
-click node_cli "https://github.com/bhangun/andalus/blob/main/cli/andalus-cli/src/main/java/tech/kayys/andalus/cli/AndalusGollekCli.java"
+click node_cli "https://github.com/bhangun/andalus/blob/main/cli/andalus-cli/src/main/java/tech/kayys/andalus/cli/AndalusAqliCli.java"
 click node_rest "https://github.com/bhangun/andalus/blob/main/api/andalus-api-rest/src/main/java/tech/kayys/andalus/api/rest/AgentResource.java"
 click node_grpc "https://github.com/bhangun/andalus/blob/main/api/andalus-api-grpc/src/main/java/tech/kayys/andalus/api/grpc/AndalusGrpcService.java"
 click node_agentexec "https://github.com/bhangun/andalus/blob/main/runtime/andalus-runtime-core/src/main/java/tech/kayys/andalus/execution/AgentExecutionService.java"
@@ -299,7 +299,7 @@ class node_gamelan,node_mcp,node_llm,node_result toneIndigo
 | `andalus-agent-runtime` | Core agent execution: memory service, tool executor, context planner |
 | `andalus-runtime-core` | Pipeline construction, interceptor wiring, terminal handlers |
 | `andalus-runtime-spi` | Runtime SPIs: `AgentExecution`, `AgentStrategy`, `ExecutionBudget` |
-| `andalus-backend-gollek` | Gollek inference backend adapter |
+| `andalus-backend-aqli` | Aqli inference backend adapter |
 | `andalus-backend-gamelan` | Gamelan workflow backend adapter |
 
 ### Runtime Modules
@@ -396,7 +396,7 @@ curl -X POST http://localhost:8080/api/v1/agents/run \
 
 ```properties
 # Inference backend
-andalus.inference.backend=gollek
+andalus.inference.backend=aqli
 andalus.inference.model=gemini-flash
 
 # Workflow backend
@@ -494,8 +494,8 @@ The active reactor is organized around these layers:
   workflow backends, tools, memory, audit, and dynamic skills.
 - `agent/agent-core`: core agent services, registries, skill loading,
   tool selection, memory integration, resilience, and security.
-- `agent/agent-backend-gollek`: adapter from the agent inference SPI to the
-  Gollek SDK.
+- `agent/agent-backend-aqli`: adapter from the agent inference SPI to the
+  Aqli SDK.
 - `agent/agent-backend-gamelan`: adapter from the workflow SPI to the Gamelan
   SDK.
 - `agent/agent-shaker`: harness and packaging support for minimal agent
@@ -510,15 +510,15 @@ The active reactor is organized around these layers:
   services.
 - `runtime-quarkus`: thin Quarkus wiring over the pure Java core and backend
   adapters.
-- `storage/`: Gollek model-storage plugins kept in the reactor but isolated
-  behind Gollek SPI dependencies.
+- `storage/`: Aqli model-storage plugins kept in the reactor but isolated
+  behind Aqli SPI dependencies.
 
 ## Documentation
 
-For comprehensive guides on how to build your own agents, integrate new inference providers, and configure the Gollek backend, please refer to the `docs/` directory:
+For comprehensive guides on how to build your own agents, integrate new inference providers, and configure the Aqli backend, please refer to the `docs/` directory:
 - [Agent Development Guide](docs/agent-development-guide.md)
 - [Inference Provider Guide](docs/inference-provider-guide.md)
-- [Gollek Integration](docs/gollek-integration.md)
+- [Aqli Integration](docs/aqli-integration.md)
 
 ## Dependency Policy
 
@@ -527,7 +527,7 @@ Andalus must remain SDK/SPI-first:
 - Use `gamelan-engine-spi`, `gamelan-sdk-client-core`, and
   `gamelan-sdk-executor-core` for workflow integration.
 - Do not depend on `gamelan-engine-core` from framework modules.
-- Use `gollek.version` for Gollek SDK/SPI coordinates.
+- Use `aqli.version` for Aqli SDK/SPI coordinates.
 - Keep runtime-specific wiring in runtime modules, not in `agent-spi`.
 
 The parent POM enforces the `gamelan-engine-core` ban during Maven validation.
@@ -549,7 +549,7 @@ packages. See `docs/REORGANIZATION_STATUS.md`.
 
 ## Build Editions
 
-The default `andalus-gollek` reactor is the community build. Pro/enterprise
+The default `andalus-aqli` reactor is the community build. Pro/enterprise
 add-ons are opt-in Maven profile modules so they can be tested, packaged, and
 licensed separately from the default community surface.
 
@@ -671,7 +671,7 @@ match counts, contract JSON Schema id facets, contract summaries, and
 per-command contract references for JSON-producing commands.
 
 JSON payloads that are consumed by agent shells are guarded by golden contract
-fixtures under `andalus-gollek-cli/src/test/resources/contracts`.
+fixtures under `andalus-aqli-cli/src/test/resources/contracts`.
 Schema-backed golden payloads are also validated against the published SDK
 schemas so fixture drift is caught before product shells consume it.
 Use `andalus contracts --json` to discover the SDK-owned JSON contract catalog,
@@ -749,7 +749,7 @@ fields instead of only exposing the contract marker.
 
 ## SDK Skill Registry
 
-`andalus-gollek-sdk` now owns a small product-facing skill discovery contract:
+`andalus-aqli-sdk` now owns a small product-facing skill discovery contract:
 `AgentSkillDescriptor`, `AgentSkill`, `RegisteredSkill`, `AgentSkillState`,
 `AgentSkillQuery`, and `SkillRegistry`. This layer describes capabilities by
 stable id, source, lifecycle state, product surfaces, input/output keys, tags,

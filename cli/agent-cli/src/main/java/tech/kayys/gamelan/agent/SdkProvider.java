@@ -8,21 +8,21 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.kayys.gollek.factory.GollekSdkFactory;
-import tech.kayys.gollek.sdk.config.SdkConfig;
-import tech.kayys.gollek.sdk.core.GollekSdk;
-import tech.kayys.gollek.sdk.exception.SdkException;
+import tech.kayys.aqli.factory.AqliSdkFactory;
+import tech.kayys.aqli.sdk.config.SdkConfig;
+import tech.kayys.aqli.sdk.core.AqliSdk;
+import tech.kayys.aqli.sdk.exception.SdkException;
 
 import java.time.Duration;
 
 /**
- * CDI producer that creates and manages the {@link GollekSdk} singleton.
+ * CDI producer that creates and manages the {@link AqliSdk} singleton.
  *
  * <p>This is an {@link Alternative} producer with low priority, making it a
- * <b>passive fallback</b> when gollek's own CDI beans are not available.
- * The gollek project provides {@code LocalGollekSdk} as the primary bean.
+ * <b>passive fallback</b> when aqli's own CDI beans are not available.
+ * The aqli project provides {@code LocalAqliSdk} as the primary bean.
  *
- * <p>Selection logic (mirrors the Gollek SDK factory):
+ * <p>Selection logic (mirrors the Aqli SDK factory):
  * <ol>
  *   <li>If {@code gamelan.engine.mode=local} — use the local in-process engine</li>
  *   <li>If {@code gamelan.engine.mode=remote} and {@code gamelan.remote.url} is set — use HTTP</li>
@@ -48,27 +48,27 @@ public class SdkProvider {
     @ConfigProperty(name = "gamelan.request.timeout.seconds", defaultValue = "120")
     int requestTimeoutSeconds;
 
-    private GollekSdk cachedSdk;
+    private AqliSdk cachedSdk;
 
     /**
-     * Produces the {@link GollekSdk} bean.
+     * Produces the {@link AqliSdk} bean.
      */
     @Produces
     @ApplicationScoped
-    public GollekSdk produceSdk() {
+    public AqliSdk produceSdk() {
         if (cachedSdk != null) return cachedSdk;
         cachedSdk = createSdk();
-        log.info("Gollek SDK initialized [mode={}]", engineMode);
+        log.info("Aqli SDK initialized [mode={}]", engineMode);
         return cachedSdk;
     }
 
     /** Also exposed directly for non-CDI use. */
-    public GollekSdk sdk() {
+    public AqliSdk sdk() {
         if (cachedSdk == null) cachedSdk = createSdk();
         return cachedSdk;
     }
 
-    private GollekSdk createSdk() {
+    private AqliSdk createSdk() {
         SdkConfig sdkConfig = SdkConfig.builder()
                 .apiKey(apiKey)
                 .requestTimeout(Duration.ofSeconds(requestTimeoutSeconds))
@@ -77,16 +77,16 @@ public class SdkProvider {
         try {
             return switch (engineMode.toLowerCase()) {
                 case "local" -> {
-                    log.info("Creating local Gollek SDK");
-                    yield GollekSdkFactory.createLocalSdk(sdkConfig);
+                    log.info("Creating local Aqli SDK");
+                    yield AqliSdkFactory.createLocalSdk(sdkConfig);
                 }
                 case "remote" -> {
                     if (remoteUrl.isBlank()) {
                         throw new IllegalStateException(
                                 "gamelan.remote.url must be set when engine.mode=remote");
                     }
-                    log.info("Creating remote Gollek SDK -> {}", remoteUrl);
-                    yield GollekSdkFactory.createRemoteSdk(
+                    log.info("Creating remote Aqli SDK -> {}", remoteUrl);
+                    yield AqliSdkFactory.createRemoteSdk(
                             SdkConfig.builder()
                                     .apiKey(apiKey)
                                     .baseUrl(remoteUrl)
@@ -94,12 +94,12 @@ public class SdkProvider {
                                     .build());
                 }
                 default -> {
-                    log.info("Auto-detecting Gollek SDK mode");
-                    yield GollekSdkFactory.create(sdkConfig);
+                    log.info("Auto-detecting Aqli SDK mode");
+                    yield AqliSdkFactory.create(sdkConfig);
                 }
             };
         } catch (SdkException e) {
-            throw new RuntimeException("Failed to initialize Gollek SDK: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to initialize Aqli SDK: " + e.getMessage(), e);
         }
     }
 }

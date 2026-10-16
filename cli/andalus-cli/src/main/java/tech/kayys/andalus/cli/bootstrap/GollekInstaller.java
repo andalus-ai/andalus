@@ -6,17 +6,17 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 
-public class GollekInstaller {
+public class AqliInstaller {
 
-    public static boolean install(GollekConfig config) {
+    public static boolean install(AqliConfig config) {
         Path installDir = Paths.get(config.getInstallDir());
-        Path binaryPath = installDir.resolve("bin").resolve("gollek");
+        Path binaryPath = installDir.resolve("bin").resolve("aqli");
         
         if (Files.exists(binaryPath)) {
             return true;
         }
         
-        System.out.println("[Andalus] Gollek binary not found. Initiating download and install...");
+        System.out.println("[Andalus] Aqli binary not found. Initiating download and install...");
         
         try {
             Files.createDirectories(installDir);
@@ -32,10 +32,10 @@ public class GollekInstaller {
                 
                 boolean finished = process.waitFor(5, TimeUnit.MINUTES);
                 if (finished && process.exitValue() == 0) {
-                    System.out.println("[Andalus] Gollek installed successfully via remote script.");
+                    System.out.println("[Andalus] Aqli installed successfully via remote script.");
                     return true;
                 } else {
-                    System.err.println("[Andalus] Failed to install Gollek via remote script. Falling back to direct binary download.");
+                    System.err.println("[Andalus] Failed to install Aqli via remote script. Falling back to direct binary download.");
                 }
             }
             
@@ -48,14 +48,14 @@ public class GollekInstaller {
             Process process = pb.start();
             if (process.waitFor() == 0) {
                 binaryPath.toFile().setExecutable(true);
-                System.out.println("[Andalus] Gollek downloaded directly.");
+                System.out.println("[Andalus] Aqli downloaded directly.");
                 return true;
             } else {
                 System.err.println("[Andalus] Direct download failed.");
                 return false;
             }
         } catch (IOException | InterruptedException e) {
-            System.err.println("[Andalus] Error during Gollek installation: " + e.getMessage());
+            System.err.println("[Andalus] Error during Aqli installation: " + e.getMessage());
             return false;
         }
     }

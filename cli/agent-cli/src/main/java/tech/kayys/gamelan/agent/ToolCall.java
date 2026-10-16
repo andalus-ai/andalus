@@ -6,11 +6,11 @@ import java.util.Map;
 /**
  * Immutable representation of a tool call emitted by the LLM.
  *
- * <p>Uses Gollek's native tool calling format instead of XML parsing.
+ * <p>Uses Aqli's native tool calling format instead of XML parsing.
  *
  * @param name       the tool name (e.g. "read_file")
  * @param parameters key-value parameters for the tool
- * @param callId     unique identifier for this tool call (from Gollek SDK)
+ * @param callId     unique identifier for this tool call (from Aqli SDK)
  */
 public record ToolCall(String name, Map<String, Object> parameters, String callId) {
 
@@ -49,10 +49,10 @@ public record ToolCall(String name, Map<String, Object> parameters, String callI
     }
 
     /**
-     * Create a ToolCall from a Gollek SDK InferenceResponse.ToolCall.
+     * Create a ToolCall from a Aqli SDK InferenceResponse.ToolCall.
      * Note: InferenceResponse.ToolCall has no id field; callId is set to null.
      */
-    public static ToolCall fromGollek(tech.kayys.gollek.spi.inference.InferenceResponse.ToolCall gc) {
+    public static ToolCall fromAqli(tech.kayys.aqli.spi.inference.InferenceResponse.ToolCall gc) {
         return new ToolCall(gc.name(), gc.arguments(), null);
     }
 

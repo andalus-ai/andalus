@@ -11,7 +11,7 @@ import java.util.function.Consumer;
  * <p>The delegate handles the actual HTTP/SDK call and converts the result into
  * the normalised {@link StreamEvent} stream expected by the agentic-tui
  * {@link tech.kayys.andalus.tui.agent.Agent}. This keeps the TUI layer free of
- * any direct Gollek SDK / Mutiny dependency.</p>
+ * any direct Aqli SDK / Mutiny dependency.</p>
  */
 public final class AndalusProvider implements Provider {
 

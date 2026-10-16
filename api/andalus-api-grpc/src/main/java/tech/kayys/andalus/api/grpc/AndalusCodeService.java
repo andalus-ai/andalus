@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
  * - Generate is a convenience single-shot wrapper.
  *
  * The concrete integration points (Session manager, ChatSession creation,
- * transcript persistence) live in andalus/sdk/andalus-gollek-sdk and must be
+ * transcript persistence) live in andalus/sdk/andalus-aqli-sdk and must be
  * invoked here. This class is a minimal skeleton.
  */
 public class AndalusCodeService extends CodeServiceGrpc.CodeServiceImplBase {
@@ -72,16 +72,16 @@ public class AndalusCodeService extends CodeServiceGrpc.CodeServiceImplBase {
             final String sid = sessionId;
             store.saveTranscript(pid, sid, (java.util.List) capturedTranscript);
 
-            // Attempt to create an in-process Gollek ChatSession via reflection
+            // Attempt to create an in-process Aqli ChatSession via reflection
             Object chatSession = null;
             try {
                 try {
-                    Class<?> factory = Class.forName("tech.kayys.gollek.factory.GollekSdkFactory");
+                    Class<?> factory = Class.forName("tech.kayys.aqli.factory.AqliSdkFactory");
                     java.lang.reflect.Method create = factory.getMethod("createLocalSdk");
                     Object sdk = create.invoke(null);
                     if (sdk != null) {
                         try {
-                            Class<?> impl = Class.forName("tech.kayys.gollek.sdk.session.ChatSessionImpl");
+                            Class<?> impl = Class.forName("tech.kayys.aqli.sdk.session.ChatSessionImpl");
                             java.lang.reflect.Constructor<?> ctor = null;
                             for (java.lang.reflect.Constructor<?> c : impl.getConstructors()) {
                                 Class<?>[] pts = c.getParameterTypes();

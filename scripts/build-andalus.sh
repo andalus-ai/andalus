@@ -40,7 +40,7 @@ export JAVA_TOOL_OPTIONS
 
 is_legacy_gradle_module() {
   case "$1" in
-    :ml:*|:trainer:*|:examples:gollek-ml-examples|:models:gollek-model-common|:runner:onnx:gollek-ml-export-onnx|:runner:onnx:gollek-ml-onnx|:runner:diffuser:gollek-diffuser) return 0 ;;
+    :ml:*|:trainer:*|:examples:aqli-ml-examples|:models:aqli-model-common|:runner:onnx:aqli-ml-export-onnx|:runner:onnx:aqli-ml-onnx|:runner:diffuser:aqli-diffuser) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -59,7 +59,7 @@ for module in "${MODULE_ARRAY[@]}"; do
   # Map Gradle project path to filesystem path and check existence (e.g. :ui:andalus-cli -> ui/andalus-cli)
   module_path="${module#":"}"
   module_path_fs="${module_path//:/\/}"
-  if [[ -d "$ROOT_DIR/$module_path_fs" || -d "$ROOT_DIR/../gollek/$module_path_fs" ]]; then
+  if [[ -d "$ROOT_DIR/$module_path_fs" || -d "$ROOT_DIR/../aqli/$module_path_fs" || -d "$ROOT_DIR/../../../Aqli/aqli/$module_path_fs" ]]; then
     SUPPORTED_MODULES+=("$module")
   else
     SKIPPED_MODULES+=("$module")
@@ -90,8 +90,8 @@ if [[ ${#SKIPPED_MODULES[@]} -gt 0 ]]; then
 fi
 
 ./gradlew "${GRADLE_JAVA_HOME_ARG[@]}" "${GRADLE_BUILD_TASKS[@]}" \
-  -Pgollek.backend="${RESOLVED_BACKEND_PROPERTY}" \
-  -Pgollek.profile="${BUILD_PROFILE}" \
-  -Pgollek.model.formats="${FORMAT_TARGETS}" \
-  -Pgollek.llm.types="${LLM_TARGETS}" \
-  -Pgollek.architecture="${ARCHITECTURE_VALUE}"
+  -Paqli.backend="${RESOLVED_BACKEND_PROPERTY}" \
+  -Paqli.profile="${BUILD_PROFILE}" \
+  -Paqli.model.formats="${FORMAT_TARGETS}" \
+  -Paqli.llm.types="${LLM_TARGETS}" \
+  -Paqli.architecture="${ARCHITECTURE_VALUE}"

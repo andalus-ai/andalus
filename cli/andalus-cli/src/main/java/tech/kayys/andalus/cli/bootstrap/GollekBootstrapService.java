@@ -3,15 +3,15 @@ package tech.kayys.andalus.cli.bootstrap;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-public class GollekBootstrapService {
+public class AqliBootstrapService {
 
     public static void ensureRunning(String profile) {
-        Path configYaml = Paths.get(System.getProperty("user.dir"), "config", "providers", "gollek.yaml");
+        Path configYaml = Paths.get(System.getProperty("user.dir"), "config", "providers", "aqli.yaml");
         if (!configYaml.toFile().exists()) {
-            configYaml = Paths.get(System.getProperty("user.dir"), "Families", "andalus", "config", "providers", "gollek.yaml");
+            configYaml = Paths.get(System.getProperty("user.dir"), "Families", "andalus", "config", "providers", "aqli.yaml");
         }
         
-        GollekConfig config = GollekConfig.load(configYaml, profile);
+        AqliConfig config = AqliConfig.load(configYaml, profile);
         
         // If strategy is not grpc or embedded, we might not need to start it locally (e.g. REST remote)
         if ("embedded".equals(config.getStrategy())) {
@@ -20,38 +20,38 @@ public class GollekBootstrapService {
         
         if ("grpc".equals(config.getStrategy()) && "localhost".equals(config.getGrpcHost())) {
             
-            boolean isRunning = GollekHealthProbe.isReachable(config.getGrpcHost(), config.getGrpcPort());
+            boolean isRunning = AqliHealthProbe.isReachable(config.getGrpcHost(), config.getGrpcPort());
             if (isRunning) {
                 return; // Already running
             }
             
             if (config.isAutoStart()) {
                 if (config.isAutoInstall()) {
-                    boolean installed = GollekInstaller.install(config);
+                    boolean installed = AqliInstaller.install(config);
                     if (!installed && config.isFailHard()) {
-                        throw new RuntimeException("Failed to install Gollek backend. Cannot proceed.");
+                        throw new RuntimeException("Failed to install Aqli backend. Cannot proceed.");
                     }
                 }
                 
-                boolean started = GollekProcessManager.start(config);
+                boolean started = AqliProcessManager.start(config);
                 if (started) {
-                    boolean healthy = GollekHealthProbe.waitForHealth(config.getGrpcHost(), config.getGrpcPort(), 30);
+                    boolean healthy = AqliHealthProbe.waitForHealth(config.getGrpcHost(), config.getGrpcPort(), 30);
                     if (healthy) {
                         return; // Successfully started and healthy
                     } else {
-                        System.err.println("[Andalus] Gollek backend started but did not become healthy within timeout.");
+                        System.err.println("[Andalus] Aqli backend started but did not become healthy within timeout.");
                     }
                 }
                 
                 if (config.isFailHard()) {
-                    throw new RuntimeException("Gollek backend is required but failed to start or become healthy.");
+                    throw new RuntimeException("Aqli backend is required but failed to start or become healthy.");
                 }
             } else if (config.isFailHard()) {
-                throw new RuntimeException("Gollek backend is not running at " + config.getGrpcHost() + ":" + config.getGrpcPort() + " and auto-start is disabled.");
+                throw new RuntimeException("Aqli backend is not running at " + config.getGrpcHost() + ":" + config.getGrpcPort() + " and auto-start is disabled.");
             }
             
             // If failHard is false, we proceed (Andalus config might handle fallback)
-            System.err.println("[Andalus] Warning: Gollek backend is not running. Falling back to " + config.getFallbackProvider());
+            System.err.println("[Andalus] Warning: Aqli backend is not running. Falling back to " + config.getFallbackProvider());
             // Since this runs during CLI startup, we could inject a system property to override the preferred provider
             System.setProperty("andalus.fallback.provider", config.getFallbackProvider());
         }

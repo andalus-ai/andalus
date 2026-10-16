@@ -20,19 +20,19 @@ $AndalusModelsDir = if ($env:ANDALUS_MODELS_DIR) { $env:ANDALUS_MODELS_DIR } els
 $AndalusMcpDir = if ($env:ANDALUS_MCP_DIR) { $env:ANDALUS_MCP_DIR } else { Join-Path $AndalusHome "mcp" }
 $AndalusRunDir = if ($env:ANDALUS_RUN_DIR) { $env:ANDALUS_RUN_DIR } else { Join-Path $AndalusHome "run" }
 $AndalusVectorDir = if ($env:ANDALUS_VECTOR_DIR) { $env:ANDALUS_VECTOR_DIR } else { Join-Path $AndalusHome "vector" }
-$GollekHome = if ($env:ANDALUS_GOLLEK_HOME) { $env:ANDALUS_GOLLEK_HOME } else { Join-Path $AndalusHome "gollek" }
-$legacyGollekHome = if ($env:GOLLEK_HOME) { $env:GOLLEK_HOME } else { "$env:USERPROFILE\.gollek" }
+$AqliHome = if ($env:ANDALUS_AQLI_HOME) { $env:ANDALUS_AQLI_HOME } else { Join-Path $AndalusHome "aqli" }
+$legacyAqliHome = if ($env:AQLI_HOME) { $env:AQLI_HOME } else { "$env:USERPROFILE\.aqli" }
 
 try {
-    New-Item -ItemType Directory -Force -Path $GollekHome | Out-Null
-    $ResolvedGollekHome = $GollekHome
+    New-Item -ItemType Directory -Force -Path $AqliHome | Out-Null
+    $ResolvedAqliHome = $AqliHome
 } catch {
-    New-Item -ItemType Directory -Force -Path $legacyGollekHome | Out-Null
-    $ResolvedGollekHome = $legacyGollekHome
+    New-Item -ItemType Directory -Force -Path $legacyAqliHome | Out-Null
+    $ResolvedAqliHome = $legacyAqliHome
 }
 
-$AndalusGollekModelsDir = if ($env:ANDALUS_GOLLEK_MODELS_DIR) { $env:ANDALUS_GOLLEK_MODELS_DIR } else { Join-Path $ResolvedGollekHome "models" }
-$AndalusGollekStorageDir = if ($env:ANDALUS_GOLLEK_STORAGE_DIR) { $env:ANDALUS_GOLLEK_STORAGE_DIR } else { Join-Path $ResolvedGollekHome "storage" }
+$AndalusAqliModelsDir = if ($env:ANDALUS_AQLI_MODELS_DIR) { $env:ANDALUS_AQLI_MODELS_DIR } else { Join-Path $ResolvedAqliHome "models" }
+$AndalusAqliStorageDir = if ($env:ANDALUS_AQLI_STORAGE_DIR) { $env:ANDALUS_AQLI_STORAGE_DIR } else { Join-Path $ResolvedAqliHome "storage" }
 
 @(
     $AndalusConfigDir,
@@ -43,8 +43,8 @@ $AndalusGollekStorageDir = if ($env:ANDALUS_GOLLEK_STORAGE_DIR) { $env:ANDALUS_G
     $AndalusMcpDir,
     $AndalusRunDir,
     $AndalusVectorDir,
-    $AndalusGollekModelsDir,
-    $AndalusGollekStorageDir
+    $AndalusAqliModelsDir,
+    $AndalusAqliStorageDir
 ) | ForEach-Object { New-Item -ItemType Directory -Force -Path $_ | Out-Null }
 
 $AndalusExecutable = if ($env:ANDALUS_EXECUTABLE) { $env:ANDALUS_EXECUTABLE } else { Join-Path $AndalusHome "bin\andalus.exe" }
@@ -65,10 +65,10 @@ $envArgs = @(
     "ANDALUS_MCP_DIR=$AndalusMcpDir",
     "ANDALUS_RUN_DIR=$AndalusRunDir",
     "ANDALUS_VECTOR_DIR=$AndalusVectorDir",
-    "ANDALUS_GOLLEK_HOME=$GollekHome",
-    "GOLLEK_HOME=$ResolvedGollekHome",
-    "ANDALUS_GOLLEK_MODELS_DIR=$AndalusGollekModelsDir",
-    "ANDALUS_GOLLEK_STORAGE_DIR=$AndalusGollekStorageDir"
+    "ANDALUS_AQLI_HOME=$AqliHome",
+    "AQLI_HOME=$ResolvedAqliHome",
+    "ANDALUS_AQLI_MODELS_DIR=$AndalusAqliModelsDir",
+    "ANDALUS_AQLI_STORAGE_DIR=$AndalusAqliStorageDir"
 )
 
 if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {

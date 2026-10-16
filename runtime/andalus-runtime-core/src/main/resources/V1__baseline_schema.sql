@@ -1,6 +1,6 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- V1__baseline_schema.sql
--- Gollek Agent System — Baseline PostgreSQL schema
+-- Aqli Agent System — Baseline PostgreSQL schema
 -- Flyway migration: applied automatically at startup via quarkus.flyway.migrate-at-start=true
 -- ─────────────────────────────────────────────────────────────────────────────
 

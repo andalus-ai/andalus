@@ -6,8 +6,8 @@ import picocli.CommandLine.Mixin;
 import tech.kayys.andalus.cli.contract.AndalusContractCommands;
 import tech.kayys.andalus.client.Andalus;
 import tech.kayys.andalus.client.AndalusClient;
-import tech.kayys.andalus.client.AndalusGollekSdk;
-import tech.kayys.andalus.cli.bootstrap.GollekBootstrapService;
+import tech.kayys.andalus.client.AndalusAqliSdk;
+import tech.kayys.andalus.cli.bootstrap.AqliBootstrapService;
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -28,12 +28,12 @@ import java.lang.reflect.Method;
  */
 @Command(
         name = "andalus",
-        aliases = "andalus-gollek",
-        description = "Andalus agentic platform CLI. Compatibility alias: andalus-gollek.",
+        aliases = "andalus-aqli",
+        description = "Andalus agentic platform CLI. Compatibility alias: andalus-aqli.",
         mixinStandardHelpOptions = true,
         subcommands = {
                AndalusProjectCommand.class,
-               AndalusGollekProxyCommand.class,
+               AndalusAqliProxyCommand.class,
                AndalusPlatformCommands.StatusCommand.class,
                AndalusPlatformCommands.ProductsCommand.class,
                AndalusPlatformCommands.SdkBoundariesCommand.class,
@@ -54,28 +54,28 @@ import java.lang.reflect.Method;
                AndalusKnowledgeCommands.KnowledgeCommand.class,
                tech.kayys.andalus.cli.operator.OperatorCommand.class
         } )
- public final class AndalusGollekCli implements Runnable {
+ public final class AndalusAqliCli implements Runnable {
 
-    private final AndalusGollekSdk injectedSdk;
+    private final AndalusAqliSdk injectedSdk;
     private final InputStream in;
     private final PrintStream out;
     private final PrintStream err;
     private final AndalusCliContext context;
-    private AndalusGollekSdk resolvedSdk;
+    private AndalusAqliSdk resolvedSdk;
     private AndalusClient resolvedClient;
 
     @Mixin
     private AndalusCliSdkOptions sdkOptions = new AndalusCliSdkOptions();
 
-    public AndalusGollekCli() {
+    public AndalusAqliCli() {
         this(null, System.in, System.out, System.err);
     }
 
-    AndalusGollekCli(AndalusGollekSdk injectedSdk, PrintStream out, PrintStream err) {
+    AndalusAqliCli(AndalusAqliSdk injectedSdk, PrintStream out, PrintStream err) {
         this(injectedSdk, System.in, out, err);
     }
 
-    AndalusGollekCli(AndalusGollekSdk injectedSdk, InputStream in, PrintStream out, PrintStream err) {
+    AndalusAqliCli(AndalusAqliSdk injectedSdk, InputStream in, PrintStream out, PrintStream err) {
         this.injectedSdk = injectedSdk;
         this.in = in == null ? InputStream.nullInputStream() : in;
         this.out = out;
@@ -91,12 +91,12 @@ import java.lang.reflect.Method;
         return execute(null, System.out, System.err, args);
     }
 
-    static int execute(AndalusGollekSdk service, PrintStream out, PrintStream err, String... args) {
+    static int execute(AndalusAqliSdk service, PrintStream out, PrintStream err, String... args) {
         return execute(service, System.in, out, err, args);
     }
 
-    static int execute(AndalusGollekSdk service, InputStream in, PrintStream out, PrintStream err, String... args) {
-        CommandLine commandLine = new CommandLine(new AndalusGollekCli(service, in, out, err));
+    static int execute(AndalusAqliSdk service, InputStream in, PrintStream out, PrintStream err, String... args) {
+        CommandLine commandLine = new CommandLine(new AndalusAqliCli(service, in, out, err));
         commandLine.setOut(new PrintWriter(out, true));
         commandLine.setErr(new PrintWriter(err, true));
         return commandLine.execute(args);
@@ -126,7 +126,7 @@ import java.lang.reflect.Method;
 
     public boolean isIgnoreConfig() { return sdkOptions != null && Boolean.TRUE.equals(sdkOptions.ignoreConfig); }
 
-    public AndalusGollekSdk sdk() {
+    public AndalusAqliSdk sdk() {
         if (injectedSdk != null) {
             return injectedSdk;
         }
@@ -144,8 +144,8 @@ import java.lang.reflect.Method;
                     if (m.find()) {
                         String provider = m.group(1).trim();
                         
-                        // Bootstrap check if provider is gollek
-                        if ("gollek".equals(provider)) {
+                        // Bootstrap check if provider is aqli
+                        if ("aqli".equals(provider)) {
                             // Determine active profile from config or system properties
                             String profile = System.getProperty("andalus.profile", "development");
                             try {
@@ -154,9 +154,9 @@ import java.lang.reflect.Method;
                                 if (profileMatcher.find()) {
                                     profile = profileMatcher.group(1).trim();
                                 }
-                                GollekBootstrapService.ensureRunning(profile);
+                                AqliBootstrapService.ensureRunning(profile);
                             } catch (Exception ex) {
-                                logToFile("Error during Gollek bootstrap: " + ex.getMessage());
+                                logToFile("Error during Aqli bootstrap: " + ex.getMessage());
                             }
                             // Apply fallback if bootstrap altered it
                             String fallback = System.getProperty("andalus.fallback.provider");
@@ -220,7 +220,7 @@ import java.lang.reflect.Method;
                                     } catch (NoSuchMethodException nsme) {
                                         // SDK may not support dynamic loading
                                     }
-                                    Path candidateDir = Paths.get(System.getProperty("user.home"), ".m2", "repository", "tech", "kayys", "gollek", "gollek-plugin-" + provider);
+                                    Path candidateDir = Paths.get(System.getProperty("user.home"), ".m2", "repository", "tech", "kayys", "aqli", "aqli-plugin-" + provider);
                                     if (Files.exists(candidateDir)) {
                                         java.util.Optional<Path> jarOpt = Files.walk(candidateDir)
                                                 .filter(x -> x.getFileName().toString().endsWith(".jar"))
@@ -254,7 +254,7 @@ import java.lang.reflect.Method;
                                                         Object descriptor = ctor.newInstance(
                                                                 capabilityId,
                                                                 providerIdGuess,
-                                                                "gollek",
+                                                                "aqli",
                                                                 moduleId,
                                                                 "inference",
                                                                 Character.toUpperCase(providerIdGuess.charAt(0)) + providerIdGuess.substring(1) + " Provider",
@@ -262,7 +262,7 @@ import java.lang.reflect.Method;
                                                                 stateVal,
                                                                 java.util.List.of("coding-agent", "assistant-agent"),
                                                                 java.util.List.of(),
-                                                                java.util.List.of("gollek", "provider", "inference"),
+                                                                java.util.List.of("aqli", "provider", "inference"),
                                                                 java.util.Map.of("jar", jarPath.toString())
                                                         );
                                                         Method registerMethod = registry.getClass().getMethod("register", descClass);

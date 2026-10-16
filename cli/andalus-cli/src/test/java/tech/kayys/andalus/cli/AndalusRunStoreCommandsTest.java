@@ -3,8 +3,8 @@ package tech.kayys.andalus.cli;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
-import tech.kayys.andalus.cli.AndalusGollekCli;
-import tech.kayys.andalus.client.AndalusGollekSdk;
+import tech.kayys.andalus.cli.AndalusAqliCli;
+import tech.kayys.andalus.client.AndalusAqliSdk;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -36,8 +36,8 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 stream(out),
                 stream(err),
                 "run",
@@ -60,8 +60,8 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 stream(out),
                 stream(err),
                 "run",
@@ -84,7 +84,7 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 stream(out),
                 stream(err),
@@ -118,8 +118,8 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 stream(out),
                 stream(err),
                 "run",
@@ -144,7 +144,7 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 stream(out),
                 stream(err),
@@ -175,7 +175,7 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 stream(out),
                 stream(err),
@@ -209,7 +209,7 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 stream(out),
                 stream(err),
@@ -242,7 +242,7 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 stream(out),
                 stream(err),
@@ -276,7 +276,7 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 stream(out),
                 stream(err),
@@ -315,7 +315,7 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 stream(out),
                 stream(err),
@@ -351,7 +351,7 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 stream(out),
                 stream(err),
@@ -400,7 +400,7 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 stream(out),
                 stream(err),
@@ -435,7 +435,7 @@ class AndalusRunStoreCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 stream(out),
                 stream(err),
@@ -454,8 +454,8 @@ class AndalusRunStoreCommandsTest {
     }
 
     private static CommandLine commandLine() {
-        return new CommandLine(new AndalusGollekCli(
-                AndalusGollekSdk.local(),
+        return new CommandLine(new AndalusAqliCli(
+                AndalusAqliSdk.local(),
                 stream(new ByteArrayOutputStream()),
                 stream(new ByteArrayOutputStream())));
     }

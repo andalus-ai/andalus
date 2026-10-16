@@ -4,11 +4,11 @@
   "version": "1.0.0",
   "description": "Cloud provider for OpenAI models (GPT-4, GPT-3.5-turbo, etc.)",
   "provider": "Kayys.tech",
-  "mainClass": "tech.kayys.gollek.plugin.cloud.openai.OpenAiCloudProvider",
+  "mainClass": "tech.kayys.aqli.plugin.cloud.openai.OpenAiCloudProvider",
   "dependencies": [
-    "tech.kayys:gollek-spi-plugin:1.0.0-SNAPSHOT",
-    "tech.kayys:gollek-spi-provider:1.0.0-SNAPSHOT",
-    "tech.kayys:gollek-spi-inference:1.0.0-SNAPSHOT"
+    "tech.kayys:aqli-spi-plugin:1.0.0-SNAPSHOT",
+    "tech.kayys:aqli-spi-provider:1.0.0-SNAPSHOT",
+    "tech.kayys:aqli-spi-inference:1.0.0-SNAPSHOT"
   ],
   "capabilities": [
     "cloud-provider",

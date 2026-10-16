@@ -17,14 +17,14 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * ModelManager backed by the Andalus gRPC SdkService.ListModels RPC.
- * The server in turn calls {@code gollek list --format json} to get locally
- * installed models from the Gollek inference engine.
+ * The server in turn calls {@code aqli list --format json} to get locally
+ * installed models from the Aqli inference engine.
  */
-public class GollekModelManager implements ModelManager {
+public class AqliModelManager implements ModelManager {
 
     private final String grpcTarget;
 
-    public GollekModelManager(String grpcTarget) {
+    public AqliModelManager(String grpcTarget) {
         // Accept "host:port" or a full "http://host:port" URL
         String t = grpcTarget != null ? grpcTarget : "localhost:31013";
         if (t.startsWith("http://")) t = t.substring(7);
@@ -66,8 +66,8 @@ public class GollekModelManager implements ModelManager {
                 result.add(new ModelRow(m.getId(), m.getName(), format, size));
             }
         } catch (Exception e) {
-            // gRPC unavailable: fall back to gollek CLI directly
-            result.addAll(listViaGollekCli());
+            // gRPC unavailable: fall back to aqli CLI directly
+            result.addAll(listViaAqliCli());
         } finally {
             if (channel != null) {
                 try { channel.shutdownNow().awaitTermination(1, TimeUnit.SECONDS); }
@@ -78,10 +78,10 @@ public class GollekModelManager implements ModelManager {
     }
 
     /** Direct CLI fallback when the gRPC server isn't running. */
-    private List<ModelRow> listViaGollekCli() {
+    private List<ModelRow> listViaAqliCli() {
         List<ModelRow> result = new ArrayList<>();
         try {
-            Process p = new ProcessBuilder("gollek", "list", "--format", "json")
+            Process p = new ProcessBuilder("aqli", "list", "--format", "json")
                 .redirectErrorStream(true)
                 .start();
             StringBuilder sb = new StringBuilder();
@@ -126,7 +126,7 @@ public class GollekModelManager implements ModelManager {
     public int pullModel(PrintStream out, String modelSpec) {
         out.println("Pulling model: " + modelSpec);
         try {
-            Process p = new ProcessBuilder("gollek", "pull", modelSpec)
+            Process p = new ProcessBuilder("aqli", "pull", modelSpec)
                 .redirectErrorStream(true)
                 .start();
             try (BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()))) {

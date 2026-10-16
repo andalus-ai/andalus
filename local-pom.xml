@@ -10,8 +10,8 @@
 
     <name>Andalus local build aggregator</name>
     <modules>
-        <module>sdk/andalus-gollek-sdk</module>
+        <module>sdk/andalus-aqli-sdk</module>
         <module>api/andalus-api-grpc</module>
-        <module>cli/andalus-gollek-cli</module>
+        <module>cli/andalus-aqli-cli</module>
     </modules>
 </project>

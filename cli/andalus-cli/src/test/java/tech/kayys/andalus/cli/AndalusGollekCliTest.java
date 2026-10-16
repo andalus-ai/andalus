@@ -3,14 +3,14 @@ package tech.kayys.andalus.cli;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import tech.kayys.andalus.cli.AndalusGollekCli;
+import tech.kayys.andalus.cli.AndalusAqliCli;
 import tech.kayys.andalus.agent.run.AgentRunHandle;
 import tech.kayys.andalus.agent.run.AgentRunState;
 import tech.kayys.andalus.agent.run.AgentRunStatus;
 import tech.kayys.andalus.agent.store.AgentRunStore;
-import tech.kayys.andalus.client.LocalAndalusGollekSdk;
-import tech.kayys.andalus.client.AndalusGollekSdk;
-import tech.kayys.andalus.client.AndalusGollekSdkConfig;
+import tech.kayys.andalus.client.LocalAndalusAqliSdk;
+import tech.kayys.andalus.client.AndalusAqliSdk;
+import tech.kayys.andalus.client.AndalusAqliSdkConfig;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -23,14 +23,14 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class AndalusGollekCliTest {
+class AndalusAqliCliTest {
 
     @Test
     void statusShowsProductBoundary() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "status");
@@ -39,7 +39,7 @@ class AndalusGollekCliTest {
         assertThat(console.out())
                 .contains("Andalus")
                 .contains("Andalus is the agentic platform")
-                .contains("Gollek")
+                .contains("Aqli")
                 .contains("Gamelan");
         assertThat(console.err()).isEmpty();
     }
@@ -48,8 +48,8 @@ class AndalusGollekCliTest {
     void statusCanRenderCompactJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "status",
@@ -58,15 +58,15 @@ class AndalusGollekCliTest {
         assertThat(exitCode).isZero();
         assertThat(console.out())
                 .contains("\"product\":\"Andalus\"")
-                .contains("\"gollek\":\"external\"");
+                .contains("\"aqli\":\"external\"");
     }
 
     @Test
     void statusCanRenderReadinessJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "status",
@@ -93,8 +93,8 @@ class AndalusGollekCliTest {
     void statusCanRenderReadinessProfileJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "status",
@@ -118,8 +118,8 @@ class AndalusGollekCliTest {
     void statusCanRenderReadinessText() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "status",
@@ -143,8 +143,8 @@ class AndalusGollekCliTest {
     void statusReadinessProfileImpliesReadinessText() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "status",
@@ -158,7 +158,7 @@ class AndalusGollekCliTest {
                 .contains("andalus.contract.integrity.readiness")
                 .contains("andalus.contract.coverage.readiness")
                 .contains("andalus.standard-alignment.readiness")
-                .doesNotContain("Gollek");
+                .doesNotContain("Aqli");
         assertThat(console.err()).isEmpty();
     }
 
@@ -166,8 +166,8 @@ class AndalusGollekCliTest {
     void statusRejectsUnknownReadinessProfile() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "status",
@@ -186,8 +186,8 @@ class AndalusGollekCliTest {
     void readinessProfilesCanRenderText() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles");
@@ -209,8 +209,8 @@ class AndalusGollekCliTest {
     void readinessProfilesCanRenderJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -233,8 +233,8 @@ class AndalusGollekCliTest {
     void readinessProfilesCanValidateProfilesText() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -263,8 +263,8 @@ class AndalusGollekCliTest {
     void readinessProfilesCanValidateProfilesJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -299,8 +299,8 @@ class AndalusGollekCliTest {
     void readinessProfilesCanValidateProfilesWithSelectedPolicy() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -325,8 +325,8 @@ class AndalusGollekCliTest {
     void readinessProfilesCheckRejectsUnknownValidationPolicy() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -348,8 +348,8 @@ class AndalusGollekCliTest {
     void readinessProfilesCanListValidationPoliciesText() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -372,8 +372,8 @@ class AndalusGollekCliTest {
     void readinessProfilesCanListValidationPoliciesJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -398,8 +398,8 @@ class AndalusGollekCliTest {
     void readinessProfilesCanInspectRegistryConfigText() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -420,7 +420,7 @@ class AndalusGollekCliTest {
     void readinessProfilesCanInspectInvalidRegistryConfigJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 console.outStream(),
                 console.errStream(),
@@ -446,8 +446,8 @@ class AndalusGollekCliTest {
     void readinessProfilesCanInspectRegistrySourcesText() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -473,8 +473,8 @@ class AndalusGollekCliTest {
         TestConsole console = new TestConsole();
         Path missing = tempDir.resolve("missing-readiness-profiles.properties");
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -507,8 +507,8 @@ class AndalusGollekCliTest {
     void readinessProfilesCanInspectProfileText() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -531,8 +531,8 @@ class AndalusGollekCliTest {
     void readinessProfilesCanInspectProfileJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -554,8 +554,8 @@ class AndalusGollekCliTest {
     void readinessProfilesInspectRejectsUnknownProfile() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "readiness-profiles",
@@ -574,8 +574,8 @@ class AndalusGollekCliTest {
     void runCommandFormatsPreparedAgentRun() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -599,7 +599,7 @@ class AndalusGollekCliTest {
                 .contains("draft a workflow")
                 .contains("state: completed")
                 .contains("outcome: terminal")
-                .contains("andalus-agent-over-gollek")
+                .contains("andalus-agent-over-aqli")
                 .contains("tenant-a")
                 .contains("qwen")
                 .contains("planner")
@@ -613,8 +613,8 @@ class AndalusGollekCliTest {
     void runCommandTextSurfacesReadinessProblems() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -645,8 +645,8 @@ class AndalusGollekCliTest {
     void runCommandRequireReadyBlocksUnreadyRuns() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -678,8 +678,8 @@ class AndalusGollekCliTest {
     void runCommandRequireReadyAllowsReadyRuns() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -703,8 +703,8 @@ class AndalusGollekCliTest {
     void runCommandRequireReadyBlocksUnreadyRunsAsJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -738,8 +738,8 @@ class AndalusGollekCliTest {
                 """);
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -760,8 +760,8 @@ class AndalusGollekCliTest {
     void runCommandPrintSpecIncludesRequireReadyWhenEnabled() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -787,8 +787,8 @@ class AndalusGollekCliTest {
     void runCommandCanPreflightProductProfile() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -813,8 +813,8 @@ class AndalusGollekCliTest {
     void productsCommandListsReusableAgentEngineSurfaces() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "products");
@@ -839,8 +839,8 @@ class AndalusGollekCliTest {
     void productsCommandCanRenderJsonCatalog() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "products",
@@ -869,8 +869,8 @@ class AndalusGollekCliTest {
     void profilesCommandListsReusableProductProfiles() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "profiles");
@@ -890,8 +890,8 @@ class AndalusGollekCliTest {
     void profilesCommandFiltersBySurfaceAsJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "profiles",
@@ -914,8 +914,8 @@ class AndalusGollekCliTest {
     void profilesCommandInspectsOneProfile() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "profiles",
@@ -936,8 +936,8 @@ class AndalusGollekCliTest {
     void workbenchCommandRendersHeadlessAgentWorkbench() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "workbench");
@@ -955,8 +955,8 @@ class AndalusGollekCliTest {
     void workbenchCommandCanRenderJsonModel() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "workbench",
@@ -986,8 +986,8 @@ class AndalusGollekCliTest {
     void workbenchCommandCanFilterCommandsBySurface() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "workbench",
@@ -1014,8 +1014,8 @@ class AndalusGollekCliTest {
     void workbenchCommandCanFilterCommandsByProfile() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "workbench",
@@ -1040,8 +1040,8 @@ class AndalusGollekCliTest {
     void workbenchCommandCanFilterCommandsByCategoryAndId() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "workbench",
@@ -1067,8 +1067,8 @@ class AndalusGollekCliTest {
     void workbenchCommandCanFilterCommandsByContractJsonSchemaId() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "workbench",
@@ -1091,8 +1091,8 @@ class AndalusGollekCliTest {
     void workbenchCommandCombinesFiltersBeforeCommandIdLookup() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "workbench",
@@ -1113,8 +1113,8 @@ class AndalusGollekCliTest {
     void workbenchCommandRejectsUnknownSurfaceFilter() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "workbench",
@@ -1133,8 +1133,8 @@ class AndalusGollekCliTest {
     void commandsCommandRendersCommandCatalog() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands");
@@ -1223,8 +1223,8 @@ class AndalusGollekCliTest {
     void commandsCommandCanRenderSurfaceJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -1257,8 +1257,8 @@ class AndalusGollekCliTest {
     void contractsCommandListsJsonContractCatalog() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "contracts",
@@ -1288,8 +1288,8 @@ class AndalusGollekCliTest {
     void contractsCommandCanValidateCatalogJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "contracts",
@@ -1313,8 +1313,8 @@ class AndalusGollekCliTest {
     void contractsCommandCanRenderCoverageJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "contracts",
@@ -1342,8 +1342,8 @@ class AndalusGollekCliTest {
     void contractsCommandCanFilterByCommandId() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "contracts",
@@ -1367,8 +1367,8 @@ class AndalusGollekCliTest {
     void contractsCommandCanFilterByJsonSchemaId() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "contracts",
@@ -1394,8 +1394,8 @@ class AndalusGollekCliTest {
     void contractsCommandCanFilterByDomain() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "contracts",
@@ -1419,8 +1419,8 @@ class AndalusGollekCliTest {
     void contractsCommandCanRenderIndexJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "contracts",
@@ -1454,8 +1454,8 @@ class AndalusGollekCliTest {
     void contractsCommandCanRenderSchemaJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "contracts",
@@ -1485,8 +1485,8 @@ class AndalusGollekCliTest {
     void contractsCommandCanRenderLifecycleSchemaJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "contracts",
@@ -1515,8 +1515,8 @@ class AndalusGollekCliTest {
     void contractsCommandCanRenderSchemaBundleJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "contracts",
@@ -1547,8 +1547,8 @@ class AndalusGollekCliTest {
     void contractsCommandRejectsCompetingSchemaExportModes() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "contracts",
@@ -1567,8 +1567,8 @@ class AndalusGollekCliTest {
     void contractsCommandRequiresOneMatchForSchemaJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "contracts",
@@ -1588,8 +1588,8 @@ class AndalusGollekCliTest {
     void commandsCommandRendersCommandContractLinks() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -1610,8 +1610,8 @@ class AndalusGollekCliTest {
     void commandsCommandCanFilterByContractJsonSchemaId() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -1640,8 +1640,8 @@ class AndalusGollekCliTest {
     void commandsCommandCanFilterByCommandDiscoveryContractJsonSchemaId() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -1665,8 +1665,8 @@ class AndalusGollekCliTest {
     void commandsCommandCanFilterByWorkbenchContractJsonSchemaId() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -1690,8 +1690,8 @@ class AndalusGollekCliTest {
     void commandsCommandCanFilterByPlatformContractJsonSchemaId() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -1715,8 +1715,8 @@ class AndalusGollekCliTest {
     void commandsCommandCanFilterBySkillContractJsonSchemaId() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -1740,8 +1740,8 @@ class AndalusGollekCliTest {
     void commandsCommandCanRenderIndexJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -1795,8 +1795,8 @@ class AndalusGollekCliTest {
     void commandsCommandCanRenderContractsIndexJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -1821,8 +1821,8 @@ class AndalusGollekCliTest {
     void commandsCommandCanFilterByProfileAsIndexJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -1864,8 +1864,8 @@ class AndalusGollekCliTest {
     void skillsCommandRendersSkillCatalog() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "skills");
@@ -1888,8 +1888,8 @@ class AndalusGollekCliTest {
     void skillsCommandCanRenderFilteredJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "skills",
@@ -1916,8 +1916,8 @@ class AndalusGollekCliTest {
     void skillsCommandCanFilterByProfileAsJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "skills",
@@ -1944,8 +1944,8 @@ class AndalusGollekCliTest {
     void skillsCommandCanSearchWithinProfileAsJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "skills",
@@ -1971,8 +1971,8 @@ class AndalusGollekCliTest {
     void skillsCommandRejectsProfileSurfaceConflicts() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "skills",
@@ -1994,8 +1994,8 @@ class AndalusGollekCliTest {
     void skillsInspectCanUseAlias() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "skills",
@@ -2017,8 +2017,8 @@ class AndalusGollekCliTest {
     void skillsSearchHonorsSurfaceFilter() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "skills",
@@ -2041,8 +2041,8 @@ class AndalusGollekCliTest {
     void skillsCommandRejectsUnknownSurfaceFilter() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "skills",
@@ -2062,8 +2062,8 @@ class AndalusGollekCliTest {
     void commandsCommandCanRenderTextIndex() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -2090,8 +2090,8 @@ class AndalusGollekCliTest {
     void commandsCommandCanFilterByCategory() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -2115,8 +2115,8 @@ class AndalusGollekCliTest {
     void runStatusCommandReturnsUnknownLifecycleSnapshot() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -2135,10 +2135,10 @@ class AndalusGollekCliTest {
 
     @Test
     void runStatusCommandCanReadStatusFromSharedSdkInstance() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole runConsole = new TestConsole();
 
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 sdk,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -2155,7 +2155,7 @@ class AndalusGollekCliTest {
                 .orElseThrow();
         TestConsole statusConsole = new TestConsole();
 
-        int statusExitCode = AndalusGollekCli.execute(
+        int statusExitCode = AndalusAqliCli.execute(
                 sdk,
                 statusConsole.outStream(),
                 statusConsole.errStream(),
@@ -2178,10 +2178,10 @@ class AndalusGollekCliTest {
 
     @Test
     void runEventsCommandCanReadEventsFromSharedSdkInstance() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole runConsole = new TestConsole();
 
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 sdk,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -2193,7 +2193,7 @@ class AndalusGollekCliTest {
         String runId = runIdFromTextOutput(runConsole.out());
         TestConsole eventsConsole = new TestConsole();
 
-        int eventsExitCode = AndalusGollekCli.execute(
+        int eventsExitCode = AndalusAqliCli.execute(
                 sdk,
                 eventsConsole.outStream(),
                 eventsConsole.errStream(),
@@ -2230,10 +2230,10 @@ class AndalusGollekCliTest {
 
     @Test
     void runInspectCommandCanReadStatusAndEventsFromSharedSdkInstance() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole runConsole = new TestConsole();
 
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 sdk,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -2245,7 +2245,7 @@ class AndalusGollekCliTest {
         String runId = runIdFromTextOutput(runConsole.out());
         TestConsole inspectConsole = new TestConsole();
 
-        int inspectExitCode = AndalusGollekCli.execute(
+        int inspectExitCode = AndalusAqliCli.execute(
                 sdk,
                 inspectConsole.outStream(),
                 inspectConsole.errStream(),
@@ -2278,9 +2278,9 @@ class AndalusGollekCliTest {
 
     @Test
     void runEventsCommandCanFilterTimelineFromSharedSdkInstance() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole runConsole = new TestConsole();
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 sdk,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -2291,7 +2291,7 @@ class AndalusGollekCliTest {
         String runId = runIdFromTextOutput(runConsole.out());
         TestConsole eventsConsole = new TestConsole();
 
-        int eventsExitCode = AndalusGollekCli.execute(
+        int eventsExitCode = AndalusAqliCli.execute(
                 sdk,
                 eventsConsole.outStream(),
                 eventsConsole.errStream(),
@@ -2328,9 +2328,9 @@ class AndalusGollekCliTest {
 
     @Test
     void runEventsCommandCanRenderStatsWithoutRows() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole runConsole = new TestConsole();
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 sdk,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -2341,7 +2341,7 @@ class AndalusGollekCliTest {
         String runId = runIdFromTextOutput(runConsole.out());
         TestConsole statsConsole = new TestConsole();
 
-        int statsExitCode = AndalusGollekCli.execute(
+        int statsExitCode = AndalusAqliCli.execute(
                 sdk,
                 statsConsole.outStream(),
                 statsConsole.errStream(),
@@ -2367,9 +2367,9 @@ class AndalusGollekCliTest {
 
     @Test
     void runEventsCommandCanUseSequenceCursor() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole runConsole = new TestConsole();
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 sdk,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -2380,7 +2380,7 @@ class AndalusGollekCliTest {
         String runId = runIdFromTextOutput(runConsole.out());
         TestConsole eventsConsole = new TestConsole();
 
-        int eventsExitCode = AndalusGollekCli.execute(
+        int eventsExitCode = AndalusAqliCli.execute(
                 sdk,
                 eventsConsole.outStream(),
                 eventsConsole.errStream(),
@@ -2416,9 +2416,9 @@ class AndalusGollekCliTest {
 
     @Test
     void runEventsCommandCanFollowUntilTerminalEvent() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole runConsole = new TestConsole();
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 sdk,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -2429,7 +2429,7 @@ class AndalusGollekCliTest {
         String runId = runIdFromTextOutput(runConsole.out());
         TestConsole eventsConsole = new TestConsole();
 
-        int eventsExitCode = AndalusGollekCli.execute(
+        int eventsExitCode = AndalusAqliCli.execute(
                 sdk,
                 eventsConsole.outStream(),
                 eventsConsole.errStream(),
@@ -2473,9 +2473,9 @@ class AndalusGollekCliTest {
 
     @Test
     void runEventsCommandCanRenderOnlyFollowResult() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole runConsole = new TestConsole();
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 sdk,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -2486,7 +2486,7 @@ class AndalusGollekCliTest {
         String runId = runIdFromTextOutput(runConsole.out());
         TestConsole eventsConsole = new TestConsole();
 
-        int eventsExitCode = AndalusGollekCli.execute(
+        int eventsExitCode = AndalusAqliCli.execute(
                 sdk,
                 eventsConsole.outStream(),
                 eventsConsole.errStream(),
@@ -2520,9 +2520,9 @@ class AndalusGollekCliTest {
 
     @Test
     void runEventsCommandCanRenderOnlyFollowStats() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole runConsole = new TestConsole();
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 sdk,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -2533,7 +2533,7 @@ class AndalusGollekCliTest {
         String runId = runIdFromTextOutput(runConsole.out());
         TestConsole eventsConsole = new TestConsole();
 
-        int eventsExitCode = AndalusGollekCli.execute(
+        int eventsExitCode = AndalusAqliCli.execute(
                 sdk,
                 eventsConsole.outStream(),
                 eventsConsole.errStream(),
@@ -2572,10 +2572,10 @@ class AndalusGollekCliTest {
                 true,
                 "Run is still running.",
                 Map.of("tenant", "tenant-a")));
-        AndalusGollekSdk sdk = new LocalAndalusGollekSdk(AndalusGollekSdkConfig.local(), store);
+        AndalusAqliSdk sdk = new LocalAndalusAqliSdk(AndalusAqliSdkConfig.local(), store);
         TestConsole eventsConsole = new TestConsole();
 
-        int eventsExitCode = AndalusGollekCli.execute(
+        int eventsExitCode = AndalusAqliCli.execute(
                 sdk,
                 eventsConsole.outStream(),
                 eventsConsole.errStream(),
@@ -2611,8 +2611,8 @@ class AndalusGollekCliTest {
     void runEventsCommandRejectsFollowResultWithoutFollow() {
         TestConsole eventsConsole = new TestConsole();
 
-        int eventsExitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int eventsExitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 eventsConsole.outStream(),
                 eventsConsole.errStream(),
                 "run",
@@ -2629,8 +2629,8 @@ class AndalusGollekCliTest {
     void runEventsCommandRejectsFollowResultOnlyWithoutFollow() {
         TestConsole eventsConsole = new TestConsole();
 
-        int eventsExitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int eventsExitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 eventsConsole.outStream(),
                 eventsConsole.errStream(),
                 "run",
@@ -2645,11 +2645,11 @@ class AndalusGollekCliTest {
 
     @Test
     void runListCommandCanReadHistoryFromSharedSdkInstance() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole firstRun = new TestConsole();
         TestConsole secondRun = new TestConsole();
 
-        AndalusGollekCli.execute(
+        AndalusAqliCli.execute(
                 sdk,
                 firstRun.outStream(),
                 firstRun.errStream(),
@@ -2657,7 +2657,7 @@ class AndalusGollekCliTest {
                 "first lifecycle run",
                 "--tenant",
                 "tenant-a");
-        AndalusGollekCli.execute(
+        AndalusAqliCli.execute(
                 sdk,
                 secondRun.outStream(),
                 secondRun.errStream(),
@@ -2667,7 +2667,7 @@ class AndalusGollekCliTest {
                 "tenant-b");
         TestConsole listConsole = new TestConsole();
 
-        int listExitCode = AndalusGollekCli.execute(
+        int listExitCode = AndalusAqliCli.execute(
                 sdk,
                 listConsole.outStream(),
                 listConsole.errStream(),
@@ -2687,11 +2687,11 @@ class AndalusGollekCliTest {
                 .contains("\"stateCounts\":{\"completed\":2}")
                 .contains("\"surfaceCounts\":{\"coding-agent\":2}")
                 .contains("\"profileCounts\":{}")
-                .contains("\"strategyCounts\":{\"andalus-agent-over-gollek\":2}")
+                .contains("\"strategyCounts\":{\"andalus-agent-over-aqli\":2}")
                 .contains("\"stateSummaries\":[{\"name\":\"completed\",\"count\":2}]")
                 .contains("\"surfaceSummaries\":[{\"name\":\"coding-agent\",\"count\":2}]")
                 .contains("\"profileSummaries\":[]")
-                .contains("\"strategySummaries\":[{\"name\":\"andalus-agent-over-gollek\",\"count\":2}]")
+                .contains("\"strategySummaries\":[{\"name\":\"andalus-agent-over-aqli\",\"count\":2}]")
                 .contains("\"empty\":false")
                 .contains("\"message\":\"Recorded run statuses.\"")
                 .contains("\"query\":{\"state\":null,\"limit\":50,\"offset\":0,\"tenantId\":null,\"sessionId\":null,\"surfaceId\":null,\"profileId\":null,\"filtered\":false}")
@@ -2705,14 +2705,14 @@ class AndalusGollekCliTest {
 
     @Test
     void runListCommandCanFilterHistoryByStateAndLimit() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole firstRun = new TestConsole();
         TestConsole secondRun = new TestConsole();
-        AndalusGollekCli.execute(sdk, firstRun.outStream(), firstRun.errStream(), "run", "first", "--tenant", "tenant-a");
-        AndalusGollekCli.execute(sdk, secondRun.outStream(), secondRun.errStream(), "run", "second", "--tenant", "tenant-b");
+        AndalusAqliCli.execute(sdk, firstRun.outStream(), firstRun.errStream(), "run", "first", "--tenant", "tenant-a");
+        AndalusAqliCli.execute(sdk, secondRun.outStream(), secondRun.errStream(), "run", "second", "--tenant", "tenant-b");
         TestConsole listConsole = new TestConsole();
 
-        int listExitCode = AndalusGollekCli.execute(
+        int listExitCode = AndalusAqliCli.execute(
                 sdk,
                 listConsole.outStream(),
                 listConsole.errStream(),
@@ -2730,7 +2730,7 @@ class AndalusGollekCliTest {
         assertThat(listConsole.out())
                 .contains("\"query\":{\"state\":\"COMPLETED\",\"limit\":1,\"offset\":1,\"tenantId\":null,\"sessionId\":null,\"surfaceId\":null,\"profileId\":null,\"filtered\":true}")
                 .contains("\"page\":{\"totalRuns\":2,\"returnedRuns\":1,\"pageSize\":1,\"offset\":1,\"windowStart\":2,\"windowEnd\":2,\"previousOffset\":0,\"hasPrevious\":true,\"nextOffset\":2,\"hasMore\":false,\"truncated\":true,\"empty\":false}")
-                .contains("\"summary\":{\"totalRuns\":2,\"returnedRuns\":1,\"stateCounts\":{\"completed\":1},\"surfaceCounts\":{\"coding-agent\":1},\"profileCounts\":{},\"strategyCounts\":{\"andalus-agent-over-gollek\":1},\"stateSummaries\":[{\"name\":\"completed\",\"count\":1}],\"surfaceSummaries\":[{\"name\":\"coding-agent\",\"count\":1}],\"profileSummaries\":[],\"strategySummaries\":[{\"name\":\"andalus-agent-over-gollek\",\"count\":1}],\"empty\":false}")
+                .contains("\"summary\":{\"totalRuns\":2,\"returnedRuns\":1,\"stateCounts\":{\"completed\":1},\"surfaceCounts\":{\"coding-agent\":1},\"profileCounts\":{},\"strategyCounts\":{\"andalus-agent-over-aqli\":1},\"stateSummaries\":[{\"name\":\"completed\",\"count\":1}],\"surfaceSummaries\":[{\"name\":\"coding-agent\",\"count\":1}],\"profileSummaries\":[],\"strategySummaries\":[{\"name\":\"andalus-agent-over-aqli\",\"count\":1}],\"empty\":false}")
                 .contains("\"totalRuns\":2")
                 .contains("\"returnedRuns\":1")
                 .contains("\"pageSize\":1")
@@ -2752,10 +2752,10 @@ class AndalusGollekCliTest {
 
     @Test
     void runStatsCommandCanSummarizeHistoryWithoutRows() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole firstRun = new TestConsole();
         TestConsole secondRun = new TestConsole();
-        AndalusGollekCli.execute(
+        AndalusAqliCli.execute(
                 sdk,
                 firstRun.outStream(),
                 firstRun.errStream(),
@@ -2765,7 +2765,7 @@ class AndalusGollekCliTest {
                 "tenant-a",
                 "--surface",
                 "assistant-agent");
-        AndalusGollekCli.execute(
+        AndalusAqliCli.execute(
                 sdk,
                 secondRun.outStream(),
                 secondRun.errStream(),
@@ -2777,7 +2777,7 @@ class AndalusGollekCliTest {
                 "coding-agent");
         TestConsole statsConsole = new TestConsole();
 
-        int statsExitCode = AndalusGollekCli.execute(
+        int statsExitCode = AndalusAqliCli.execute(
                 sdk,
                 statsConsole.outStream(),
                 statsConsole.errStream(),
@@ -2793,7 +2793,7 @@ class AndalusGollekCliTest {
         assertThat(statsConsole.out())
                 .contains("\"query\":{\"state\":null,\"limit\":1,\"offset\":1,\"tenantId\":null,\"sessionId\":null,\"surfaceId\":null,\"profileId\":null,\"filtered\":true}")
                 .contains("\"page\":{\"totalRuns\":2,\"returnedRuns\":1,\"pageSize\":1,\"offset\":1,\"windowStart\":2,\"windowEnd\":2,\"previousOffset\":0,\"hasPrevious\":true,\"nextOffset\":2,\"hasMore\":false,\"truncated\":true,\"empty\":false}")
-                .contains("\"summary\":{\"totalRuns\":2,\"returnedRuns\":1,\"stateCounts\":{\"completed\":1},\"surfaceCounts\":{\"coding-agent\":1},\"profileCounts\":{},\"strategyCounts\":{\"andalus-agent-over-gollek\":1},\"stateSummaries\":[{\"name\":\"completed\",\"count\":1}],\"surfaceSummaries\":[{\"name\":\"coding-agent\",\"count\":1}],\"profileSummaries\":[],\"strategySummaries\":[{\"name\":\"andalus-agent-over-gollek\",\"count\":1}],\"empty\":false}")
+                .contains("\"summary\":{\"totalRuns\":2,\"returnedRuns\":1,\"stateCounts\":{\"completed\":1},\"surfaceCounts\":{\"coding-agent\":1},\"profileCounts\":{},\"strategyCounts\":{\"andalus-agent-over-aqli\":1},\"stateSummaries\":[{\"name\":\"completed\",\"count\":1}],\"surfaceSummaries\":[{\"name\":\"coding-agent\",\"count\":1}],\"profileSummaries\":[],\"strategySummaries\":[{\"name\":\"andalus-agent-over-aqli\",\"count\":1}],\"empty\":false}")
                 .contains("\"surfaceCounts\":{\"coding-agent\":1}")
                 .doesNotContain("\"runs\":[")
                 .doesNotContain("\"tenant\":\"tenant-a\"")
@@ -2805,10 +2805,10 @@ class AndalusGollekCliTest {
 
     @Test
     void runListCommandCanFilterHistoryByTenantSessionAndSurface() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole firstRun = new TestConsole();
         TestConsole secondRun = new TestConsole();
-        AndalusGollekCli.execute(
+        AndalusAqliCli.execute(
                 sdk,
                 firstRun.outStream(),
                 firstRun.errStream(),
@@ -2820,7 +2820,7 @@ class AndalusGollekCliTest {
                 "session-a",
                 "--surface",
                 "assistant-agent");
-        AndalusGollekCli.execute(
+        AndalusAqliCli.execute(
                 sdk,
                 secondRun.outStream(),
                 secondRun.errStream(),
@@ -2834,7 +2834,7 @@ class AndalusGollekCliTest {
                 "coding-agent");
         TestConsole listConsole = new TestConsole();
 
-        int listExitCode = AndalusGollekCli.execute(
+        int listExitCode = AndalusAqliCli.execute(
                 sdk,
                 listConsole.outStream(),
                 listConsole.errStream(),
@@ -2866,10 +2866,10 @@ class AndalusGollekCliTest {
 
     @Test
     void runListCommandCanFilterHistoryByProductProfile() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole profileRun = new TestConsole();
         TestConsole defaultRun = new TestConsole();
-        int profileRunExitCode = AndalusGollekCli.execute(
+        int profileRunExitCode = AndalusAqliCli.execute(
                 sdk,
                 profileRun.outStream(),
                 profileRun.errStream(),
@@ -2877,7 +2877,7 @@ class AndalusGollekCliTest {
                 "profile filtered lifecycle",
                 "--profile",
                 "low-code-agent");
-        int defaultRunExitCode = AndalusGollekCli.execute(
+        int defaultRunExitCode = AndalusAqliCli.execute(
                 sdk,
                 defaultRun.outStream(),
                 defaultRun.errStream(),
@@ -2885,7 +2885,7 @@ class AndalusGollekCliTest {
                 "default lifecycle");
         TestConsole listConsole = new TestConsole();
 
-        int listExitCode = AndalusGollekCli.execute(
+        int listExitCode = AndalusAqliCli.execute(
                 sdk,
                 listConsole.outStream(),
                 listConsole.errStream(),
@@ -2919,7 +2919,7 @@ class AndalusGollekCliTest {
         Path storePath = directory.resolve("runs.properties");
         TestConsole runConsole = new TestConsole();
 
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 null,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -2931,7 +2931,7 @@ class AndalusGollekCliTest {
                 "tenant-file");
         TestConsole listConsole = new TestConsole();
 
-        int listExitCode = AndalusGollekCli.execute(
+        int listExitCode = AndalusAqliCli.execute(
                 null,
                 listConsole.outStream(),
                 listConsole.errStream(),
@@ -2958,10 +2958,10 @@ class AndalusGollekCliTest {
 
     @Test
     void runWaitCommandCanReadTerminalStatusFromSharedSdkInstance() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole runConsole = new TestConsole();
 
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 sdk,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -2972,7 +2972,7 @@ class AndalusGollekCliTest {
         String runId = runIdFromTextOutput(runConsole.out());
         TestConsole waitConsole = new TestConsole();
 
-        int waitExitCode = AndalusGollekCli.execute(
+        int waitExitCode = AndalusAqliCli.execute(
                 sdk,
                 waitConsole.outStream(),
                 waitConsole.errStream(),
@@ -3003,8 +3003,8 @@ class AndalusGollekCliTest {
     void runWaitCommandReturnsUnknownForMissingRuns() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3034,10 +3034,10 @@ class AndalusGollekCliTest {
                 true,
                 "Run is still running.",
                 Map.of("tenant", "tenant-a")));
-        AndalusGollekSdk sdk = new LocalAndalusGollekSdk(AndalusGollekSdkConfig.local(), store);
+        AndalusAqliSdk sdk = new LocalAndalusAqliSdk(AndalusAqliSdkConfig.local(), store);
         TestConsole waitConsole = new TestConsole();
 
-        int waitExitCode = AndalusGollekCli.execute(
+        int waitExitCode = AndalusAqliCli.execute(
                 sdk,
                 waitConsole.outStream(),
                 waitConsole.errStream(),
@@ -3064,10 +3064,10 @@ class AndalusGollekCliTest {
 
     @Test
     void runCancelCommandReportsTerminalLocalRunAsNotCancellable() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole runConsole = new TestConsole();
 
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 sdk,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -3078,7 +3078,7 @@ class AndalusGollekCliTest {
         String runId = runIdFromTextOutput(runConsole.out());
         TestConsole cancelConsole = new TestConsole();
 
-        int cancelExitCode = AndalusGollekCli.execute(
+        int cancelExitCode = AndalusAqliCli.execute(
                 sdk,
                 cancelConsole.outStream(),
                 cancelConsole.errStream(),
@@ -3106,8 +3106,8 @@ class AndalusGollekCliTest {
     void runCancelCommandReportsMissingRunAsNotFound() {
         TestConsole cancelConsole = new TestConsole();
 
-        int cancelExitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int cancelExitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 cancelConsole.outStream(),
                 cancelConsole.errStream(),
                 "run",
@@ -3128,10 +3128,10 @@ class AndalusGollekCliTest {
 
     @Test
     void runForgetCommandCanForgetStatusFromSharedSdkInstance() {
-        AndalusGollekSdk sdk = AndalusGollekSdk.local();
+        AndalusAqliSdk sdk = AndalusAqliSdk.local();
         TestConsole runConsole = new TestConsole();
 
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 sdk,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -3142,7 +3142,7 @@ class AndalusGollekCliTest {
         String runId = runIdFromTextOutput(runConsole.out());
         TestConsole forgetConsole = new TestConsole();
 
-        int forgetExitCode = AndalusGollekCli.execute(
+        int forgetExitCode = AndalusAqliCli.execute(
                 sdk,
                 forgetConsole.outStream(),
                 forgetConsole.errStream(),
@@ -3151,7 +3151,7 @@ class AndalusGollekCliTest {
                 runId,
                 "--json");
         TestConsole statusConsole = new TestConsole();
-        int statusExitCode = AndalusGollekCli.execute(
+        int statusExitCode = AndalusAqliCli.execute(
                 sdk,
                 statusConsole.outStream(),
                 statusConsole.errStream(),
@@ -3183,7 +3183,7 @@ class AndalusGollekCliTest {
         Path storePath = directory.resolve("runs.properties");
         TestConsole runConsole = new TestConsole();
 
-        int runExitCode = AndalusGollekCli.execute(
+        int runExitCode = AndalusAqliCli.execute(
                 null,
                 runConsole.outStream(),
                 runConsole.errStream(),
@@ -3196,7 +3196,7 @@ class AndalusGollekCliTest {
         String runId = runIdFromTextOutput(runConsole.out());
         TestConsole forgetConsole = new TestConsole();
 
-        int forgetExitCode = AndalusGollekCli.execute(
+        int forgetExitCode = AndalusAqliCli.execute(
                 null,
                 forgetConsole.outStream(),
                 forgetConsole.errStream(),
@@ -3207,7 +3207,7 @@ class AndalusGollekCliTest {
                 runId,
                 "--json");
         TestConsole listConsole = new TestConsole();
-        int listExitCode = AndalusGollekCli.execute(
+        int listExitCode = AndalusAqliCli.execute(
                 null,
                 listConsole.outStream(),
                 listConsole.errStream(),
@@ -3241,8 +3241,8 @@ class AndalusGollekCliTest {
     void runForgetCommandReportsMissingRunAsNotFound() {
         TestConsole forgetConsole = new TestConsole();
 
-        int forgetExitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int forgetExitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 forgetConsole.outStream(),
                 forgetConsole.errStream(),
                 "run",
@@ -3264,8 +3264,8 @@ class AndalusGollekCliTest {
     void runStatusCommandCanRenderJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3287,8 +3287,8 @@ class AndalusGollekCliTest {
     void commandsCommandCanShowOneCommandById() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -3315,8 +3315,8 @@ class AndalusGollekCliTest {
     void commandsCommandCombinesFiltersBeforeCommandIdLookup() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -3337,8 +3337,8 @@ class AndalusGollekCliTest {
     void commandsCommandRejectsProfileSurfaceConflicts() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -3359,8 +3359,8 @@ class AndalusGollekCliTest {
     void commandsCommandRejectsUnknownCategoryFilter() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -3379,8 +3379,8 @@ class AndalusGollekCliTest {
     void commandsCommandRejectsUnknownSurfaceFilter() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "commands",
@@ -3400,8 +3400,8 @@ class AndalusGollekCliTest {
         Files.writeString(workspace.resolve("pom.xml"), "<project />");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "workspace",
@@ -3421,8 +3421,8 @@ class AndalusGollekCliTest {
         Files.writeString(workspace.resolve("pom.xml"), "<project />");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "workspace",
@@ -3443,8 +3443,8 @@ class AndalusGollekCliTest {
         Files.writeString(workspace.resolve("pom.xml"), "<project />");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3467,8 +3467,8 @@ class AndalusGollekCliTest {
         Files.writeString(workspace.resolve("pom.xml"), "<project />");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "harness",
@@ -3488,8 +3488,8 @@ class AndalusGollekCliTest {
         Files.writeString(workspace.resolve("pom.xml"), "<project />");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "harness",
@@ -3511,8 +3511,8 @@ class AndalusGollekCliTest {
         Files.writeString(workspace.resolve("pom.xml"), "<project />");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3535,8 +3535,8 @@ class AndalusGollekCliTest {
         Files.writeString(workspace.resolve("pom.xml"), "<project />");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3572,8 +3572,8 @@ class AndalusGollekCliTest {
     void runCommandCanAttachSessionUserAndAdditionalContext() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3606,8 +3606,8 @@ class AndalusGollekCliTest {
         Files.writeString(systemFile, "use platform boundaries");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3632,8 +3632,8 @@ class AndalusGollekCliTest {
         ByteArrayInputStream input = new ByteArrayInputStream(
                 "answer from stdin".getBytes(StandardCharsets.UTF_8));
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 input,
                 console.outStream(),
                 console.errStream(),
@@ -3662,8 +3662,8 @@ class AndalusGollekCliTest {
                 """);
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3696,8 +3696,8 @@ class AndalusGollekCliTest {
                 """);
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3721,8 +3721,8 @@ class AndalusGollekCliTest {
     void runCommandCanPrintResolvedRunSpec() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3755,8 +3755,8 @@ class AndalusGollekCliTest {
     void runCommandCanPrintResolvedProfileSpec() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3790,8 +3790,8 @@ class AndalusGollekCliTest {
                 """);
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3823,8 +3823,8 @@ class AndalusGollekCliTest {
                 """);
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3851,8 +3851,8 @@ class AndalusGollekCliTest {
         Path output = workspace.resolve("resolved").resolve("andalus-run.properties");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3878,8 +3878,8 @@ class AndalusGollekCliTest {
         Files.writeString(output, "original=true\n");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -3896,8 +3896,8 @@ class AndalusGollekCliTest {
         assertThat(Files.readString(output)).isEqualTo("original=true\n");
 
         TestConsole forceConsole = new TestConsole();
-        int forceExit = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int forceExit = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 forceConsole.outStream(),
                 forceConsole.errStream(),
                 "run",
@@ -3928,8 +3928,8 @@ class AndalusGollekCliTest {
                 """);
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "spec",
@@ -3954,8 +3954,8 @@ class AndalusGollekCliTest {
         Files.writeString(spec, "prompt=answer from spec\n");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "spec",
@@ -3977,8 +3977,8 @@ class AndalusGollekCliTest {
     void specCommandCanPrintSurfaceTemplate() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "spec",
@@ -4001,8 +4001,8 @@ class AndalusGollekCliTest {
     void specCommandCanPrintProductProfileTemplate() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "spec",
@@ -4028,8 +4028,8 @@ class AndalusGollekCliTest {
         Path output = workspace.resolve("templates").resolve("assistant.properties");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "spec",
@@ -4054,8 +4054,8 @@ class AndalusGollekCliTest {
         Files.writeString(output, "original=true\n");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "spec",
@@ -4077,8 +4077,8 @@ class AndalusGollekCliTest {
         Files.writeString(promptFile, "answer from prompt file");
         TestConsole console = new TestConsole();
 
-        int missingExit = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int missingExit = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -4089,8 +4089,8 @@ class AndalusGollekCliTest {
         assertThat(console.err()).contains("Prompt is required");
 
         TestConsole conflictConsole = new TestConsole();
-        int conflictExit = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int conflictExit = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 conflictConsole.outStream(),
                 conflictConsole.errStream(),
                 "run",
@@ -4106,8 +4106,8 @@ class AndalusGollekCliTest {
     void runCommandRejectsInvalidContextEntry() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -4124,8 +4124,8 @@ class AndalusGollekCliTest {
     void runCommandCanPreflightMissingSurfaceContext() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -4150,8 +4150,8 @@ class AndalusGollekCliTest {
         Files.writeString(workspace.resolve("pom.xml"), "<project />");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -4183,8 +4183,8 @@ class AndalusGollekCliTest {
     void runCommandPreflightReportsSkillReadinessProblems() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -4218,8 +4218,8 @@ class AndalusGollekCliTest {
         Files.writeString(workspace.resolve("pom.xml"), "<project />");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -4256,8 +4256,8 @@ class AndalusGollekCliTest {
     void runCommandDryRunReportsMissingRequiredContext() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -4278,8 +4278,8 @@ class AndalusGollekCliTest {
     void runCommandDryRunReportsSkillReadinessProblems() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -4312,8 +4312,8 @@ class AndalusGollekCliTest {
     void runCommandRejectsUnknownProductSurface() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "run",
@@ -4333,8 +4333,8 @@ class AndalusGollekCliTest {
     void shortAndalusCommandKeepsLegacyAlias() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "--help");
@@ -4342,14 +4342,14 @@ class AndalusGollekCliTest {
         assertThat(exitCode).isZero();
         assertThat(console.out())
                 .contains("Usage: andalus")
-                .contains("andalus-gollek");
+                .contains("andalus-aqli");
     }
 
     @Test
     void rootSdkOptionsConfigureDefaultTenantAndModel() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 console.outStream(),
                 console.errStream(),
@@ -4372,7 +4372,7 @@ class AndalusGollekCliTest {
         Path storePath = directory.resolve("runs.properties");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 console.outStream(),
                 console.errStream(),
@@ -4401,7 +4401,7 @@ class AndalusGollekCliTest {
         Path storePath = directory.resolve("runs.properties");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 console.outStream(),
                 console.errStream(),
@@ -4428,7 +4428,7 @@ class AndalusGollekCliTest {
         Path catalog = writeReadinessProfileCatalog(directory);
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 console.outStream(),
                 console.errStream(),
@@ -4454,7 +4454,7 @@ class AndalusGollekCliTest {
         Path missing = directory.resolve("missing-readiness-profiles.properties");
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 console.outStream(),
                 console.errStream(),
@@ -4483,7 +4483,7 @@ class AndalusGollekCliTest {
     void rootSdkOptionsReportBlockedReadinessForInvalidRegistryPolicy() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 console.outStream(),
                 console.errStream(),
@@ -4508,7 +4508,7 @@ class AndalusGollekCliTest {
     void rootSdkOptionsConfigureRustfsReadinessProfileRegistryWithFallback() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 console.outStream(),
                 console.errStream(),
@@ -4543,7 +4543,7 @@ class AndalusGollekCliTest {
     void remoteSdkModeFailsClearlyUntilRemoteProviderIsInstalled() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 null,
                 console.outStream(),
                 console.errStream(),
@@ -4561,8 +4561,8 @@ class AndalusGollekCliTest {
     void standardsCommandShowsDefaultHealth() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "standards");
@@ -4580,8 +4580,8 @@ class AndalusGollekCliTest {
     void standardsCommandCanGatePinnedKnownStandardsAsJson() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "standards",
@@ -4602,8 +4602,8 @@ class AndalusGollekCliTest {
     void standardsCommandShowsCatalog() {
         TestConsole console = new TestConsole();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 console.outStream(),
                 console.errStream(),
                 "standards",

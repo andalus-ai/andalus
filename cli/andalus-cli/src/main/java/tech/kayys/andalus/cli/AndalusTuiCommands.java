@@ -9,7 +9,7 @@ import java.util.concurrent.Callable;
  * CLI command module for opening the Andalus agentic terminal UI.
  *
  * <p>Launches the full agentic REPL/Panel experience backed by the local
- * Gollek/Andalus inference engine. Switches between REPL and Panel layouts
+ * Aqli/Andalus inference engine. Switches between REPL and Panel layouts
  * on demand via the {@code /panel} and {@code /repl} slash commands.</p>
  */
 final class AndalusTuiCommands {
@@ -20,7 +20,7 @@ final class AndalusTuiCommands {
     @Command(name = "tui", aliases = {"agent", "code"}, description = "Open the Andalus agentic terminal UI.")
     static final class TuiCommand implements Callable<Integer> {
         @ParentCommand
-        AndalusGollekCli parent;
+        AndalusAqliCli parent;
 
         @Override
         public Integer call() {

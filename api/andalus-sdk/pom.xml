@@ -42,8 +42,8 @@
         </dependency>
         <dependency>
             <groupId>tech.kayys.andalus</groupId>
-            <artifactId>andalus-gollek-sdk</artifactId>
-            <version>${andalus-gollek-sdk.version}</version>
+            <artifactId>andalus-aqli-sdk</artifactId>
+            <version>${andalus-aqli-sdk.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>tech.kayys.alkhawarizm</groupId>

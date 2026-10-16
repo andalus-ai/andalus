@@ -4,13 +4,13 @@ public class AndalusSdkSmokeTest {
     public static void main(String[] args) {
         System.out.println("Andalus SDK smoke test starting...");
         try {
-            Class<?> factory = Class.forName("tech.kayys.gollek.factory.GollekSdkFactory");
+            Class<?> factory = Class.forName("tech.kayys.aqli.factory.AqliSdkFactory");
             java.lang.reflect.Method create = factory.getMethod("createLocalSdk");
             Object sdk = create.invoke(null);
             System.out.println("createLocalSdk() returned: " + (sdk != null ? sdk.getClass().getName() : "<null>"));
             if (sdk != null) {
                 try {
-                    Class<?> impl = Class.forName("tech.kayys.gollek.sdk.session.ChatSessionImpl");
+                    Class<?> impl = Class.forName("tech.kayys.aqli.sdk.session.ChatSessionImpl");
                     java.lang.reflect.Constructor<?> ctor = null;
                     for (java.lang.reflect.Constructor<?> c : impl.getConstructors()) {
                         Class<?>[] pts = c.getParameterTypes();
@@ -32,7 +32,7 @@ public class AndalusSdkSmokeTest {
             }
             System.exit(0);
         } catch (ClassNotFoundException cnf) {
-            System.out.println("Gollek factory not found on classpath: " + cnf.getMessage());
+            System.out.println("Aqli factory not found on classpath: " + cnf.getMessage());
             System.exit(2);
         } catch (Throwable t) {
             System.out.println("Error invoking SDK: " + t);

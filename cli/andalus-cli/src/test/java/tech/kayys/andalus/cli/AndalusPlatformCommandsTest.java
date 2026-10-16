@@ -2,11 +2,11 @@ package tech.kayys.andalus.cli;
 
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
-import tech.kayys.andalus.cli.AndalusGollekCli;
+import tech.kayys.andalus.cli.AndalusAqliCli;
 import tech.kayys.andalus.cli.AndalusPlatformCommands;
-import tech.kayys.andalus.client.LocalAndalusGollekSdk;
-import tech.kayys.andalus.client.AndalusGollekSdk;
-import tech.kayys.andalus.client.AndalusGollekSdkConfig;
+import tech.kayys.andalus.client.LocalAndalusAqliSdk;
+import tech.kayys.andalus.client.AndalusAqliSdk;
+import tech.kayys.andalus.client.AndalusAqliSdkConfig;
 import tech.kayys.andalus.readiness.AndalusPlatformReadinessProfileRegistryConfig;
 
 import java.io.ByteArrayOutputStream;
@@ -54,8 +54,8 @@ class AndalusPlatformCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 stream(out),
                 stream(err),
                 "sdk-boundaries",
@@ -64,7 +64,7 @@ class AndalusPlatformCommandsTest {
         assertThat(exitCode).isZero();
         assertThat(out.toString(StandardCharsets.UTF_8))
                 .contains("\"product\":\"Andalus\"")
-                .contains("\"rootPackage\":\"tech.kayys.andalus.gollek.sdk\"")
+                .contains("\"rootPackage\":\"tech.kayys.andalus.aqli.sdk\"")
                 .contains("\"boundaryIds\":[\"core\",\"run\",\"context\",\"capability\"")
                 .contains("\"id\":\"remote\"");
         assertThat(err.toString(StandardCharsets.UTF_8)).isEmpty();
@@ -75,8 +75,8 @@ class AndalusPlatformCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 stream(out),
                 stream(err),
                 "sdk-boundaries",
@@ -86,7 +86,7 @@ class AndalusPlatformCommandsTest {
         assertThat(out.toString(StandardCharsets.UTF_8))
                 .contains("Andalus SDK boundary")
                 .contains("Run Lifecycle (run)")
-                .contains("package: tech.kayys.andalus.gollek.sdk.run")
+                .contains("package: tech.kayys.andalus.aqli.sdk.run")
                 .contains("contract schemas: andalus.run.planning, andalus.run.lifecycle");
         assertThat(err.toString(StandardCharsets.UTF_8)).isEmpty();
     }
@@ -96,8 +96,8 @@ class AndalusPlatformCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 stream(out),
                 stream(err),
                 "profiles",
@@ -117,8 +117,8 @@ class AndalusPlatformCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 stream(out),
                 stream(err),
                 "readiness-profiles",
@@ -138,8 +138,8 @@ class AndalusPlatformCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 stream(out),
                 stream(err),
                 "readiness-profiles",
@@ -159,14 +159,14 @@ class AndalusPlatformCommandsTest {
     void readinessProfileConfigCommandRedactsDatabaseUrlSecretsInTextOutput() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
-        AndalusGollekSdk sdk = new LocalAndalusGollekSdk(AndalusGollekSdkConfig.local()
+        AndalusAqliSdk sdk = new LocalAndalusAqliSdk(AndalusAqliSdkConfig.local()
                 .withReadinessProfileRegistry(AndalusPlatformReadinessProfileRegistryConfig.fromMap(Map.of(
                         "mode", "database",
                         "databaseUrl",
                         "jdbc:postgresql://ops:super-secret@localhost:5432/andalus?password=top-secret&token=api-secret",
                         "fallbackToBuiltIn", true))));
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 sdk,
                 stream(out),
                 stream(err),
@@ -188,7 +188,7 @@ class AndalusPlatformCommandsTest {
     void readinessProfileConfigCommandRedactsObjectStorageCredentialsInJsonOutput() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
-        AndalusGollekSdk sdk = new LocalAndalusGollekSdk(AndalusGollekSdkConfig.local()
+        AndalusAqliSdk sdk = new LocalAndalusAqliSdk(AndalusAqliSdkConfig.local()
                 .withReadinessProfileRegistry(AndalusPlatformReadinessProfileRegistryConfig.fromMap(Map.of(
                         "mode", "s3",
                         "endpoint", "https://s3.example.test",
@@ -196,7 +196,7 @@ class AndalusPlatformCommandsTest {
                         "keyPrefix", "profiles/default.properties",
                         "credentials", "accessKeyId=inline-access secretAccessKey=inline-secret"))));
 
-        int exitCode = AndalusGollekCli.execute(
+        int exitCode = AndalusAqliCli.execute(
                 sdk,
                 stream(out),
                 stream(err),
@@ -214,8 +214,8 @@ class AndalusPlatformCommandsTest {
     }
 
     private static CommandLine commandLine() {
-        return new CommandLine(new AndalusGollekCli(
-                AndalusGollekSdk.local(),
+        return new CommandLine(new AndalusAqliCli(
+                AndalusAqliSdk.local(),
                 stream(new ByteArrayOutputStream()),
                 stream(new ByteArrayOutputStream())));
     }

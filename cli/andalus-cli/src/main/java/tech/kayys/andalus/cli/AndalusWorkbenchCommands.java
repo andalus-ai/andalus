@@ -19,7 +19,7 @@ final class AndalusWorkbenchCommands {
     @Command(name = "commands", aliases = "actions", description = "List SDK-owned workbench commands for agent shells.")
     static final class CommandsCommand implements Callable<Integer> {
         @ParentCommand
-        AndalusGollekCli parent;
+        AndalusAqliCli parent;
 
         @Mixin
         AndalusCommandQueryOptions queryOptions = new AndalusCommandQueryOptions();
@@ -59,7 +59,7 @@ final class AndalusWorkbenchCommands {
             description = "Render the SDK-owned agent workbench model without opening a TUI.")
     static final class WorkbenchCommand implements Callable<Integer> {
         @ParentCommand
-        AndalusGollekCli parent;
+        AndalusAqliCli parent;
 
         @Option(names = "--json", description = "Render workbench model as compact JSON.")
         boolean json;

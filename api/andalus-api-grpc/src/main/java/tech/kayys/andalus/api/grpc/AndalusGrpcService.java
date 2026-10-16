@@ -5,7 +5,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import tech.kayys.andalus.client.Andalus;
 import tech.kayys.andalus.client.AndalusClient;
-import tech.kayys.andalus.client.AndalusGollekSdk;
+import tech.kayys.andalus.client.AndalusAqliSdk;
 import tech.kayys.andalus.client.AndalusPlatformApi;
 import tech.kayys.andalus.command.AndalusCommandApi;
 import tech.kayys.andalus.workbench.WorkbenchCommandQuery;
@@ -13,7 +13,7 @@ import tech.kayys.andalus.workbench.WorkbenchCommandQuery;
 @GrpcService
 public class AndalusGrpcService implements AndalusService {
 
-    private final AndalusGollekSdk sdk = Andalus.local();
+    private final AndalusAqliSdk sdk = Andalus.local();
 
     @Override
     public Uni<StatusReply> getStatus(StatusRequest request) {

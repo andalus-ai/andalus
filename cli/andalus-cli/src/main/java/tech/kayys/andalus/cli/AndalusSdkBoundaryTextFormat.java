@@ -17,7 +17,7 @@ final class AndalusSdkBoundaryTextFormat {
     static String text(List<AndalusSdkBoundary> boundaries) {
         StringBuilder output = new StringBuilder();
         output.append("Andalus SDK boundaries").append(NL);
-        output.append("Root package: tech.kayys.andalus.gollek.sdk").append(NL).append(NL);
+        output.append("Root package: tech.kayys.andalus.aqli.sdk").append(NL).append(NL);
         for (AndalusSdkBoundary boundary : CliLists.copy(boundaries)) {
             appendSummary(output, boundary);
         }

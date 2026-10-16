@@ -35,7 +35,7 @@ public final class AndalusProjectCommand implements Callable<Integer> {
     @Option(names = {"--switch"}, description = "Switch to project id (alias for action 'switch')")
     String switchTo;
 
-    public AndalusGollekCli parent;
+    public AndalusAqliCli parent;
 
     @Override
     public Integer call() {

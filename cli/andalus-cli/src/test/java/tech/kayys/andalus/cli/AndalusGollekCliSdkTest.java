@@ -6,7 +6,7 @@ import tech.kayys.andalus.agent.run.AgentRunResult;
 import tech.kayys.andalus.agent.skill.AgentSkillQuery;
 import tech.kayys.andalus.client.ProductSurface;
 import tech.kayys.andalus.skill.RegisteredSkill;
-import tech.kayys.andalus.client.AndalusGollekSdk;
+import tech.kayys.andalus.client.AndalusAqliSdk;
 import tech.kayys.andalus.client.AndalusPlatformStatus;
 import tech.kayys.andalus.client.AndalusWorkbenchModel;
 
@@ -14,19 +14,19 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class AndalusGollekCliSdkTest {
+class AndalusAqliCliSdkTest {
 
-    private final AndalusGollekSdk service = AndalusGollekSdk.local();
+    private final AndalusAqliSdk service = AndalusAqliSdk.local();
 
     @Test
-    void describesAndalusAsPlatformAboveGollekAndGamelan() {
+    void describesAndalusAsPlatformAboveAqliAndGamelan() {
         AndalusPlatformStatus status = service.status();
 
         assertThat(status.productName()).isEqualTo("Andalus");
-        assertThat(status.gollek().role()).contains("Inference");
+        assertThat(status.aqli().role()).contains("Inference");
         assertThat(status.gamelan().role()).contains("Workflow");
         assertThat(status.notes()).anySatisfy(note -> assertThat(note).contains("SDK"));
-        assertThat(status.notes()).anySatisfy(note -> assertThat(note).contains("separate from Gollek CLI"));
+        assertThat(status.notes()).anySatisfy(note -> assertThat(note).contains("separate from Aqli CLI"));
         assertThat(status.notes()).anySatisfy(note -> assertThat(note).contains("agent workbench"));
         assertThat(status.activeSkills()).isEqualTo(12);
     }

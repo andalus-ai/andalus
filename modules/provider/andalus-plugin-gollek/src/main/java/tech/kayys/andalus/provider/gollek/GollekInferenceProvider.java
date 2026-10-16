@@ -1,4 +1,4 @@
-package tech.kayys.andalus.provider.gollek;
+package tech.kayys.andalus.provider.aqli;
 
 import tech.kayys.andalus.extension.Metadata;
 import tech.kayys.andalus.identity.ResourceId;
@@ -31,9 +31,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
- * Gollek InferenceProvider — delegates to the gollek CLI subprocess.
+ * Aqli InferenceProvider — delegates to the aqli CLI subprocess.
  *
- * <h2>Channel protocol (gollek gemma4 / GGUF runner)</h2>
+ * <h2>Channel protocol (aqli gemma4 / GGUF runner)</h2>
  * <pre>
  *   &lt;|channel&gt;thought\n
  *   [optional scratch / internal reasoning text]
@@ -56,8 +56,8 @@ import java.util.stream.Collectors;
  * correct bubble widget:
  * <pre>{"t":"response","d":"H"}</pre>
  */
-public class GollekInferenceProvider implements InferenceProvider {
-    public static final String ID      = "gollek";
+public class AqliInferenceProvider implements InferenceProvider {
+    public static final String ID      = "aqli";
     public static final String VERSION = "1.0.0";
 
     private static final String CHANNEL_OPEN  = "<|channel>";   // marks start of channel header
@@ -67,17 +67,17 @@ public class GollekInferenceProvider implements InferenceProvider {
 
     // ── CLI binary resolution ────────────────────────────────────────────────
 
-    private static final String GOLLEK_CLI;
+    private static final String AQLI_CLI;
     static {
-        String envCli = System.getenv("GOLLEK_CLI");
+        String envCli = System.getenv("AQLI_CLI");
         if (envCli != null && Files.isExecutable(Path.of(envCli))) {
-            GOLLEK_CLI = envCli;
-        } else if (Files.isExecutable(Path.of(System.getProperty("user.home") + "/.local/bin/gollek"))) {
-            GOLLEK_CLI = System.getProperty("user.home") + "/.local/bin/gollek";
-        } else if (Files.isExecutable(Path.of("/usr/local/bin/gollek"))) {
-            GOLLEK_CLI = "/usr/local/bin/gollek";
+            AQLI_CLI = envCli;
+        } else if (Files.isExecutable(Path.of(System.getProperty("user.home") + "/.local/bin/aqli"))) {
+            AQLI_CLI = System.getProperty("user.home") + "/.local/bin/aqli";
+        } else if (Files.isExecutable(Path.of("/usr/local/bin/aqli"))) {
+            AQLI_CLI = "/usr/local/bin/aqli";
         } else {
-            GOLLEK_CLI = "gollek";
+            AQLI_CLI = "aqli";
         }
     }
 
@@ -95,8 +95,8 @@ public class GollekInferenceProvider implements InferenceProvider {
     @Override
     public Metadata metadata() {
         return Metadata.builder()
-                .name("Gollek Local Engine")
-                .description("Local LLM engine powered by Gollek (FFM API / Metal)")
+                .name("Aqli Local Engine")
+                .description("Local LLM engine powered by Aqli (FFM API / Metal)")
                 .version(VERSION)
                 .build();
     }
@@ -127,7 +127,7 @@ public class GollekInferenceProvider implements InferenceProvider {
     
     @Override
     public CompletionStream stream(CompletionRequest request) throws Exception {
-        String grpcTarget = System.getenv("GOLLEK_GRPC_TARGET");
+        String grpcTarget = System.getenv("AQLI_GRPC_TARGET");
         if (grpcTarget == null || grpcTarget.isBlank()) {
             grpcTarget = "localhost:9131"; // Use gRPC by default!
         }
@@ -135,8 +135,8 @@ public class GollekInferenceProvider implements InferenceProvider {
         try {
             return streamGrpc(request, grpcTarget);
         } catch (Exception e) {
-            System.err.println("[Gollek] gRPC failed. CLI fallback disabled to prevent memory pressure. Error: " + e.getMessage());
-            throw new Exception("Gollek gRPC server unavailable at " + grpcTarget + ". Please ensure the Gollek backend is running. " + e.getMessage(), e);
+            System.err.println("[Aqli] gRPC failed. CLI fallback disabled to prevent memory pressure. Error: " + e.getMessage());
+            throw new Exception("Aqli gRPC server unavailable at " + grpcTarget + ". Please ensure the Aqli backend is running. " + e.getMessage(), e);
         }
     }
 
@@ -145,7 +145,7 @@ public class GollekInferenceProvider implements InferenceProvider {
                 ? request.model() : "default";
         int maxTokens = request.maxTokens() > 0 ? request.maxTokens() : 2048;
 
-        tech.kayys.gollek.protobuf.ChatRequest.Builder reqBuilder = tech.kayys.gollek.protobuf.ChatRequest.newBuilder()
+        tech.kayys.aqli.protobuf.ChatRequest.Builder reqBuilder = tech.kayys.aqli.protobuf.ChatRequest.newBuilder()
                 .setModelId("default")
                 .setMaxTokens(maxTokens)
                 .setTemperature((float) (request.temperature() != null ? request.temperature() : 0.7));
@@ -156,19 +156,19 @@ public class GollekInferenceProvider implements InferenceProvider {
                 if (roleStr.equals("system") && (m.content() == null || m.content().isBlank())) {
                     continue;
                 }
-                reqBuilder.addMessages(tech.kayys.gollek.protobuf.Message.newBuilder().setRole(roleStr).setContent(m.content() != null ? m.content() : "").build());
+                reqBuilder.addMessages(tech.kayys.aqli.protobuf.Message.newBuilder().setRole(roleStr).setContent(m.content() != null ? m.content() : "").build());
             }
         }
 
         io.grpc.ManagedChannel channel = io.grpc.ManagedChannelBuilder.forTarget(target).usePlaintext().build();
-        tech.kayys.gollek.protobuf.GollekServiceGrpc.GollekServiceBlockingStub stub = tech.kayys.gollek.protobuf.GollekServiceGrpc.newBlockingStub(channel);
+        tech.kayys.aqli.protobuf.AqliServiceGrpc.AqliServiceBlockingStub stub = tech.kayys.aqli.protobuf.AqliServiceGrpc.newBlockingStub(channel);
         
         // This will block until the connection is established or fails
-        java.util.Iterator<tech.kayys.gollek.protobuf.ChatResponse> iter = stub.streamChat(reqBuilder.build());
+        java.util.Iterator<tech.kayys.aqli.protobuf.ChatResponse> iter = stub.streamChat(reqBuilder.build());
         final String streamId = "g-" + UUID.randomUUID();
 
         return new CompletionStream() {
-            private tech.kayys.gollek.protobuf.ChatResponse nextVal = null;
+            private tech.kayys.aqli.protobuf.ChatResponse nextVal = null;
             private boolean done = false;
 
             private void fetch() {
@@ -180,7 +180,7 @@ public class GollekInferenceProvider implements InferenceProvider {
                         done = true;
                     }
                 } catch (Exception e) {
-                    System.err.println("[Gollek] gRPC stream failed: " + e.getMessage());
+                    System.err.println("[Aqli] gRPC stream failed: " + e.getMessage());
                     e.printStackTrace();
                     done = true;
                 }
@@ -219,7 +219,7 @@ public class GollekInferenceProvider implements InferenceProvider {
 
         int maxTokens = request.maxTokens() > 0 ? request.maxTokens() : 512;
 
-        ProcessBuilder pb = new ProcessBuilder(GOLLEK_CLI, "run",
+        ProcessBuilder pb = new ProcessBuilder(AQLI_CLI, "run",
                 "--model", model,
                 "--max-tokens", String.valueOf(maxTokens),
                 "--prompt", prompt);
@@ -433,37 +433,37 @@ public class GollekInferenceProvider implements InferenceProvider {
         if (messages == null || messages.isEmpty()) return "";
         if (messages.size() == 1) return messages.get(0).content();
 
-        java.util.List<tech.kayys.gollek.spi.Message> mapped = new java.util.ArrayList<>();
+        java.util.List<tech.kayys.aqli.spi.Message> mapped = new java.util.ArrayList<>();
         for (Message m : messages) {
-            tech.kayys.gollek.spi.Message.Role r;
+            tech.kayys.aqli.spi.Message.Role r;
             if (m.role() != null) {
                 switch (m.role().name()) {
-                    case "SYSTEM": r = tech.kayys.gollek.spi.Message.Role.SYSTEM; break;
-                    case "ASSISTANT": r = tech.kayys.gollek.spi.Message.Role.ASSISTANT; break;
-                    case "TOOL": r = tech.kayys.gollek.spi.Message.Role.TOOL; break;
-                    default: r = tech.kayys.gollek.spi.Message.Role.USER; break;
+                    case "SYSTEM": r = tech.kayys.aqli.spi.Message.Role.SYSTEM; break;
+                    case "ASSISTANT": r = tech.kayys.aqli.spi.Message.Role.ASSISTANT; break;
+                    case "TOOL": r = tech.kayys.aqli.spi.Message.Role.TOOL; break;
+                    default: r = tech.kayys.aqli.spi.Message.Role.USER; break;
                 }
             } else {
-                r = tech.kayys.gollek.spi.Message.Role.USER;
+                r = tech.kayys.aqli.spi.Message.Role.USER;
             }
-            mapped.add(new tech.kayys.gollek.spi.Message(r, m.content()));
+            mapped.add(new tech.kayys.aqli.spi.Message(r, m.content()));
         }
 
-        return tech.kayys.gollek.models.core.ChatTemplateFormatter.format(mapped, model);
+        return tech.kayys.aqli.models.core.ChatTemplateFormatter.format(mapped, model);
     }
 
     private static final long MODEL_CACHE_TTL_MS = 10_000L;
     private long lastModelFetchTime = 0;
     private final Map<String, ModelInfo> cachedModelInfos = new LinkedHashMap<>();
 
-    private synchronized void refreshGollekModels() {
+    private synchronized void refreshAqliModels() {
         long now = System.currentTimeMillis();
         if (now - lastModelFetchTime < MODEL_CACHE_TTL_MS && !cachedModelInfos.isEmpty()) {
             return;
         }
         cachedModelInfos.clear();
         try {
-            ProcessBuilder pb = new ProcessBuilder(GOLLEK_CLI, "list", "-f=json");
+            ProcessBuilder pb = new ProcessBuilder(AQLI_CLI, "list", "-f=json");
             pb.redirectErrorStream(true);
             Process p = pb.start();
             boolean finished = p.waitFor(5, TimeUnit.SECONDS);
@@ -505,13 +505,13 @@ public class GollekInferenceProvider implements InferenceProvider {
 
     @Override
     public Set<String> listModels() {
-        refreshGollekModels();
+        refreshAqliModels();
         return Collections.unmodifiableSet(cachedModelInfos.keySet());
     }
 
     @Override
     public ModelInfo getModelInfo(String modelId) {
-        refreshGollekModels();
+        refreshAqliModels();
         ModelInfo info = cachedModelInfos.get(modelId);
         if (info != null) return info;
         return new ModelInfo(modelId, modelId, "gguf", Set.of("chat", "streaming"), Map.of());

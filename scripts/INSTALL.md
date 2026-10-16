@@ -21,8 +21,8 @@ Runtime defaults:
 - `ANDALUS_MCP_DIR`: `~/.andalus/mcp`
 - `ANDALUS_RUN_DIR`: `~/.andalus/run`
 - `ANDALUS_VECTOR_DIR`: `~/.andalus/vector`
-- `ANDALUS_GOLLEK_HOME`: `~/.andalus/gollek`
-- `ANDALUS_GOLLEK_MODELS_DIR`: `~/.andalus/gollek/models`
-- `ANDALUS_GOLLEK_STORAGE_DIR`: `~/.andalus/gollek/storage`
+- `ANDALUS_AQLI_HOME`: `~/.andalus/aqli`
+- `ANDALUS_AQLI_MODELS_DIR`: `~/.andalus/aqli/models`
+- `ANDALUS_AQLI_STORAGE_DIR`: `~/.andalus/aqli/storage`
 
-Gollek compatibility defaults to `~/.andalus/gollek`. Set `GOLLEK_HOME=~/.gollek` only when a legacy deployment must keep using the old Gollek directory.
+Aqli compatibility defaults to `~/.andalus/aqli`. Set `AQLI_HOME=~/.aqli` only when a legacy deployment must keep using the old Aqli directory.

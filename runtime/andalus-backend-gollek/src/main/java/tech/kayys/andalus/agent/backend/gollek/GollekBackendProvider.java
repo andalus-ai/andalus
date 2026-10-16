@@ -1,8 +1,8 @@
-package tech.kayys.andalus.agent.backend.gollek;
+package tech.kayys.andalus.agent.backend.aqli;
 
-import tech.kayys.gollek.factory.GollekSdkFactory;
-import tech.kayys.gollek.sdk.core.GollekSdk;
-import tech.kayys.gollek.sdk.exception.SdkException;
+import tech.kayys.aqli.factory.AqliSdkFactory;
+import tech.kayys.aqli.sdk.core.AqliSdk;
+import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.andalus.agent.spi.BackendProvider;
 import tech.kayys.andalus.agent.spi.InferenceBackend;
 import tech.kayys.andalus.agent.spi.WorkflowBackend;
@@ -12,11 +12,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ServiceLoader-based backend provider for Gollek SDK.
+ * ServiceLoader-based backend provider for Aqli SDK.
  *
  * <p>
- * This provider is automatically discovered when {@code backend-gollek}
- * is on the classpath. It creates GollekBackendAdapter instances
+ * This provider is automatically discovered when {@code backend-aqli}
+ * is on the classpath. It creates AqliBackendAdapter instances
  * for inference and can optionally create workflow adapters.
  * </p>
  *
@@ -24,7 +24,7 @@ import java.util.Map;
  * <p>
  * Create {@code META-INF/services/tech.kayys.andalus.agent.spi.BackendProvider} with:
  * <pre>
- * tech.kayys.andalus.agent.backend.gollek.GollekBackendProvider
+ * tech.kayys.andalus.agent.backend.aqli.AqliBackendProvider
  * </pre>
  * </p>
  *
@@ -32,10 +32,10 @@ import java.util.Map;
  * @version 0.1.0
  * @since 2026-04-06
  */
-public class GollekBackendProvider implements BackendProvider {
+public class AqliBackendProvider implements BackendProvider {
 
-    private static final String SDK_CLASS = "tech.kayys.gollek.sdk.core.GollekSdk";
-    private static final String SDK_FACTORY_CLASS = "tech.kayys.gollek.factory.GollekSdkFactory";
+    private static final String SDK_CLASS = "tech.kayys.aqli.sdk.core.AqliSdk";
+    private static final String SDK_FACTORY_CLASS = "tech.kayys.aqli.factory.AqliSdkFactory";
     private static final boolean SDK_AVAILABLE = classAvailable(SDK_CLASS) && classAvailable(SDK_FACTORY_CLASS);
 
     private static boolean classAvailable(String className) {
@@ -49,24 +49,24 @@ public class GollekBackendProvider implements BackendProvider {
 
     @Override
     public String name() {
-        return "gollek";
+        return "aqli";
     }
 
     @Override
     public int priority() {
-        return 100;  // High priority - Gollek is the primary backend
+        return 100;  // High priority - Aqli is the primary backend
     }
 
     @Override
     public InferenceBackend createInferenceBackend(Map<String, Object> config) {
         if (!SDK_AVAILABLE) {
             throw new IllegalStateException(
-                "Gollek SDK not available. Add gollek-sdk to classpath."
+                "Aqli SDK not available. Add aqli-sdk to classpath."
             );
         }
 
         try {
-            GollekSdkFactory.Builder builder = GollekSdkFactory.builder();
+            AqliSdkFactory.Builder builder = AqliSdkFactory.builder();
 
             stringValue(config, "baseUrl").ifPresent(builder::baseUrl);
             stringValue(config, "apiKey").ifPresent(builder::apiKey);
@@ -75,10 +75,10 @@ public class GollekBackendProvider implements BackendProvider {
             intValue(config, "retryAttempts").ifPresent(builder::maxRetries);
             booleanValue(config, "enableMetrics").ifPresent(builder::enableMetrics);
 
-            GollekSdk sdk = builder.build();
-            return new GollekBackendAdapter(sdk);
+            AqliSdk sdk = builder.build();
+            return new AqliBackendAdapter(sdk);
         } catch (SdkException e) {
-            throw new IllegalStateException("Failed to create Gollek SDK backend", e);
+            throw new IllegalStateException("Failed to create Aqli SDK backend", e);
         }
     }
 
@@ -122,7 +122,7 @@ public class GollekBackendProvider implements BackendProvider {
 
     @Override
     public WorkflowBackend createWorkflowBackend(Map<String, Object> config) {
-        // Gollek is inference-only, no workflow backend
+        // Aqli is inference-only, no workflow backend
         return null;
     }
 

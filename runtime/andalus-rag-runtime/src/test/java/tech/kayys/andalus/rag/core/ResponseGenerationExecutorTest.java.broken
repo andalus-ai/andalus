@@ -30,7 +30,7 @@ class ResponseGenerationExecutorTest {
                 "query", "Which deployment environment should I use?",
                 "contexts", List.of("Use the blue environment for deployment rehearsals."),
                 "metadata", List.of(Map.of("sourcePath", "runbook.md")),
-                "provider", "gollek",
+                "provider", "aqli",
                 "model", "qwen-test",
                 "apiKey", "test-key",
                 "includeCitations", true,
@@ -40,7 +40,7 @@ class ResponseGenerationExecutorTest {
         assertThat(backend.calls).isEqualTo(1);
         assertThat(backend.lastRequest.model()).isEqualTo("qwen-test");
         assertThat(backend.lastRequest.metadata())
-                .containsEntry("preferredProvider", "gollek")
+                .containsEntry("preferredProvider", "aqli")
                 .containsEntry("apiKey", "test-key")
                 .containsEntry("ragTemplateId", "default");
         assertThat(backend.lastRequest.messages())
@@ -70,7 +70,7 @@ class ResponseGenerationExecutorTest {
         Map<String, Object> context = Map.of(
                 "query", "What changed?",
                 "contexts", List.of("The module now uses active inference."),
-                "provider", "gollek",
+                "provider", "aqli",
                 "model", "qwen-test",
                 "apiKey", "test-key",
                 "includeCitations", false,
@@ -98,7 +98,7 @@ class ResponseGenerationExecutorTest {
         executor.guardrailEngine = new ResponseGuardrailEngine();
         executor.cacheService = new ResponseCacheService();
         executor.metricsCollector = new GenerationMetricsCollector();
-        executor.defaultProvider = "gollek";
+        executor.defaultProvider = "aqli";
         executor.defaultModel = "qwen-test";
         executor.defaultTemperature = 0.7;
         executor.defaultMaxTokens = 1000;

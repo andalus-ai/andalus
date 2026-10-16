@@ -1,6 +1,6 @@
 package tech.kayys.andalus.cli;
 
-import tech.kayys.andalus.client.AndalusGollekFacade;
+import tech.kayys.andalus.client.AndalusAqliFacade;
 
 import java.io.PrintStream;
 import java.util.List;
@@ -10,19 +10,19 @@ import java.util.stream.Collectors;
 
 /**
  * Lightweight adapter that provides a stable runtime surface for the CLI
- * without requiring the full Gollek SDK classes on the classpath.
+ * without requiring the full Aqli SDK classes on the classpath.
  *
- * It prefers the local Gollek SDK when available (via AndalusGollekFacade reflection),
- * otherwise falls back to shell-based operations implemented in AndalusGollekFacade.
+ * It prefers the local Aqli SDK when available (via AndalusAqliFacade reflection),
+ * otherwise falls back to shell-based operations implemented in AndalusAqliFacade.
  */
-public final class GollekSdkAdapter {
+public final class AqliSdkAdapter {
 
     private String preferredProvider;
 
-    public GollekSdkAdapter() {}
+    public AqliSdkAdapter() {}
 
-    public static GollekSdkAdapter create(String preferredProvider) {
-        GollekSdkAdapter a = new GollekSdkAdapter();
+    public static AqliSdkAdapter create(String preferredProvider) {
+        AqliSdkAdapter a = new AqliSdkAdapter();
         a.preferredProvider = preferredProvider;
         return a;
     }
@@ -42,8 +42,8 @@ public final class GollekSdkAdapter {
                     }
                 }
                 
-                // Only fall back to the global defaultModel if no provider is preferred OR the preferred provider is 'gollek'
-                if (cfgModel == null && (this.preferredProvider == null || this.preferredProvider.isBlank() || this.preferredProvider.equals("gollek"))) {
+                // Only fall back to the global defaultModel if no provider is preferred OR the preferred provider is 'aqli'
+                if (cfgModel == null && (this.preferredProvider == null || this.preferredProvider.isBlank() || this.preferredProvider.equals("aqli"))) {
                     java.util.regex.Pattern p = java.util.regex.Pattern.compile("\\\"(?:model|defaultModel|default_model)\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
                     java.util.regex.Matcher m = p.matcher(content);
                     if (m.find()) {
@@ -52,9 +52,9 @@ public final class GollekSdkAdapter {
                 }
                 
                 if (cfgModel != null) {
-                    // Try to resolve to a local gollek model id by scanning 'gollek list' output.
+                    // Try to resolve to a local aqli model id by scanning 'aqli list' output.
                     try {
-                        List<?> models = tech.kayys.andalus.client.AndalusGollekFacade.listModels();
+                        List<?> models = tech.kayys.andalus.client.AndalusAqliFacade.listModels();
                         String loweredCfg = cfgModel.toLowerCase();
                         boolean hasSlash = loweredCfg.contains("/");
                         String owner = null, name = null;
@@ -85,7 +85,7 @@ public final class GollekSdkAdapter {
                             String plain = line.replaceAll("\u001B\\[[;\\d]*m", "");
                             String low = plain.toLowerCase();
 
-                            // direct substring or owner/name/tokenized matching (mirrors AndalusGollekFacade.modelExists)
+                            // direct substring or owner/name/tokenized matching (mirrors AndalusAqliFacade.modelExists)
                             boolean matched = false;
                             if (low.contains(loweredCfg)) matched = true;
                             if (!matched && hasSlash) {
@@ -140,7 +140,7 @@ public final class GollekSdkAdapter {
 
     public List<ModelRow> listModelsStructured() {
         try {
-            List<?> raw = AndalusGollekFacade.listModels();
+            List<?> raw = AndalusAqliFacade.listModels();
             List<ModelRow> result = new java.util.ArrayList<>();
             for (Object o : raw) {
                 if (o == null) continue;
@@ -167,7 +167,7 @@ public final class GollekSdkAdapter {
                     continue;
                 }
 
-                // Fallback: parse the raw string line from `gollek list` shell output.
+                // Fallback: parse the raw string line from `aqli list` shell output.
                 // Expected format: ID  GROUP  NAME  ARCH  FORMAT  SIZE_NUM  SIZE_UNIT  MODIFIED
                 // e.g.: "1bd979 Qwen  Qwen3.6-35B-A3B  qwen  safeten...  67 GB  2026-07-01"
                 String plain = o.toString().replaceAll("\u001B\\[[;\\d]*m", "").trim();
@@ -218,7 +218,7 @@ public final class GollekSdkAdapter {
 
     public List<String> listModelsStrings() {
         try {
-            List<?> raw = AndalusGollekFacade.listModels();
+            List<?> raw = AndalusAqliFacade.listModels();
             return raw.stream().map(Object::toString).collect(Collectors.toList());
         } catch (Exception e) {
             return List.of();
@@ -227,7 +227,7 @@ public final class GollekSdkAdapter {
 
     public List<ProviderRow> listAvailableProviders() {
         try {
-            List<?> raw = AndalusGollekFacade.listProviders();
+            List<?> raw = AndalusAqliFacade.listProviders();
             List<ProviderRow> result = new java.util.ArrayList<>();
             for (Object o : raw) {
                 if (o == null) continue;
@@ -330,7 +330,7 @@ public final class GollekSdkAdapter {
      * Ensure model is available locally. Returns 0 on success (downloaded or already present), non-zero otherwise.
      */
     public int ensureModelAvailable(PrintStream out, String modelSpec) {
-        return AndalusGollekFacade.pullModel(out, modelSpec);
+        return AndalusAqliFacade.pullModel(out, modelSpec);
     }
 
     public void close() {

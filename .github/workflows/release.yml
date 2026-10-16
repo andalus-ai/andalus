@@ -64,9 +64,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mvn -B -ntp -f pom.xml -pl gollek-runtime-standalone -am clean package -Dnative -DskipTests
+          mvn -B -ntp -f pom.xml -pl aqli-runtime-standalone -am clean package -Dnative -DskipTests
           mkdir -p artifacts
-          cp gollek-runtime-standalone/target/*-runner "artifacts/${{ matrix.asset_name }}"
+          cp aqli-runtime-standalone/target/*-runner "artifacts/${{ matrix.asset_name }}"
           chmod +x "artifacts/${{ matrix.asset_name }}"
 
       - name: Build Unix service bundle
@@ -76,7 +76,7 @@ jobs:
           set -euo pipefail
           bundle_root="artifacts/${{ matrix.service_bundle_name }}"
           andalus_home="${bundle_root}/.andalus"
-          mkdir -p "${andalus_home}/bin" "${andalus_home}/config" "${andalus_home}/logs/server" "${andalus_home}/plugins" "${andalus_home}/secrets" "${andalus_home}/models" "${andalus_home}/mcp" "${andalus_home}/run" "${andalus_home}/vector" "${andalus_home}/gollek/models" "${andalus_home}/gollek/storage"
+          mkdir -p "${andalus_home}/bin" "${andalus_home}/config" "${andalus_home}/logs/server" "${andalus_home}/plugins" "${andalus_home}/secrets" "${andalus_home}/models" "${andalus_home}/mcp" "${andalus_home}/run" "${andalus_home}/vector" "${andalus_home}/aqli/models" "${andalus_home}/aqli/storage"
           printf '%s\n' \
             'ANDALUS_HOME=$HOME/.andalus' \
             'ANDALUS_CONFIG_DIR=$ANDALUS_HOME/config' \
@@ -89,11 +89,11 @@ jobs:
             'ANDALUS_MCP_DIR=$ANDALUS_HOME/mcp' \
             'ANDALUS_RUN_DIR=$ANDALUS_HOME/run' \
             'ANDALUS_VECTOR_DIR=$ANDALUS_HOME/vector' \
-            'ANDALUS_GOLLEK_HOME=$ANDALUS_HOME/gollek' \
-            'GOLLEK_HOME=$ANDALUS_GOLLEK_HOME' \
-            '# Legacy override (if needed): GOLLEK_HOME=$HOME/.gollek' \
-            'ANDALUS_GOLLEK_MODELS_DIR=$ANDALUS_GOLLEK_HOME/models' \
-            'ANDALUS_GOLLEK_STORAGE_DIR=$ANDALUS_GOLLEK_HOME/storage' \
+            'ANDALUS_AQLI_HOME=$ANDALUS_HOME/aqli' \
+            'AQLI_HOME=$ANDALUS_AQLI_HOME' \
+            '# Legacy override (if needed): AQLI_HOME=$HOME/.aqli' \
+            'ANDALUS_AQLI_MODELS_DIR=$ANDALUS_AQLI_HOME/models' \
+            'ANDALUS_AQLI_STORAGE_DIR=$ANDALUS_AQLI_HOME/storage' \
             > "${andalus_home}/config/andalus.env.example"
           cp "artifacts/${{ matrix.asset_name }}" "${andalus_home}/bin/${{ matrix.asset_name }}"
           cp "artifacts/${{ matrix.asset_name }}" "${andalus_home}/bin/andalus"
@@ -110,9 +110,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          mvn -B -ntp -f pom.xml -pl gollek-runtime-standalone -am clean package -Dnative -DskipTests
+          mvn -B -ntp -f pom.xml -pl aqli-runtime-standalone -am clean package -Dnative -DskipTests
           New-Item -ItemType Directory -Path artifacts -Force | Out-Null
-          $runner = Get-ChildItem -Path gollek-runtime-standalone\target -Filter "*-runner.exe" | Select-Object -First 1
+          $runner = Get-ChildItem -Path aqli-runtime-standalone\target -Filter "*-runner.exe" | Select-Object -First 1
           if (-not $runner) { throw "Native executable not found." }
           Copy-Item $runner.FullName "artifacts/${{ matrix.asset_name }}"
 
@@ -131,8 +131,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$andalusHome\mcp" | Out-Null
           New-Item -ItemType Directory -Force -Path "$andalusHome\run" | Out-Null
           New-Item -ItemType Directory -Force -Path "$andalusHome\vector" | Out-Null
-          New-Item -ItemType Directory -Force -Path "$andalusHome\gollek\models" | Out-Null
-          New-Item -ItemType Directory -Force -Path "$andalusHome\gollek\storage" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$andalusHome\aqli\models" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$andalusHome\aqli\storage" | Out-Null
           @(
             "ANDALUS_HOME=%USERPROFILE%\.andalus",
             "ANDALUS_CONFIG_DIR=%ANDALUS_HOME%\config",
@@ -145,11 +145,11 @@ jobs:
             "ANDALUS_MCP_DIR=%ANDALUS_HOME%\mcp",
             "ANDALUS_RUN_DIR=%ANDALUS_HOME%\run",
             "ANDALUS_VECTOR_DIR=%ANDALUS_HOME%\vector",
-            "ANDALUS_GOLLEK_HOME=%ANDALUS_HOME%\gollek",
-            "GOLLEK_HOME=%ANDALUS_GOLLEK_HOME%",
-            "; Legacy override (if needed): GOLLEK_HOME=%USERPROFILE%\.gollek",
-            "ANDALUS_GOLLEK_MODELS_DIR=%ANDALUS_GOLLEK_HOME%\models",
-            "ANDALUS_GOLLEK_STORAGE_DIR=%ANDALUS_GOLLEK_HOME%\storage"
+            "ANDALUS_AQLI_HOME=%ANDALUS_HOME%\aqli",
+            "AQLI_HOME=%ANDALUS_AQLI_HOME%",
+            "; Legacy override (if needed): AQLI_HOME=%USERPROFILE%\.aqli",
+            "ANDALUS_AQLI_MODELS_DIR=%ANDALUS_AQLI_HOME%\models",
+            "ANDALUS_AQLI_STORAGE_DIR=%ANDALUS_AQLI_HOME%\storage"
           ) | Set-Content "$andalusHome\config\andalus.env.example"
           Copy-Item "artifacts/${{ matrix.asset_name }}" "$andalusHome\bin\${{ matrix.asset_name }}"
           Copy-Item "artifacts/${{ matrix.asset_name }}" "$andalusHome\bin\andalus.exe"
@@ -199,10 +199,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mvn -B -ntp -f pom.xml -pl gollek-runtime-standalone -am clean package -DskipTests
+          mvn -B -ntp -f pom.xml -pl aqli-runtime-standalone -am clean package -DskipTests
           release_version="${RELEASE_TAG#v}"
           mkdir -p artifacts
-          cp gollek-runtime-standalone/target/*-runner.jar "artifacts/andalus-runtime-standalone-${release_version}.jar"
+          cp aqli-runtime-standalone/target/*-runner.jar "artifacts/andalus-runtime-standalone-${release_version}.jar"
 
       - name: Package service assets
         shell: bash
@@ -210,7 +210,7 @@ jobs:
           set -euo pipefail
           release_version="${RELEASE_TAG#v}"
           mkdir -p artifacts/service-assets/scripts/service
-          mkdir -p artifacts/service-assets/.andalus/config artifacts/service-assets/.andalus/logs/server artifacts/service-assets/.andalus/plugins artifacts/service-assets/.andalus/secrets artifacts/service-assets/.andalus/models artifacts/service-assets/.andalus/mcp artifacts/service-assets/.andalus/run artifacts/service-assets/.andalus/vector artifacts/service-assets/.andalus/gollek/models artifacts/service-assets/.andalus/gollek/storage
+          mkdir -p artifacts/service-assets/.andalus/config artifacts/service-assets/.andalus/logs/server artifacts/service-assets/.andalus/plugins artifacts/service-assets/.andalus/secrets artifacts/service-assets/.andalus/models artifacts/service-assets/.andalus/mcp artifacts/service-assets/.andalus/run artifacts/service-assets/.andalus/vector artifacts/service-assets/.andalus/aqli/models artifacts/service-assets/.andalus/aqli/storage
           printf '%s\n' \
             'ANDALUS_HOME=$HOME/.andalus' \
             'ANDALUS_CONFIG_DIR=$ANDALUS_HOME/config' \
@@ -223,11 +223,11 @@ jobs:
             'ANDALUS_MCP_DIR=$ANDALUS_HOME/mcp' \
             'ANDALUS_RUN_DIR=$ANDALUS_HOME/run' \
             'ANDALUS_VECTOR_DIR=$ANDALUS_HOME/vector' \
-            'ANDALUS_GOLLEK_HOME=$ANDALUS_HOME/gollek' \
-            'GOLLEK_HOME=$ANDALUS_GOLLEK_HOME' \
-            '# Legacy override (if needed): GOLLEK_HOME=$HOME/.gollek' \
-            'ANDALUS_GOLLEK_MODELS_DIR=$ANDALUS_GOLLEK_HOME/models' \
-            'ANDALUS_GOLLEK_STORAGE_DIR=$ANDALUS_GOLLEK_HOME/storage' \
+            'ANDALUS_AQLI_HOME=$ANDALUS_HOME/aqli' \
+            'AQLI_HOME=$ANDALUS_AQLI_HOME' \
+            '# Legacy override (if needed): AQLI_HOME=$HOME/.aqli' \
+            'ANDALUS_AQLI_MODELS_DIR=$ANDALUS_AQLI_HOME/models' \
+            'ANDALUS_AQLI_STORAGE_DIR=$ANDALUS_AQLI_HOME/storage' \
             > artifacts/service-assets/.andalus/config/andalus.env.example
           cp -R scripts/service/linux artifacts/service-assets/scripts/service/
           cp -R scripts/service/macos artifacts/service-assets/scripts/service/
@@ -334,8 +334,8 @@ jobs:
             printf '%s\n' "${listing}" | grep -q '^\.andalus/mcp/'
             printf '%s\n' "${listing}" | grep -q '^\.andalus/run/'
             printf '%s\n' "${listing}" | grep -q '^\.andalus/vector/'
-            printf '%s\n' "${listing}" | grep -q '^\.andalus/gollek/models/'
-            printf '%s\n' "${listing}" | grep -q '^\.andalus/gollek/storage/'
+            printf '%s\n' "${listing}" | grep -q '^\.andalus/aqli/models/'
+            printf '%s\n' "${listing}" | grep -q '^\.andalus/aqli/storage/'
             printf '%s\n' "${listing}" | grep -q '^\.andalus/config/andalus.env.example$'
             printf '%s\n' "${listing}" | grep -q '^scripts/service/'
             printf '%s\n' "${listing}" | grep -q '^INSTALL.md$'
@@ -376,11 +376,11 @@ jobs:
           grep -q '^ANDALUS_MCP_DIR=\$ANDALUS_HOME/mcp$' "${env_checks_file}"
           grep -q '^ANDALUS_RUN_DIR=\$ANDALUS_HOME/run$' "${env_checks_file}"
           grep -q '^ANDALUS_VECTOR_DIR=\$ANDALUS_HOME/vector$' "${env_checks_file}"
-          grep -q '^ANDALUS_GOLLEK_HOME=\$ANDALUS_HOME/gollek$' "${env_checks_file}"
-          grep -q '^GOLLEK_HOME=\$ANDALUS_GOLLEK_HOME$' "${env_checks_file}"
-          grep -q '^ANDALUS_GOLLEK_MODELS_DIR=\$ANDALUS_GOLLEK_HOME/models$' "${env_checks_file}"
-          grep -q '^ANDALUS_GOLLEK_STORAGE_DIR=\$ANDALUS_GOLLEK_HOME/storage$' "${env_checks_file}"
-          grep -q '^# Legacy override \(if needed\): GOLLEK_HOME=\$HOME/\.gollek$' "${env_checks_file}"
+          grep -q '^ANDALUS_AQLI_HOME=\$ANDALUS_HOME/aqli$' "${env_checks_file}"
+          grep -q '^AQLI_HOME=\$ANDALUS_AQLI_HOME$' "${env_checks_file}"
+          grep -q '^ANDALUS_AQLI_MODELS_DIR=\$ANDALUS_AQLI_HOME/models$' "${env_checks_file}"
+          grep -q '^ANDALUS_AQLI_STORAGE_DIR=\$ANDALUS_AQLI_HOME/storage$' "${env_checks_file}"
+          grep -q '^# Legacy override \(if needed\): AQLI_HOME=\$HOME/\.aqli$' "${env_checks_file}"
 
           windows_env_checks_file="$(mktemp)"
           extract_zip_entry "release-assets/andalus-service-bundle-windows-x86_64.zip" ".andalus/config/andalus.env.example" "${windows_env_checks_file}"
@@ -395,11 +395,11 @@ jobs:
           grep -q '^ANDALUS_MCP_DIR=%ANDALUS_HOME%\\mcp$' "${windows_env_checks_file}"
           grep -q '^ANDALUS_RUN_DIR=%ANDALUS_HOME%\\run$' "${windows_env_checks_file}"
           grep -q '^ANDALUS_VECTOR_DIR=%ANDALUS_HOME%\\vector$' "${windows_env_checks_file}"
-          grep -q '^ANDALUS_GOLLEK_HOME=%ANDALUS_HOME%\\gollek$' "${windows_env_checks_file}"
-          grep -q '^GOLLEK_HOME=%ANDALUS_GOLLEK_HOME%$' "${windows_env_checks_file}"
-          grep -q '^ANDALUS_GOLLEK_MODELS_DIR=%ANDALUS_GOLLEK_HOME%\\models$' "${windows_env_checks_file}"
-          grep -q '^ANDALUS_GOLLEK_STORAGE_DIR=%ANDALUS_GOLLEK_HOME%\\storage$' "${windows_env_checks_file}"
-          grep -q '^; Legacy override \(if needed\): GOLLEK_HOME=%USERPROFILE%\\\.gollek$' "${windows_env_checks_file}"
+          grep -q '^ANDALUS_AQLI_HOME=%ANDALUS_HOME%\\aqli$' "${windows_env_checks_file}"
+          grep -q '^AQLI_HOME=%ANDALUS_AQLI_HOME%$' "${windows_env_checks_file}"
+          grep -q '^ANDALUS_AQLI_MODELS_DIR=%ANDALUS_AQLI_HOME%\\models$' "${windows_env_checks_file}"
+          grep -q '^ANDALUS_AQLI_STORAGE_DIR=%ANDALUS_AQLI_HOME%\\storage$' "${windows_env_checks_file}"
+          grep -q '^; Legacy override \(if needed\): AQLI_HOME=%USERPROFILE%\\\.aqli$' "${windows_env_checks_file}"
 
           linux_installer_checks_file="$(mktemp)"
           extract_zip_entry "release-assets/andalus-service-bundle-linux-x86_64.zip" "scripts/service/linux/install-systemd-user.sh" "${linux_installer_checks_file}"
@@ -412,8 +412,8 @@ jobs:
           grep -q '^ANDALUS_MCP_DIR="\${ANDALUS_MCP_DIR:-\$ANDALUS_HOME/mcp}"$' "${linux_installer_checks_file}"
           grep -q '^ANDALUS_RUN_DIR="\${ANDALUS_RUN_DIR:-\$ANDALUS_HOME/run}"$' "${linux_installer_checks_file}"
           grep -q '^ANDALUS_VECTOR_DIR="\${ANDALUS_VECTOR_DIR:-\$ANDALUS_HOME/vector}"$' "${linux_installer_checks_file}"
-          grep -q '^ANDALUS_GOLLEK_HOME="\${ANDALUS_GOLLEK_HOME:-\$ANDALUS_HOME/gollek}"$' "${linux_installer_checks_file}"
-          grep -q '^LEGACY_GOLLEK_HOME="\${GOLLEK_HOME:-\$HOME/\.gollek}"$' "${linux_installer_checks_file}"
+          grep -q '^ANDALUS_AQLI_HOME="\${ANDALUS_AQLI_HOME:-\$ANDALUS_HOME/aqli}"$' "${linux_installer_checks_file}"
+          grep -q '^LEGACY_AQLI_HOME="\${AQLI_HOME:-\$HOME/\.aqli}"$' "${linux_installer_checks_file}"
 
           macos_installer_checks_file="$(mktemp)"
           extract_zip_entry "release-assets/andalus-service-bundle-osx-x86_64.zip" "scripts/service/macos/install-launchd-agent.sh" "${macos_installer_checks_file}"
@@ -426,8 +426,8 @@ jobs:
           grep -q '^ANDALUS_MCP_DIR="\${ANDALUS_MCP_DIR:-\$ANDALUS_HOME/mcp}"$' "${macos_installer_checks_file}"
           grep -q '^ANDALUS_RUN_DIR="\${ANDALUS_RUN_DIR:-\$ANDALUS_HOME/run}"$' "${macos_installer_checks_file}"
           grep -q '^ANDALUS_VECTOR_DIR="\${ANDALUS_VECTOR_DIR:-\$ANDALUS_HOME/vector}"$' "${macos_installer_checks_file}"
-          grep -q '^ANDALUS_GOLLEK_HOME="\${ANDALUS_GOLLEK_HOME:-\$ANDALUS_HOME/gollek}"$' "${macos_installer_checks_file}"
-          grep -q '^LEGACY_GOLLEK_HOME="\${GOLLEK_HOME:-\$HOME/\.gollek}"$' "${macos_installer_checks_file}"
+          grep -q '^ANDALUS_AQLI_HOME="\${ANDALUS_AQLI_HOME:-\$ANDALUS_HOME/aqli}"$' "${macos_installer_checks_file}"
+          grep -q '^LEGACY_AQLI_HOME="\${AQLI_HOME:-\$HOME/\.aqli}"$' "${macos_installer_checks_file}"
 
           windows_installer_checks_file="$(mktemp)"
           extract_zip_entry "release-assets/andalus-service-bundle-windows-x86_64.zip" "scripts/service/windows/install-service.ps1" "${windows_installer_checks_file}"
@@ -444,8 +444,8 @@ jobs:
           grep -q '^\s*"ANDALUS_MCP_DIR=\$AndalusMcpDir",' "${windows_installer_checks_file}"
           grep -q '^\s*"ANDALUS_RUN_DIR=\$AndalusRunDir",' "${windows_installer_checks_file}"
           grep -q '^\s*"ANDALUS_VECTOR_DIR=\$AndalusVectorDir",' "${windows_installer_checks_file}"
-          grep -q '^\$GollekHome = if \(\$env:ANDALUS_GOLLEK_HOME\) \{ \$env:ANDALUS_GOLLEK_HOME \} else \{ Join-Path \$AndalusHome "gollek" \}$' "${windows_installer_checks_file}"
-          grep -q '^\$legacyGollekHome = if \(\$env:GOLLEK_HOME\) \{ \$env:GOLLEK_HOME \} else \{ "\$env:USERPROFILE\\\.gollek" \}$' "${windows_installer_checks_file}"
+          grep -q '^\$AqliHome = if \(\$env:ANDALUS_AQLI_HOME\) \{ \$env:ANDALUS_AQLI_HOME \} else \{ Join-Path \$AndalusHome "aqli" \}$' "${windows_installer_checks_file}"
+          grep -q '^\$legacyAqliHome = if \(\$env:AQLI_HOME\) \{ \$env:AQLI_HOME \} else \{ "\$env:USERPROFILE\\\.aqli" \}$' "${windows_installer_checks_file}"
 
       - name: Verify service assets archive layout
         shell: bash
@@ -483,8 +483,8 @@ jobs:
           printf '%s\n' "${listing}" | grep -q '^\.andalus/mcp/'
           printf '%s\n' "${listing}" | grep -q '^\.andalus/run/'
           printf '%s\n' "${listing}" | grep -q '^\.andalus/vector/'
-          printf '%s\n' "${listing}" | grep -q '^\.andalus/gollek/models/'
-          printf '%s\n' "${listing}" | grep -q '^\.andalus/gollek/storage/'
+          printf '%s\n' "${listing}" | grep -q '^\.andalus/aqli/models/'
+          printf '%s\n' "${listing}" | grep -q '^\.andalus/aqli/storage/'
           printf '%s\n' "${listing}" | grep -q '^scripts/service/linux/'
           printf '%s\n' "${listing}" | grep -q '^scripts/service/macos/'
           printf '%s\n' "${listing}" | grep -q '^scripts/service/windows/'
@@ -501,17 +501,17 @@ jobs:
           grep -q '^ANDALUS_MCP_DIR=\$ANDALUS_HOME/mcp$' "${env_checks_file}"
           grep -q '^ANDALUS_RUN_DIR=\$ANDALUS_HOME/run$' "${env_checks_file}"
           grep -q '^ANDALUS_VECTOR_DIR=\$ANDALUS_HOME/vector$' "${env_checks_file}"
-          grep -q '^ANDALUS_GOLLEK_HOME=\$ANDALUS_HOME/gollek$' "${env_checks_file}"
-          grep -q '^GOLLEK_HOME=\$ANDALUS_GOLLEK_HOME$' "${env_checks_file}"
-          grep -q '^ANDALUS_GOLLEK_MODELS_DIR=\$ANDALUS_GOLLEK_HOME/models$' "${env_checks_file}"
-          grep -q '^ANDALUS_GOLLEK_STORAGE_DIR=\$ANDALUS_GOLLEK_HOME/storage$' "${env_checks_file}"
-          grep -q '^# Legacy override \(if needed\): GOLLEK_HOME=\$HOME/\.gollek$' "${env_checks_file}"
+          grep -q '^ANDALUS_AQLI_HOME=\$ANDALUS_HOME/aqli$' "${env_checks_file}"
+          grep -q '^AQLI_HOME=\$ANDALUS_AQLI_HOME$' "${env_checks_file}"
+          grep -q '^ANDALUS_AQLI_MODELS_DIR=\$ANDALUS_AQLI_HOME/models$' "${env_checks_file}"
+          grep -q '^ANDALUS_AQLI_STORAGE_DIR=\$ANDALUS_AQLI_HOME/storage$' "${env_checks_file}"
+          grep -q '^# Legacy override \(if needed\): AQLI_HOME=\$HOME/\.aqli$' "${env_checks_file}"
 
-      - name: Verify runtime Gollek path defaults
+      - name: Verify runtime Aqli path defaults
         shell: bash
         run: |
           set -euo pipefail
-          runtime_props="gollek-runtime-standalone/src/main/resources/application.properties"
+          runtime_props="aqli-runtime-standalone/src/main/resources/application.properties"
           grep -q '^andalus.home=\${ANDALUS_HOME:\${user.home}/\.andalus}$' "${runtime_props}"
           grep -q '^andalus.config.dir=\${ANDALUS_CONFIG_DIR:\${andalus.home}/config}$' "${runtime_props}"
           grep -q '^andalus.logs.dir=\${ANDALUS_LOG_DIR:\${andalus.home}/logs}$' "${runtime_props}"
@@ -523,10 +523,10 @@ jobs:
           grep -q '^andalus.run.dir=\${ANDALUS_RUN_DIR:\${andalus.home}/run}$' "${runtime_props}"
           grep -q '^andalus.vector.dir=\${ANDALUS_VECTOR_DIR:\${andalus.home}/vector}$' "${runtime_props}"
           grep -q '^andalus.vector.faiss.index.path=\${ANDALUS_FAISS_INDEX_PATH:\${andalus.vector.dir}/index.faiss}$' "${runtime_props}"
-          grep -q '^andalus.gollek.home=\${ANDALUS_GOLLEK_HOME:\${andalus.home}/gollek}$' "${runtime_props}"
-          grep -q '^andalus.gollek.models.dir=\${ANDALUS_GOLLEK_MODELS_DIR:\${andalus.gollek.home}/models}$' "${runtime_props}"
-          grep -q '^andalus.gollek.storage.dir=\${ANDALUS_GOLLEK_STORAGE_DIR:\${andalus.gollek.home}/storage}$' "${runtime_props}"
-          grep -q '^gollek.home=\${ANDALUS_GOLLEK_HOME:\${GOLLEK_HOME:\${andalus.gollek.home}}}$' "${runtime_props}"
+          grep -q '^andalus.aqli.home=\${ANDALUS_AQLI_HOME:\${andalus.home}/aqli}$' "${runtime_props}"
+          grep -q '^andalus.aqli.models.dir=\${ANDALUS_AQLI_MODELS_DIR:\${andalus.aqli.home}/models}$' "${runtime_props}"
+          grep -q '^andalus.aqli.storage.dir=\${ANDALUS_AQLI_STORAGE_DIR:\${andalus.aqli.home}/storage}$' "${runtime_props}"
+          grep -q '^aqli.home=\${ANDALUS_AQLI_HOME:\${AQLI_HOME:\${andalus.aqli.home}}}$' "${runtime_props}"
           grep -q '^quarkus.log.file.path=\${ANDALUS_LOG_FILE_PATH:\${andalus.logs.server.dir}/server.log}$' "${runtime_props}"
 
       - name: Create/Update GitHub release
@@ -566,5 +566,5 @@ jobs:
             - `ANDALUS_MCP_DIR` => `~/.andalus/mcp`
             - `ANDALUS_RUN_DIR` => `~/.andalus/run`
             - `ANDALUS_VECTOR_DIR` => `~/.andalus/vector`
-            - `ANDALUS_GOLLEK_HOME` => `~/.andalus/gollek`
-            - `GOLLEK_HOME` => `~/.andalus/gollek` (default via `ANDALUS_GOLLEK_HOME`), fallback `~/.gollek` if needed
+            - `ANDALUS_AQLI_HOME` => `~/.andalus/aqli`
+            - `AQLI_HOME` => `~/.andalus/aqli` (default via `ANDALUS_AQLI_HOME`), fallback `~/.aqli` if needed

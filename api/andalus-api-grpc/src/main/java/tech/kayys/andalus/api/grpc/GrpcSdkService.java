@@ -34,7 +34,7 @@ public class GrpcSdkService extends SdkServiceGrpc.SdkServiceImplBase {
 
     // ── ListProviders ─────────────────────────────────────────────────────────
     // Scans Families/andalus/modules/provider/**/plugin.json for built-in providers,
-    // then always appends gollek as the local inference provider.
+    // then always appends aqli as the local inference provider.
 
     @Override
     public void listProviders(Empty req, StreamObserver<ProviderList> resp) {
@@ -87,13 +87,13 @@ public class GrpcSdkService extends SdkServiceGrpc.SdkServiceImplBase {
                 break; // Use first valid root
             }
 
-            // 2. Always include gollek as the local inference provider if not already present
-            boolean hasGollek = b.getProvidersList().stream().anyMatch(p -> p.getId().contains("gollek"));
-            if (!hasGollek) {
+            // 2. Always include aqli as the local inference provider if not already present
+            boolean hasAqli = b.getProvidersList().stream().anyMatch(p -> p.getId().contains("aqli"));
+            if (!hasAqli) {
                 b.addProviders(ProviderInfo.newBuilder()
-                    .setId("gollek")
-                    .setName("Gollek")
-                    .setDescription("Local Gollek inference engine")
+                    .setId("aqli")
+                    .setName("Aqli")
+                    .setDescription("Local Aqli inference engine")
                     .addCapabilities("llm")
                     .addCapabilities("streaming")
                     .build());
@@ -108,14 +108,14 @@ public class GrpcSdkService extends SdkServiceGrpc.SdkServiceImplBase {
     }
 
     // ── ListModels ────────────────────────────────────────────────────────────
-    // Uses `gollek list --format json` CLI to get locally available models.
+    // Uses `aqli list --format json` CLI to get locally available models.
 
     @Override
     public void listModels(ListModelsRequest req, StreamObserver<ModelList> resp) {
         try {
             ModelList.Builder b = ModelList.newBuilder();
 
-            Process p = new ProcessBuilder("gollek", "list", "--format", "json")
+            Process p = new ProcessBuilder("aqli", "list", "--format", "json")
                 .redirectErrorStream(true)
                 .start();
             StringBuilder sb = new StringBuilder();
@@ -156,7 +156,7 @@ public class GrpcSdkService extends SdkServiceGrpc.SdkServiceImplBase {
                     }
                 }
             } else {
-                // Return empty list if gollek CLI is unavailable
+                // Return empty list if aqli CLI is unavailable
                 // b.addModels(ModelInfo.newBuilder().setId("gemma-3").setName("Gemma 3").setDescription("gguf").build());
             }
 
@@ -172,7 +172,7 @@ public class GrpcSdkService extends SdkServiceGrpc.SdkServiceImplBase {
     public void createSdk(CreateSdkRequest req, StreamObserver<CreateSdkResponse> resp) {
         try {
             String provider = req.getProviderId();
-            if (provider == null || provider.isBlank()) provider = "gollek";
+            if (provider == null || provider.isBlank()) provider = "aqli";
             String sdkId = "sdk-" + provider + "-local";
             resp.onNext(CreateSdkResponse.newBuilder()
                 .setStatus(OperationResponse.newBuilder().setOk(true).setMessage("created").build())

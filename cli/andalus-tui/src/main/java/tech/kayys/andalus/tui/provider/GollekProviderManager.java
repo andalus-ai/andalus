@@ -21,7 +21,7 @@ import java.util.stream.Stream;
  * ProviderManager backed by the Andalus gRPC SdkService.ListProviders RPC.
  * The server scans the built-in modules directory and checks local CLI status.
  */
-public class GollekProviderManager implements ProviderManager {
+public class AqliProviderManager implements ProviderManager {
 
     private final String grpcTarget;
 
@@ -31,7 +31,7 @@ public class GollekProviderManager implements ProviderManager {
         System.getProperty("andalus.modules.provider.dir", "")
     };
 
-    public GollekProviderManager(String grpcTarget) {
+    public AqliProviderManager(String grpcTarget) {
         String t = grpcTarget != null ? grpcTarget : "localhost:31013";
         if (t.startsWith("http://")) t = t.substring(7);
         if (t.startsWith("https://")) t = t.substring(8);
@@ -104,9 +104,9 @@ public class GollekProviderManager implements ProviderManager {
             break; // Use first valid root
         }
         
-        // Always add gollek if not present
-        if (result.stream().noneMatch(p -> p.id().contains("gollek"))) {
-            result.add(new ProviderRow("gollek", "Gollek", "?", "running", ""));
+        // Always add aqli if not present
+        if (result.stream().noneMatch(p -> p.id().contains("aqli"))) {
+            result.add(new ProviderRow("aqli", "Aqli", "?", "running", ""));
         }
         return result;
     }

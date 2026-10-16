@@ -27,12 +27,12 @@
                     <artifactId>*</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>tech.kayys.gollek</groupId>
-                    <artifactId>gollek-sdk-protobuf</artifactId>
+                    <groupId>tech.kayys.aqli</groupId>
+                    <artifactId>aqli-sdk-protobuf</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>tech.kayys.gollek</groupId>
-                    <artifactId>gollek-sdk-api</artifactId>
+                    <groupId>tech.kayys.aqli</groupId>
+                    <artifactId>aqli-sdk-api</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

@@ -1,7 +1,7 @@
 package tech.kayys.andalus.cli;
 
 import tech.kayys.andalus.contract.AndalusContractDescriptor;
-import tech.kayys.andalus.client.AndalusGollekSdk;
+import tech.kayys.andalus.client.AndalusAqliSdk;
 
 import java.io.IOException;
 import java.util.List;
@@ -54,7 +54,7 @@ final class AndalusCliGoldenFixtures {
     record GoldenFixture(
             String name,
             String sdkSource,
-            Supplier<AndalusGollekSdk> sdkFactory,
+            Supplier<AndalusAqliSdk> sdkFactory,
             List<String> args,
             List<String> commandIds,
             int expectedExitCode,
@@ -65,7 +65,7 @@ final class AndalusCliGoldenFixtures {
         GoldenFixture(
                 String name,
                 String sdkSource,
-                Supplier<AndalusGollekSdk> sdkFactory,
+                Supplier<AndalusAqliSdk> sdkFactory,
                 List<String> args,
                 int expectedExitCode,
                 SchemaMode schemaMode,
@@ -105,7 +105,7 @@ final class AndalusCliGoldenFixtures {
             }
         }
 
-        AndalusGollekSdk newSdk() {
+        AndalusAqliSdk newSdk() {
             return sdkFactory.get();
         }
 

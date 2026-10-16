@@ -23,7 +23,7 @@ import tech.kayys.andalus.harness.HarnessPlan;
 import tech.kayys.andalus.harness.HarnessPlanRequest;
 import tech.kayys.andalus.client.ProductSurface;
 import tech.kayys.andalus.policy.SurfacePolicyAssessment;
-import tech.kayys.andalus.client.AndalusGollekSdk;
+import tech.kayys.andalus.client.AndalusAqliSdk;
 import tech.kayys.andalus.client.AndalusPlatformStatus;
 import tech.kayys.andalus.client.AndalusWorkbenchModel;
 import tech.kayys.andalus.client.WorkspaceInspectionRequest;
@@ -34,12 +34,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-final class ContractLifecycleSdk implements AndalusGollekSdk {
+final class ContractLifecycleSdk implements AndalusAqliSdk {
     static final String RUN_ID = "contract-run-1";
 
     private static final String STRATEGY = "contract-strategy";
 
-    private final AndalusGollekSdk delegate = AndalusGollekSdk.local();
+    private final AndalusAqliSdk delegate = AndalusAqliSdk.local();
 
     @Override
     public AndalusPlatformStatus status() {

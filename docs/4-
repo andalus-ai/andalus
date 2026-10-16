@@ -269,7 +269,7 @@ graph LR
 
     subgraph Providers
         PROV[andalus-provider]
-        B_GOL[andalus-backend-gollek]
+        B_GOL[andalus-backend-aqli]
         B_GAM[andalus-backend-gamelan]
     end
 
@@ -1638,7 +1638,7 @@ The `DefaultModelCatalog` seeds 25+ models across seven categories:
 4. **Speech & Audio** — Whisper, ElevenLabs
 5. **Image & Video** — Flux, DALL-E 3, Stable Video Diffusion
 6. **3D Spatial & Mesh** — Trellis, Shap-E, Tripo3D
-7. **Embeddings & Local** — text-embedding-3-small, BGE-M3, Gollek
+7. **Embeddings & Local** — text-embedding-3-small, BGE-M3, Aqli
 
 ---
 
@@ -2406,7 +2406,7 @@ graph TB
 andalus.router.strategy=ADAPTIVE
 andalus.graph.store.type=neo4j
 andalus.graph.store.neo4j.uri=bolt://neo4j:7687
-andalus.embedding.default-provider=gollek
+andalus.embedding.default-provider=aqli
 quarkus.datasource.db-kind=postgresql
 quarkus.hibernate-orm.database.generation=update
 ```
@@ -2456,7 +2456,7 @@ graph TB
 | `andalus.agent.max-steps` | `25` | Max ReAct iterations |
 | `andalus.agent.timeout` | `PT60S` | Agent execution timeout |
 | `andalus.graph.store.type` | `inmemory` | `inmemory`, `neo4j` |
-| `andalus.embedding.default-provider` | `gollek` | Embedding provider |
+| `andalus.embedding.default-provider` | `aqli` | Embedding provider |
 | `andalus.embedding.default-model` | `Qwen/Qwen2.5-0.5B-Instruct` | Embedding model |
 | `andalus.embedding.cache.enabled` | `true` | Enable embedding cache |
 | `andalus.embedding.batch.size` | `32` | Batch size |
@@ -2635,7 +2635,7 @@ InferencePolicy policy = new InferencePolicy(
     InferencePolicy.RoutingObjective.BALANCED,
     null,
     Set.of("openai", "anthropic"), // allowed providers
-    Set.of("gollek"),              // denied providers
+    Set.of("aqli"),              // denied providers
     Set.of(), Set.of(),
     InferencePolicy.FallbackStrategy.ORDERED_FALLBACK
 );

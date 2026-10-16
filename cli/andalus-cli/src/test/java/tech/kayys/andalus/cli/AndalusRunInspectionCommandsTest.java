@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
 
 import tech.kayys.andalus.cli.run.AndalusRunInspectionCommands;
-import tech.kayys.andalus.client.AndalusGollekSdk;
+import tech.kayys.andalus.client.AndalusAqliSdk;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -32,8 +32,8 @@ class AndalusRunInspectionCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exitCode = AndalusGollekCli.execute(
-                AndalusGollekSdk.local(),
+        int exitCode = AndalusAqliCli.execute(
+                AndalusAqliSdk.local(),
                 stream(out),
                 stream(err),
                 "run",
@@ -48,8 +48,8 @@ class AndalusRunInspectionCommandsTest {
     }
 
     private static CommandLine commandLine() {
-        return new CommandLine(new AndalusGollekCli(
-                AndalusGollekSdk.local(),
+        return new CommandLine(new AndalusAqliCli(
+                AndalusAqliSdk.local(),
                 stream(new ByteArrayOutputStream()),
                 stream(new ByteArrayOutputStream())));
     }

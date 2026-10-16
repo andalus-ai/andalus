@@ -1,4 +1,4 @@
-package tech.kayys.gollek.provider.anthropic;
+package tech.kayys.aqli.provider.anthropic;
 
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
@@ -7,7 +7,7 @@ import io.smallrye.config.WithName;
 /**
  * Anthropic provider configuration.
  */
-@ConfigMapping(prefix = "gollek.providers.anthropic")
+@ConfigMapping(prefix = "aqli.providers.anthropic")
 public interface AnthropicConfig {
 
     /**

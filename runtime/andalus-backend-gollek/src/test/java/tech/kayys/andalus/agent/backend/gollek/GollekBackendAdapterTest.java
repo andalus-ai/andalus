@@ -1,7 +1,7 @@
-package tech.kayys.andalus.agent.backend.gollek;
+package tech.kayys.andalus.agent.backend.aqli;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.gollek.sdk.core.GollekSdk;
+import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.andalus.agent.spi.InferenceRequest;
 import tech.kayys.andalus.agent.spi.InferenceTypes.ToolDefinition;
 import tech.kayys.andalus.agent.spi.InferenceTypes.UserMessage;
@@ -15,14 +15,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class GollekBackendAdapterTest {
+class AqliBackendAdapterTest {
 
     @Test
-    void mapsAndalusInferenceRequestThroughCurrentGollekSdk() throws Exception {
-        GollekSdk sdk = mock(GollekSdk.class);
+    void mapsAndalusInferenceRequestThroughCurrentAqliSdk() throws Exception {
+        AqliSdk sdk = mock(AqliSdk.class);
         when(sdk.listAvailableProviders()).thenReturn(List.of());
         when(sdk.createCompletionAsync(any())).thenAnswer(invocation -> {
-            tech.kayys.gollek.spi.inference.InferenceRequest request = invocation.getArgument(0);
+            tech.kayys.aqli.spi.inference.InferenceRequest request = invocation.getArgument(0);
 
             assertThat(request.getRequestId()).isEqualTo("request-1");
             assertThat(request.getMessages()).hasSize(1);
@@ -31,7 +31,7 @@ class GollekBackendAdapterTest {
             assertThat(request.getTools().getFirst().getName()).isEqualTo("lookup");
 
             return CompletableFuture.completedFuture(
-                    tech.kayys.gollek.spi.inference.InferenceResponse.builder()
+                    tech.kayys.aqli.spi.inference.InferenceResponse.builder()
                             .requestId("request-1")
                             .model("test-model")
                             .content("done")
@@ -41,7 +41,7 @@ class GollekBackendAdapterTest {
                             .build());
         });
 
-        GollekBackendAdapter adapter = new GollekBackendAdapter(sdk);
+        AqliBackendAdapter adapter = new AqliBackendAdapter(sdk);
         InferenceRequest request = InferenceRequest.builder()
                 .requestId("request-1")
                 .model("test-model")

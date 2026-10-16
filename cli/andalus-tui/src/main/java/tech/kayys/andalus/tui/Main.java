@@ -3,8 +3,8 @@ package tech.kayys.andalus.tui;
 import tech.kayys.andalus.agent.AndalusAgent;
 import tech.kayys.andalus.tui.config.Config;
 import tech.kayys.andalus.provider.Provider;
-import tech.kayys.andalus.tui.provider.GollekModelManager;
-import tech.kayys.andalus.tui.provider.GollekProviderManager;
+import tech.kayys.andalus.tui.provider.AqliModelManager;
+import tech.kayys.andalus.tui.provider.AqliProviderManager;
 import tech.kayys.andalus.tui.provider.ProviderFactory;
 import tech.kayys.andalus.tools.spi.Tool;
 import tech.kayys.andalus.tui.ui.ModelManager;
@@ -109,30 +109,30 @@ public final class Main {
 
         Config.UiMode mode = profile.uiMode;
 
-        // Ensure Gollek is running if it's the selected provider
-        if (profile.provider != null && profile.provider.toLowerCase().contains("gollek")) {
-            tech.kayys.andalus.tui.provider.GollekManager.ensureGollekRunning();
+        // Ensure Aqli is running if it's the selected provider
+        if (profile.provider != null && profile.provider.toLowerCase().contains("aqli")) {
+            tech.kayys.andalus.tui.provider.AqliManager.ensureAqliRunning();
         }
 
         // Build model/provider managers based on provider type.
-        // Gollek and engine-backed providers expose /v1/models and /v1/providers
-        // from the Gollek inference server (default port 9131).
+        // Aqli and engine-backed providers expose /v1/models and /v1/providers
+        // from the Aqli inference server (default port 9131).
         ModelManager modelManager = null;
         ProviderManager providerManager = null;
         Config.ProviderConfig activeProviderConfig = config.provider(profile.provider);
         if (activeProviderConfig != null) {
             String type = activeProviderConfig.type;
-            if ("engine".equals(type) || "gollek".equals(type)) {
-                // Gollek inference API always lives on port 9131
-                String gollekBase = "http://127.0.0.1:9131";
-                modelManager = new GollekModelManager(gollekBase);
-                providerManager = new GollekProviderManager(gollekBase);
+            if ("engine".equals(type) || "aqli".equals(type)) {
+                // Aqli inference API always lives on port 9131
+                String aqliBase = "http://127.0.0.1:9131";
+                modelManager = new AqliModelManager(aqliBase);
+                providerManager = new AqliProviderManager(aqliBase);
             } else if ("openai".equals(type) && activeProviderConfig.baseUrl != null
                     && !activeProviderConfig.baseUrl.contains("openai.com")) {
                 // Ollama or other OpenAI-compatible servers (e.g. localhost:11434)
                 // also expose /v1/models
-                modelManager = new GollekModelManager(activeProviderConfig.baseUrl);
-                providerManager = new GollekProviderManager(activeProviderConfig.baseUrl);
+                modelManager = new AqliModelManager(activeProviderConfig.baseUrl);
+                providerManager = new AqliProviderManager(activeProviderConfig.baseUrl);
             }
         }
 

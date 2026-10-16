@@ -1,4 +1,4 @@
-package tech.kayys.andalus.provider.gollek.strategy;
+package tech.kayys.andalus.provider.aqli.strategy;
 
 import tech.kayys.andalus.provider.ChatMessage;
 import tech.kayys.andalus.provider.StreamEvent;
@@ -9,12 +9,12 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Internal strategy interface for invoking the Gollek AI backend.
+ * Internal strategy interface for invoking the Aqli AI backend.
  */
-public interface GollekStrategy {
+public interface AqliStrategy {
 
     /**
-     * Executes the chat completion request against the Gollek engine.
+     * Executes the chat completion request against the Aqli engine.
      */
     void streamChat(
             List<ChatMessage> messages,

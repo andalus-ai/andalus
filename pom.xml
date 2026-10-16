@@ -29,9 +29,9 @@
     <properties>
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
-        <gollek.version>0.1.0-SNAPSHOT</gollek.version>
+        <aqli.version>0.1.0-SNAPSHOT</aqli.version>
         <gamelan.version>0.1.1</gamelan.version>
-        <andalus-gollek-sdk.version>1.0.0-SNAPSHOT</andalus-gollek-sdk.version>
+        <andalus-aqli-sdk.version>1.0.0-SNAPSHOT</andalus-aqli-sdk.version>
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
         <jandex.maven.plugin.version>3.2.7</jandex.maven.plugin.version>
         <quarkus.platform.version>3.32.2</quarkus.platform.version>
@@ -63,8 +63,8 @@
             </dependency>
             <dependency>
                 <groupId>tech.kayys.andalus</groupId>
-                <artifactId>andalus-gollek-sdk</artifactId>
-                <version>${andalus-gollek-sdk.version}</version>
+                <artifactId>andalus-aqli-sdk</artifactId>
+                <version>${andalus-aqli-sdk.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -95,7 +95,7 @@
         <module>runtime/andalus-workflow-runtime</module>
         <module>runtime/andalus-knowledge-runtime</module>
         <module>runtime/andalus-memory-runtime</module>
-        <!-- andalus-agent-runner is a Quarkus executable app requiring Redis/GollekSdk/Micrometer at build time.
+        <!-- andalus-agent-runner is a Quarkus executable app requiring Redis/AqliSdk/Micrometer at build time.
              Build separately when the full infrastructure is available. -->
         <!-- <module>runtime/andalus-agent-runner</module> -->
 
@@ -201,7 +201,7 @@
                                         <exclude>tech.kayys.gamelan:gamelan-engine-core</exclude>
                                     </excludes>
                                     <message>
-                                        andalus-gollek modules must not depend on gamelan-engine-core.
+                                        andalus-aqli modules must not depend on gamelan-engine-core.
                                         Use gamelan-engine-spi and gamelan-sdk-*-core instead.
                                         See DEPENDENCIES.md for the allowed dependency policy.
                                     </message>

@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ResponseGenerationContextMapperTest {
 
     private static final ResponseGenerationContextMapper.Defaults DEFAULTS =
-            new ResponseGenerationContextMapper.Defaults("gollek", "qwen-test", 0.7, 1000, true, true);
+            new ResponseGenerationContextMapper.Defaults("aqli", "qwen-test", 0.7, 1000, true, true);
 
     @Test
     void mapsWorkflowContextDefensivelyAndKeepsMetadataAligned() {
@@ -103,7 +103,7 @@ class ResponseGenerationContextMapperTest {
         assertThat(generationContext.contexts()).containsExactly("Single context");
         assertThat(generationContext.contextMetadata()).containsExactly(Map.of("sourcePath", "single.md"));
         assertThat(generationContext.conversationHistory()).isEmpty();
-        assertThat(generationContext.config().provider()).isEqualTo("gollek");
+        assertThat(generationContext.config().provider()).isEqualTo("aqli");
         assertThat(generationContext.config().model()).isEqualTo("qwen-test");
         assertThat(generationContext.config().temperature()).isEqualTo(0.7f);
         assertThat(generationContext.config().maxTokens()).isEqualTo(1000);

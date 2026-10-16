@@ -9,7 +9,7 @@ import picocli.CommandLine.IFactory;
 import picocli.CommandLine.Option;
 
 /**
- * Gamelan CLI — agentic command-line interface powered by the Gollek local inference engine.
+ * Gamelan CLI — agentic command-line interface powered by the Aqli local inference engine.
  *
  * <p>Inspired by Claude Code, Gamelan provides an interactive REPL and a one-shot execution
  * mode for AI-driven development tasks. It discovers and executes skills conforming to
@@ -32,7 +32,7 @@ import picocli.CommandLine.Option;
     version = "1.0.0",
     description = {
         "@|bold,cyan Gamelan CLI|@ — Agentic AI for local development",
-        "Powered by the Gollek inference engine + agentskills.io skills system",
+        "Powered by the Aqli inference engine + agentskills.io skills system",
         ""
     },
     subcommands = {

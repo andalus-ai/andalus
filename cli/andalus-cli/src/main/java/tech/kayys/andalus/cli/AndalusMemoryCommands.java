@@ -37,7 +37,7 @@ final class AndalusMemoryCommands {
             })
     static final class MemoryCommand implements Callable<Integer> {
         @ParentCommand
-        AndalusGollekCli parent;
+        AndalusAqliCli parent;
 
         @Override
         public Integer call() {

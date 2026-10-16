@@ -12,13 +12,13 @@ import tech.kayys.gamelan.session.ConversationSession;
 import tech.kayys.gamelan.tool.BuiltInTools;
 import tech.kayys.gamelan.tool.ToolExecutor;
 import tech.kayys.gamelan.tool.ToolResult;
-import tech.kayys.gollek.sdk.core.GollekSdk;
-import tech.kayys.gollek.sdk.exception.SdkException;
-import tech.kayys.gollek.spi.Message;
-import tech.kayys.gollek.spi.inference.InferenceRequest;
-import tech.kayys.gollek.spi.inference.InferenceResponse;
-import tech.kayys.gollek.spi.inference.StreamingInferenceChunk;
-import tech.kayys.gollek.spi.tool.ToolDefinition;
+import tech.kayys.aqli.sdk.core.AqliSdk;
+import tech.kayys.aqli.sdk.exception.SdkException;
+import tech.kayys.aqli.spi.Message;
+import tech.kayys.aqli.spi.inference.InferenceRequest;
+import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
+import tech.kayys.aqli.spi.tool.ToolDefinition;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +35,7 @@ public class AgentLoop {
     private static final Logger log = LoggerFactory.getLogger(AgentLoop.class);
     private static final int MAX_ITERATIONS = 10;
 
-    @Inject GollekSdk sdk;
+    @Inject AqliSdk sdk;
     @Inject SkillRegistry skillRegistry;
     @Inject ToolExecutor toolExecutor;
     @Inject PromptBuilder promptBuilder;
@@ -114,7 +114,7 @@ public class AgentLoop {
 
     public void cancelCurrentTask() { cancelled.set(true); }
     public SkillRegistry getSkillRegistry() { return skillRegistry; }
-    public GollekSdk getSdk() { return sdk; }
+    public AqliSdk getSdk() { return sdk; }
 
     // ── Internal helpers ──────────────────────────────────────────────────
 

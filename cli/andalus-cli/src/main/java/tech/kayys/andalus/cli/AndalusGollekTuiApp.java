@@ -9,10 +9,10 @@ import tech.kayys.andalus.provider.ContentBlock;
 import tech.kayys.andalus.provider.StreamEvent;
 import tech.kayys.andalus.provider.ToolSpec;
 import tech.kayys.andalus.provider.AndalusProvider;
-import tech.kayys.gollek.sdk.core.ChatParams;
-import tech.kayys.gollek.spi.Message;
-import tech.kayys.gollek.spi.tool.ToolCall;
-import tech.kayys.gollek.spi.tool.ToolDefinition;
+import tech.kayys.aqli.sdk.core.ChatParams;
+import tech.kayys.aqli.spi.Message;
+import tech.kayys.aqli.spi.tool.ToolCall;
+import tech.kayys.aqli.spi.tool.ToolDefinition;
 import tech.kayys.andalus.json.Json;
 import tech.kayys.andalus.json.JsonValue;
 
@@ -26,10 +26,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Launches the Andalus agentic terminal UI backed by the Gollek/Andalus
+ * Launches the Andalus agentic terminal UI backed by the Aqli/Andalus
  * inference engine instead of an external HTTP provider.
  */
-final class AndalusGollekTuiApp {
+final class AndalusAqliTuiApp {
 
     private static final String BASE_SYSTEM_PROMPT =
         """
@@ -113,7 +113,7 @@ You are operating on a real local filesystem. All file paths are local.
             AndalusInferenceService svc, String modelId) {
 
         return (history, systemPrompt, toolSpecs, temperature, maxTokens, onEvent) -> {
-            List<Message> gollekHistory = toGollekMessages(history);
+            List<Message> aqliHistory = toAqliMessages(history);
             List<ToolDefinition> tools = toToolDefinitions(toolSpecs);
             ChatParams params = ChatParams.of(temperature, maxTokens);
 
@@ -209,7 +209,7 @@ You are operating on a real local filesystem. All file paths are local.
             }
             TokenFilter filter = new TokenFilter();
 
-            svc.inferenceStreaming(modelId, systemPrompt, gollekHistory, tools, params)
+            svc.inferenceStreaming(modelId, systemPrompt, aqliHistory, tools, params)
                .subscribe().with(
                         chunk -> {
                             if (chunk.isToolCallStart()) {
@@ -238,7 +238,7 @@ You are operating on a real local filesystem. All file paths are local.
                             }
                         },
                          err -> {
-                             System.err.println("[AndalusGollekTuiApp] Streaming failure: " + err.getMessage());
+                             System.err.println("[AndalusAqliTuiApp] Streaming failure: " + err.getMessage());
                              err.printStackTrace(System.err);
                              onEvent.accept(new StreamEvent.Error(err.getMessage()));
                              onEvent.accept(new StreamEvent.MessageStop("error"));
@@ -256,7 +256,7 @@ You are operating on a real local filesystem. All file paths are local.
         };
     }
 
-    private static List<Message> toGollekMessages(List<ChatMessage> history) {
+    private static List<Message> toAqliMessages(List<ChatMessage> history) {
         List<Message> result = new ArrayList<>();
         for (ChatMessage m : history) {
             switch (m.role) {

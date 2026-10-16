@@ -6,21 +6,21 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
-public class GollekConfig {
+public class AqliConfig {
     private String strategy = "grpc";
     private String grpcHost = "localhost";
     private int grpcPort = 31013;
     private boolean autoStart = true;
     private boolean autoInstall = true;
-    private String installDir = System.getProperty("user.home") + "/.andalus/gollek";
-    private String downloadScript = "Families/gollek/scripts/install.sh";
-    private String downloadUrl = "https://github.com/bhangun/gollek/releases/latest/download/gollek";
+    private String installDir = System.getProperty("user.home") + "/.andalus/aqli";
+    private String downloadScript = "Families/aqli/scripts/install.sh";
+    private String downloadUrl = "https://github.com/bhangun/aqli/releases/latest/download/aqli";
     private String fallbackProvider = "gemini";
     private boolean failHard = true;
     private String defaultModel = "gemma-2-2b-it-Q4_K_M";
 
-    public static GollekConfig load(Path yamlFile, String activeProfile) {
-        GollekConfig config = new GollekConfig();
+    public static AqliConfig load(Path yamlFile, String activeProfile) {
+        AqliConfig config = new AqliConfig();
         if (!Files.exists(yamlFile)) {
             return config;
         }
@@ -49,7 +49,7 @@ public class GollekConfig {
             config.defaultModel = flatProps.getOrDefault("default.model", config.defaultModel);
 
         } catch (IOException e) {
-            System.err.println("Failed to read Gollek config: " + e.getMessage());
+            System.err.println("Failed to read Aqli config: " + e.getMessage());
         }
         return config;
     }

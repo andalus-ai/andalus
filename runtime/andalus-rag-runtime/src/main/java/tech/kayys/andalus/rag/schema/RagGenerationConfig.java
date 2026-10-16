@@ -13,8 +13,8 @@ import java.util.Map;
 public class RagGenerationConfig {
 
     @JsonProperty("provider")
-    @JsonPropertyDescription("LLM provider to use for response generation. E.g. gollek, openai, anthropic. Defaults to 'gollek'.")
-    private String provider = "gollek";
+    @JsonPropertyDescription("LLM provider to use for response generation. E.g. aqli, openai, anthropic. Defaults to 'aqli'.")
+    private String provider = "aqli";
 
     @JsonProperty("model")
     @JsonPropertyDescription("Model identifier to use for generation. E.g. Qwen/Qwen2.5-0.5B-Instruct. Defaults to 'Qwen/Qwen2.5-0.5B-Instruct'.")

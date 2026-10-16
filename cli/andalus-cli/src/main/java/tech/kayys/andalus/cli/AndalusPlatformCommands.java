@@ -31,7 +31,7 @@ public final class AndalusPlatformCommands {
     @Command(name = "status", description = "Show platform boundary and adapter status.")
     public static final class StatusCommand implements Callable<Integer> {
         @ParentCommand
-        public AndalusGollekCli parent;
+        public AndalusAqliCli parent;
 
         @Option(names = "--json", description = "Render status as a compact JSON object.")
         boolean json;
@@ -80,7 +80,7 @@ public final class AndalusPlatformCommands {
     @Command(name = "products", description = "List product surfaces that can be powered by the Andalus agent engine.")
     static final class ProductsCommand implements Callable<Integer> {
         @ParentCommand
-        public AndalusGollekCli parent;
+        public AndalusAqliCli parent;
 
         @Option(names = "--json", description = "Render product surfaces and policies as compact JSON.")
         boolean json;
@@ -108,7 +108,7 @@ public final class AndalusPlatformCommands {
     @Command(name = "sdk-boundaries", description = "List SDK ownership boundaries for package and API separation.")
     static final class SdkBoundariesCommand implements Callable<Integer> {
         @ParentCommand
-        public AndalusGollekCli parent;
+        public AndalusAqliCli parent;
 
         @Parameters(index = "0", arity = "0..1", description = "Optional SDK boundary id to inspect.")
         String boundaryId;
@@ -156,7 +156,7 @@ public final class AndalusPlatformCommands {
             })
     static final class ReadinessProfilesCommand implements Callable<Integer> {
         @ParentCommand
-        public AndalusGollekCli parent;
+        public AndalusAqliCli parent;
 
         @Option(names = "--json", description = "Render readiness profiles as compact JSON.")
         boolean json;
@@ -395,7 +395,7 @@ public final class AndalusPlatformCommands {
             })
     static final class ProfilesCommand implements Callable<Integer> {
         @ParentCommand
-        public AndalusGollekCli parent;
+        public AndalusAqliCli parent;
 
         @Option(names = "--surface", description = "Filter profiles by product surface id.")
         String surfaceId;

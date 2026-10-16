@@ -7,7 +7,7 @@ import tech.kayys.andalus.provider.ChatMessage;
 import tech.kayys.andalus.agent.AndalusSessionPersistence;
 
 /**
- * Minimal in-process chat session used when Gollek SDK is not available.
+ * Minimal in-process chat session used when Aqli SDK is not available.
  * Supports the subset of methods used by the CLI: getModelId/getProviderId,
  * reset, addMessage, getHistory, setSystemPrompt and a simple streaming API.
  * Now includes session persistence.
