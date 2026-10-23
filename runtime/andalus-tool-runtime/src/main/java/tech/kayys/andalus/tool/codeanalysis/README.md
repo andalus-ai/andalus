@@ -5,13 +5,13 @@
 This package provides code analysis utilities for detecting broken Java import statements. It helps catch issues like:
 
 - Typos in import statements
-- Imports from wrong packages (e.g., `tech.kayys.alkhawarizm` when should be `tech.kayys.aqli`)
+- Imports from wrong packages (e.g., `tech.kayys.aljabr` when should be `tech.kayys.aqli`)
 - Imports of non-existent classes
 - Package/class name case sensitivity issues
 
 ## Problem Solved
 
-This feature was created in response to a real issue where the Aqli project had many Java files importing `tech.kayys.alkhawarizm.tokenizer.spi.Tokenizer`, but the `Tokenizer` interface actually existed in `tech.kayys.aqli.tokenizer.spi.Tokenizer`. This caused compilation failures until all the imports were manually fixed.
+This feature was created in response to a real issue where the Aqli project had many Java files importing `tech.kayys.aljabr.tokenizer.spi.Tokenizer`, but the `Tokenizer` interface actually existed in `tech.kayys.aqli.tokenizer.spi.Tokenizer`. This caused compilation failures until all the imports were manually fixed.
 
 ## Usage
 
@@ -75,7 +75,7 @@ ImportStatementValidator validator = new ImportStatementValidator(
 // Validate a single file
 List<ImportValidationIssue> fileIssues = validator.validateContent(
     Path.of("/path/to/MyClass.java"),
-    "package tech.kayys;\nimport tech.kayys.alkhawarizm.tokenizer.spi.Tokenizer;\n..."
+    "package tech.kayys;\nimport tech.kayys.aljabr.tokenizer.spi.Tokenizer;\n..."
 );
 
 // Validate a directory
@@ -91,7 +91,7 @@ List<ImportValidationIssue> dirIssues = validator.validateDirectory(
 The validator attempts to suggest fixes for common issues:
 
 - If a class exists in a different package, it suggests the correct import
-- Handles common package prefix replacements (e.g., `tech.kayys.alkhawarizm` ↔ `tech.kayys.aqli`)
+- Handles common package prefix replacements (e.g., `tech.kayys.aljabr` ↔ `tech.kayys.aqli`)
 - Detects when a class exists but in a different location
 
 ### Severity Levels

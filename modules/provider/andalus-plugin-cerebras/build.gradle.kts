@@ -21,7 +21,7 @@ dependencies {
     implementation(project(":spi:aqli-spi-plugin"))
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT")
     implementation("tech.kayys.andalus:andalus-provider:1.0.0-SNAPSHOT")
     implementation("tech.kayys.andalus:andalus-core:1.0.0-SNAPSHOT")
     implementation("tech.kayys.andalus:andalus-spi:1.0.0-SNAPSHOT")

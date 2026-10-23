@@ -112,7 +112,7 @@
         <!-- CLI -->
         <module>cli/andalus-tui</module>
         <module>cli/andalus-cli</module>
-        <!-- agent-cli: stale ref to tech.kayys.alkhawarizm.spi.model — needs alkhawarizm SPI realignment -->
+        <!-- agent-cli: stale ref to tech.kayys.aljabr.spi.model — needs aljabr SPI realignment -->
         <!-- <module>cli/agent-cli</module> -->
     </modules>
 

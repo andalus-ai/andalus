@@ -101,11 +101,11 @@ class ImportStatementValidatorTest {
 
         List<ImportValidationIssue> issues = validator.validateContent(
                 Path.of("/test/Test.java"),
-                "package test;\nimport tech.kayys.alkhawarizm.tokenizer.spi.Tokenizer;\npublic class Test {}");
-        assertFalse(issues.isEmpty(), "Should detect alkhawarizm import when class is in aqli");
+                "package test;\nimport tech.kayys.aljabr.tokenizer.spi.Tokenizer;\npublic class Test {}");
+        assertFalse(issues.isEmpty(), "Should detect aljabr import when class is in aqli");
         assertTrue(issues.get(0).getSuggestedFix() != null &&
                 issues.get(0).getSuggestedFix().contains("tech.kayys.aqli.tokenizer.spi.Tokenizer"),
-                "Should suggest aqli import for alkhawarizm import");
+                "Should suggest aqli import for aljabr import");
     }
 
     @Test

@@ -20,7 +20,7 @@ import java.util.stream.*;
  * This validator helps catch issues like:
  * <ul>
  * <li>Typos in import statements</li>
- * <li>Imports from wrong packages (e.g., tech.kayys.alkhawarizm when should be
+ * <li>Imports from wrong packages (e.g., tech.kayys.aljabr when should be
  * tech.kayys.aqli)</li>
  * <li>Imports of non-existent classes</li>
  * <li>Case sensitivity issues in package/class names</li>
@@ -305,16 +305,16 @@ public class ImportStatementValidator {
         }
 
         // Check for common package prefix replacements
-        // e.g., tech.kayys.alkhawarizm -> tech.kayys.aqli
+        // e.g., tech.kayys.aljabr -> tech.kayys.aqli
         String[] commonReplacements = {
-                "tech.kayys.alkhawarizm", "tech.kayys.aqli",
-                "tech.kayys.aqli", "tech.kayys.alkhawarizm"
+                "tech.kayys.aljabr", "tech.kayys.aqli",
+                "tech.kayys.aqli", "tech.kayys.aljabr"
         };
 
         for (String prefix : commonReplacements) {
             if (wrongPackage.startsWith(prefix)) {
                 String replacement = wrongPackage.replace(prefix,
-                        prefix.equals("tech.kayys.alkhawarizm") ? "tech.kayys.aqli" : "tech.kayys.alkhawarizm");
+                        prefix.equals("tech.kayys.aljabr") ? "tech.kayys.aqli" : "tech.kayys.aljabr");
                 String candidate = replacement + "." + className;
                 if (classToPackageCache.containsKey(candidate) || packageToClassesCache
                         .getOrDefault(replacement, Collections.emptySet()).contains(className)) {

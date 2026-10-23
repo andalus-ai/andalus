@@ -197,9 +197,9 @@
       <version>${aqli.version}</version>
       <optional>true</optional>
       <exclusions>
-        <!-- These alkhawarizm artifacts are not in any reachable repo -->
+        <!-- These aljabr artifacts are not in any reachable repo -->
         <exclusion>
-          <groupId>tech.kayys.alkhawarizm</groupId>
+          <groupId>tech.kayys.aljabr</groupId>
           <artifactId>*</artifactId>
         </exclusion>
         <exclusion>

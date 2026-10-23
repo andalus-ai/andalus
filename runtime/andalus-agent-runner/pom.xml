@@ -21,9 +21,9 @@
             <artifactId>andalus-runtime-core</artifactId>
             <version>${project.version}</version>
             <exclusions>
-                <!-- alkhawarizm artifacts are not in any reachable repo -->
+                <!-- aljabr artifacts are not in any reachable repo -->
                 <exclusion>
-                    <groupId>tech.kayys.alkhawarizm</groupId>
+                    <groupId>tech.kayys.aljabr</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
                 <exclusion>

@@ -3,9 +3,9 @@ package tech.kayys.andalus.memory.impl;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.alkhawarizm.core.memory.MemoryStoreConfig;
-import tech.kayys.alkhawarizm.core.memory.MemoryStoreFactory;
-import tech.kayys.alkhawarizm.core.memory.UnifiedMemoryStore;
+import tech.kayys.aljabr.core.memory.MemoryStoreConfig;
+import tech.kayys.aljabr.core.memory.MemoryStoreFactory;
+import tech.kayys.aljabr.core.memory.UnifiedMemoryStore;
 import tech.kayys.andalus.memory.spi.DirectAgentContext;
 
 import java.lang.foreign.Arena;
@@ -20,7 +20,7 @@ public class DirectAgentContextImpl implements DirectAgentContext {
     public DirectAgentContextImpl() {
         // In a real application, MemoryStoreConfig would be injected via Eclipse MicroProfile Config
         // Choose DB path from system property or default
-        String dbPath = System.getProperty(".alkhawarizm.dbpath", "./data/alkhawarizm");
+        String dbPath = System.getProperty(".aljabr.dbpath", "./data/aljabr");
         this.memoryStore = MemoryStoreFactory.openRocksDb(dbPath);
     }
 

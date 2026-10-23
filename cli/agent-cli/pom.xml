@@ -44,7 +44,7 @@
             <version>${aqli.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>tech.kayys.alkhawarizm</groupId>
+                    <groupId>tech.kayys.aljabr</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
@@ -55,7 +55,7 @@
             <version>${aqli.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>tech.kayys.alkhawarizm</groupId>
+                    <groupId>tech.kayys.aljabr</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
@@ -66,7 +66,7 @@
             <version>${aqli.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>tech.kayys.alkhawarizm</groupId>
+                    <groupId>tech.kayys.aljabr</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
@@ -79,7 +79,7 @@
             <version>${aqli.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>tech.kayys.alkhawarizm</groupId>
+                    <groupId>tech.kayys.aljabr</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
@@ -90,7 +90,7 @@
             <version>${aqli.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>tech.kayys.alkhawarizm</groupId>
+                    <groupId>tech.kayys.aljabr</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
@@ -101,7 +101,7 @@
             <version>${aqli.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>tech.kayys.alkhawarizm</groupId>
+                    <groupId>tech.kayys.aljabr</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>

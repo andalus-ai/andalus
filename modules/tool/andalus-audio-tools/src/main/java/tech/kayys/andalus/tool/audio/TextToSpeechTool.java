@@ -27,7 +27,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Andalus Agent Tool for Text-To-Speech (TTS) synthesis powered by Aqli / Al-Khawarizm audio backends.
+ * Andalus Agent Tool for Text-To-Speech (TTS) synthesis powered by Aqli /
+ * Aljabr audio backends.
  */
 @ApplicationScoped
 public class TextToSpeechTool implements Tool {
@@ -35,7 +36,8 @@ public class TextToSpeechTool implements Tool {
     private final ResourceId.ToolId id = new ResourceId.ToolId(Id.random());
     private final Metadata metadata = Metadata.builder()
             .name("synthesize_speech")
-            .description("Synthesizes spoken audio from text (TTS) with customizable voice, language, speed, and pitch.")
+            .description(
+                    "Synthesizes spoken audio from text (TTS) with customizable voice, language, speed, and pitch.")
             .version(Version.VERSION_1_0_0)
             .build();
 
@@ -60,17 +62,60 @@ public class TextToSpeechTool implements Tool {
     @Override
     public ToolDescriptor descriptor() {
         return new ToolDescriptor() {
-            @Override public ResourceId id() { return id; }
-            @Override public ResourceType type() { return new ResourceType.Tool(); }
-            @Override public Metadata metadata() { return metadata; }
-            @Override public Set<String> tags() { return Set.of("audio", "tts", "voice", "speech"); }
-            @Override public Set<String> categories() { return Set.of("multimodal", "audio"); }
-            @Override public Map<String, ParameterDescriptor> inputs() { return Map.of(); }
-            @Override public Map<String, ParameterDescriptor> outputs() { return Map.of(); }
-            @Override public List<CapabilityDescriptor> capabilities() { return List.of(); }
-            @Override public String name() { return "synthesize_speech"; }
-            @Override public String description() { return metadata.description(); }
-            @Override public String version() { return "1.0.0"; }
+            @Override
+            public ResourceId id() {
+                return id;
+            }
+
+            @Override
+            public ResourceType type() {
+                return new ResourceType.Tool();
+            }
+
+            @Override
+            public Metadata metadata() {
+                return metadata;
+            }
+
+            @Override
+            public Set<String> tags() {
+                return Set.of("audio", "tts", "voice", "speech");
+            }
+
+            @Override
+            public Set<String> categories() {
+                return Set.of("multimodal", "audio");
+            }
+
+            @Override
+            public Map<String, ParameterDescriptor> inputs() {
+                return Map.of();
+            }
+
+            @Override
+            public Map<String, ParameterDescriptor> outputs() {
+                return Map.of();
+            }
+
+            @Override
+            public List<CapabilityDescriptor> capabilities() {
+                return List.of();
+            }
+
+            @Override
+            public String name() {
+                return "synthesize_speech";
+            }
+
+            @Override
+            public String description() {
+                return metadata.description();
+            }
+
+            @Override
+            public String version() {
+                return "1.0.0";
+            }
 
             @Override
             public Map<String, Object> inputSchema() {
@@ -78,9 +123,11 @@ public class TextToSpeechTool implements Tool {
                 schema.put("type", "object");
                 Map<String, Object> props = new HashMap<>();
                 props.put("text", Map.of("type", "string", "description", "The text to synthesize into speech"));
-                props.put("voice", Map.of("type", "string", "description", "Voice name or speaker identity (e.g. 'aura', 'female-1')"));
+                props.put("voice", Map.of("type", "string", "description",
+                        "Voice name or speaker identity (e.g. 'aura', 'female-1')"));
                 props.put("language", Map.of("type", "string", "description", "Language code (e.g. 'en', 'id', 'es')"));
-                props.put("speed", Map.of("type", "number", "description", "Playback speed multiplier (e.g. 1.0, 1.2)"));
+                props.put("speed",
+                        Map.of("type", "number", "description", "Playback speed multiplier (e.g. 1.0, 1.2)"));
                 props.put("pitch", Map.of("type", "number", "description", "Voice pitch multiplier (e.g. 1.0)"));
                 schema.put("properties", props);
                 schema.put("required", List.of("text"));
@@ -101,15 +148,16 @@ public class TextToSpeechTool implements Tool {
                 float pitch = parseFloat(args.get("pitch"), 1.0f);
 
                 TtsRequest request = TtsRequest.builder()
-                    .text(text)
-                    .voice(voice)
-                    .language(language)
-                    .speed(speed)
-                    .pitch(pitch)
-                    .outputFormat("audio/wav")
-                    .build();
+                        .text(text)
+                        .voice(voice)
+                        .language(language)
+                        .speed(speed)
+                        .pitch(pitch)
+                        .outputFormat("audio/wav")
+                        .build();
 
-                AudioPipeline pipeline = audioPipelines != null && audioPipelines.isResolvable() ? audioPipelines.get() : null;
+                AudioPipeline pipeline = audioPipelines != null && audioPipelines.isResolvable() ? audioPipelines.get()
+                        : null;
                 if (pipeline == null) {
                     Map<String, Object> fallbackOutputs = new HashMap<>();
                     fallbackOutputs.put("status", "mock_tts_ready");
@@ -138,32 +186,82 @@ public class TextToSpeechTool implements Tool {
     }
 
     private static float parseFloat(Object val, float fallback) {
-        if (val instanceof Number n) return n.floatValue();
+        if (val instanceof Number n)
+            return n.floatValue();
         if (val instanceof String s) {
-            try { return Float.parseFloat(s); } catch (Exception ignored) {}
+            try {
+                return Float.parseFloat(s);
+            } catch (Exception ignored) {
+            }
         }
         return fallback;
     }
 
     private ToolResult success(Map<String, Object> outputs) {
         return new ToolResult() {
-            @Override public ResourceId id() { return id; }
-            @Override public ResourceType type() { return new ResourceType.Tool(); }
-            @Override public Metadata metadata() { return metadata; }
-            @Override public Map<String, Object> getOutputs() { return outputs; }
-            @Override public boolean isSuccess() { return true; }
-            @Override public String getErrorMessage() { return null; }
+            @Override
+            public ResourceId id() {
+                return id;
+            }
+
+            @Override
+            public ResourceType type() {
+                return new ResourceType.Tool();
+            }
+
+            @Override
+            public Metadata metadata() {
+                return metadata;
+            }
+
+            @Override
+            public Map<String, Object> getOutputs() {
+                return outputs;
+            }
+
+            @Override
+            public boolean isSuccess() {
+                return true;
+            }
+
+            @Override
+            public String getErrorMessage() {
+                return null;
+            }
         };
     }
 
     private ToolResult failure(String errorMessage) {
         return new ToolResult() {
-            @Override public ResourceId id() { return id; }
-            @Override public ResourceType type() { return new ResourceType.Tool(); }
-            @Override public Metadata metadata() { return metadata; }
-            @Override public Map<String, Object> getOutputs() { return Map.of(); }
-            @Override public boolean isSuccess() { return false; }
-            @Override public String getErrorMessage() { return errorMessage; }
+            @Override
+            public ResourceId id() {
+                return id;
+            }
+
+            @Override
+            public ResourceType type() {
+                return new ResourceType.Tool();
+            }
+
+            @Override
+            public Metadata metadata() {
+                return metadata;
+            }
+
+            @Override
+            public Map<String, Object> getOutputs() {
+                return Map.of();
+            }
+
+            @Override
+            public boolean isSuccess() {
+                return false;
+            }
+
+            @Override
+            public String getErrorMessage() {
+                return errorMessage;
+            }
         };
     }
 }
