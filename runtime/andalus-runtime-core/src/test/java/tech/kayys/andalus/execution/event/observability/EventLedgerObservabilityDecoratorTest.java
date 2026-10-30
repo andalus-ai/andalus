@@ -77,6 +77,7 @@ class EventLedgerObservabilityDecoratorTest {
 
         assertDoesNotThrow(() -> decorator.record(event));
         assertEquals(1, ledger.totalEventCount());
+        assertEquals(1L, decorator.publicationFailureCount());
     }
 
     @Test
