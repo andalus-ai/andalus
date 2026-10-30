@@ -15,6 +15,7 @@ import tech.kayys.andalus.observability.ObservabilityPublisher;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * CDI decorator that mirrors successfully recorded ledger events to the
@@ -31,6 +32,7 @@ public class EventLedgerObservabilityDecorator implements EventLedger {
     private final EventLedger delegate;
     private final ObservabilityPublisher publisher;
     private final ExecutionEventObservationMapper mapper;
+    private final LongAdder publicationFailures = new LongAdder();
 
     @Inject
     public EventLedgerObservabilityDecorator(
@@ -46,15 +48,26 @@ public class EventLedgerObservabilityDecorator implements EventLedger {
     @Override
     public void record(ExecutionEvent event) {
         delegate.record(event);
-        if (event == null || !publisher.enabled()) {
+        if (event == null) {
             return;
         }
 
         try {
-            publisher.publish(mapper.map(event));
+            if (publisher.enabled()) {
+                publisher.publish(mapper.map(event));
+            }
         } catch (RuntimeException ignored) {
+            publicationFailures.increment();
             // Observability is a derived side channel; ledger success is authoritative.
         }
+    }
+
+    /**
+     * Number of mapping/publisher failures isolated by this decorator.
+     * Exposed as a diagnostic hook until a dedicated metric integration is added.
+     */
+    public long publicationFailureCount() {
+        return publicationFailures.sum();
     }
 
     @Override
