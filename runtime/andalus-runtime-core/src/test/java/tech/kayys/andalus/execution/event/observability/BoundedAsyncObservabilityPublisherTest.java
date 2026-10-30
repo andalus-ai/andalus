@@ -108,6 +108,35 @@ class BoundedAsyncObservabilityPublisherTest {
     }
 
     @Test
+    void zeroShutdownTimeoutDoesNotMeanInfiniteWaitAndCountsAbandonedQueue() throws Exception {
+        CountDownLatch firstStarted = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        var publisher = new BoundedAsyncObservabilityPublisher(event -> {
+            if ("event-1".equals(event.id())) {
+                firstStarted.countDown();
+                await(releaseFirst);
+            }
+        }, 1, BoundedAsyncObservabilityPublisher.OverflowPolicy.DROP_NEWEST,
+                Duration.ZERO);
+        try {
+            publisher.publish(event("event-1"));
+            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
+            publisher.publish(event("event-2"));
+
+            long before = System.nanoTime();
+            publisher.close();
+            long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - before);
+
+            assertTrue(elapsedMillis < 100, "zero grace period must not block");
+            assertEquals(1, publisher.droppedCount());
+            releaseFirst.countDown();
+        } finally {
+            releaseFirst.countDown();
+            publisher.close();
+        }
+    }
+
+    @Test
     void countsDelegateFailuresAndContinuesProcessing() {
         List<String> attempted = new CopyOnWriteArrayList<>();
         var publisher = new BoundedAsyncObservabilityPublisher(event -> {
