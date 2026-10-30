@@ -35,6 +35,7 @@ public final class BoundedAsyncObservabilityPublisher
     private final OverflowPolicy overflowPolicy;
     private final long shutdownTimeoutMillis;
     private final AtomicBoolean accepting = new AtomicBoolean(true);
+    private final Object lifecycleLock = new Object();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final LongAdder accepted = new LongAdder();
     private final LongAdder delivered = new LongAdder();
@@ -66,32 +67,37 @@ public final class BoundedAsyncObservabilityPublisher
 
     @Override
     public void publish(ObservationEvent event) {
-        if (event == null || !enabled() || !accepting.get()) {
+        if (event == null) {
             return;
         }
 
-        if (queue.offer(event)) {
-            accepted.increment();
-            return;
-        }
+        synchronized (lifecycleLock) {
+            if (!enabled() || !accepting.get()) {
+                return;
+            }
 
-        if (overflowPolicy == OverflowPolicy.DROP_NEWEST) {
-            dropped.increment();
-            return;
-        }
+            if (queue.offer(event)) {
+                accepted.increment();
+                return;
+            }
 
-        // DROP_OLDEST: remove one queued event and retry once. A concurrent
-        // worker may free capacity between poll and offer; the retry is safe.
-        ObservationEvent evicted = queue.poll();
-        if (evicted != null) {
-            dropped.increment();
-        }
+            if (overflowPolicy == OverflowPolicy.DROP_NEWEST) {
+                dropped.increment();
+                return;
+            }
 
-        if (queue.offer(event)) {
-            accepted.increment();
-        } else {
-            // A concurrent producer won the freed slot. Never block the caller.
-            dropped.increment();
+            // DROP_OLDEST: remove one queued event and retry once. The worker
+            // may concurrently free capacity; a failed retry is counted as loss.
+            ObservationEvent evicted = queue.poll();
+            if (evicted != null) {
+                dropped.increment();
+            }
+
+            if (queue.offer(event)) {
+                accepted.increment();
+            } else {
+                dropped.increment();
+            }
         }
     }
 
@@ -153,14 +159,18 @@ public final class BoundedAsyncObservabilityPublisher
 
     @Override
     public void close() {
-        if (!closed.compareAndSet(false, true)) {
-            return;
+        synchronized (lifecycleLock) {
+            if (!closed.compareAndSet(false, true)) {
+                return;
+            }
+            accepting.set(false);
         }
-        accepting.set(false);
         worker.interrupt();
 
         try {
-            worker.join(shutdownTimeoutMillis);
+            if (shutdownTimeoutMillis > 0) {
+                worker.join(shutdownTimeoutMillis);
+            }
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
