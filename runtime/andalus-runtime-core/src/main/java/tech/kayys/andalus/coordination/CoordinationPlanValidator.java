@@ -18,6 +18,8 @@ public class CoordinationPlanValidator {
     /**
      * Validates the plan before it is compiled or dispatched.
      *
+     * <p>Maximum depth counts steps on the longest dependency path, including the root step.</p>
+     *
      * @throws IllegalArgumentException when the plan is malformed or exceeds policy limits
      */
     public void validate(CoordinationPlan plan, CoordinationPolicy policy) {
@@ -77,10 +79,13 @@ public class CoordinationPlanValidator {
             remainingDependencies.put(step.id(), uniqueDependencies.size());
         }
 
+        // Depth is the number of steps on the longest dependency path (roots are depth 1).
         ArrayDeque<String> ready = new ArrayDeque<>();
+        Map<String, Integer> depthByStep = new HashMap<>();
         remainingDependencies.forEach((id, count) -> {
             if (count == 0) {
                 ready.addLast(id);
+                depthByStep.put(id, 1);
             }
         });
 
@@ -89,6 +94,11 @@ public class CoordinationPlanValidator {
             String completed = ready.removeFirst();
             visited++;
             for (String dependent : dependents.getOrDefault(completed, Set.of())) {
+                int depth = depthByStep.merge(dependent, depthByStep.get(completed) + 1, Math::max);
+                if (depth > policy.maxDepth()) {
+                    throw invalid("dependency path to step '" + dependent + "' exceeds maxDepth="
+                            + policy.maxDepth());
+                }
                 int remaining = remainingDependencies.compute(dependent,
                         (ignored, count) -> count - 1);
                 if (remaining == 0) {
