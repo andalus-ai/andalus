@@ -24,6 +24,7 @@ import tech.kayys.andalus.coordination.DefaultCoordinationPlanCompiler;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Gamelan-backed execution engine for multi-agent coordination.
@@ -151,6 +152,27 @@ public class GamelanCoordinationExecutionEngine implements CoordinationExecution
                             .execute()
                             .flatMap(createdRun -> client.runs().start(createdRun.getRunId()))
                             .map(startedRun -> toCoordinationResult(startedRun, plan, context));
+                })
+                // This bounds the caller's wait. Mutiny cancellation is propagated upstream,
+                // but this adapter has no confirmed Gamelan stop-run API to terminate remote work.
+                .ifNoItem().after(context.policy().timeout()).fail()
+                .onFailure(TimeoutException.class).recoverWithItem(timeout -> {
+                    LOG.warnf("Coordination execution timed out after %s for executionId: %s",
+                            context.policy().timeout(), context.executionId());
+                    return new CoordinationResult(
+                            context.executionId().toString(),
+                            CoordinationResult.Status.FAILED,
+                            Map.of(),
+                            "Coordination execution exceeded timeout of " + context.policy().timeout(),
+                            context.startedAt(),
+                            Instant.now(),
+                            plan.agentIds(),
+                            Map.of(
+                                    "coordination.timeout", true,
+                                    "coordination.timeoutDuration", context.policy().timeout().toString(),
+                                    "coordination.timeoutScope", "caller-wait"
+                            )
+                    );
                 })
                 .onFailure().recoverWithItem(err -> {
                     LOG.errorf(err, "Coordination execution failed for executionId: %s", context.executionId());
