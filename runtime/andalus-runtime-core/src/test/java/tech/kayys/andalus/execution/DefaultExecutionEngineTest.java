@@ -71,7 +71,7 @@ class DefaultExecutionEngineTest {
         engine.workflowEngineInstances = new SingleInstance<>(mockEngine);
 
         AgentRequest req = AgentRequest.builder().content("test prompt").build();
-        SimpleExecutionContext context = SimpleExecutionContext.fromRequest(req);
+        SimpleGraphExecutionContext context = SimpleExecutionContext.fromRequest(req);
 
         ExecutionResult result = engine.executeWorkflow(null, context);
         assertNotNull(result);
@@ -200,7 +200,7 @@ class DefaultExecutionEngineTest {
             public ResourceType type() { return new ResourceType.Execution(); }
 
             @Override
-            public ExecutionResult executeAgent(AgentDefinition agent, ExecutionContext context) {
+            public ExecutionResult executeAgent(AgentDefinition agent, GraphExecutionContext context) {
                 AgentResponse resp = AgentResponse.builder()
                         .id("exec-123")
                         .content("Hello from mock engine")
@@ -214,12 +214,12 @@ class DefaultExecutionEngineTest {
             }
 
             @Override
-            public ExecutionResult executeWorkflow(WorkflowDefinition workflow, ExecutionContext context) {
+            public ExecutionResult executeWorkflow(WorkflowDefinition workflow, GraphExecutionContext context) {
                 return ExecutionResult.failure(UUID.randomUUID(), "unsupported");
             }
 
             @Override
-            public ExecutionResult executeSkill(SkillDefinition skill, ExecutionContext context) {
+            public ExecutionResult executeSkill(SkillDefinition skill, GraphExecutionContext context) {
                 return ExecutionResult.failure(UUID.randomUUID(), "unsupported");
             }
         };
