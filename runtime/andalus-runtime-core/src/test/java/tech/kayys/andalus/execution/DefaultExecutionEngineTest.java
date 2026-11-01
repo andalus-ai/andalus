@@ -71,7 +71,7 @@ class DefaultExecutionEngineTest {
         engine.workflowEngineInstances = new SingleInstance<>(mockEngine);
 
         AgentRequest req = AgentRequest.builder().content("test prompt").build();
-        SimpleGraphExecutionContext context = SimpleExecutionContext.fromRequest(req);
+        SimpleGraphExecutionContext context = SimpleGraphExecutionContext.fromRequest(req);
 
         ExecutionResult result = engine.executeWorkflow(null, context);
         assertNotNull(result);

@@ -12,10 +12,10 @@ import jakarta.inject.Inject;
 import tech.kayys.andalus.agent.AgentRequest;
 import tech.kayys.andalus.agent.AgentResponse;
 import tech.kayys.andalus.core.runtime.AndalusRuntime;
-import tech.kayys.andalus.execution.ExecutionContext;
+import tech.kayys.andalus.execution.GraphExecutionContext;
 import tech.kayys.andalus.execution.ExecutionEngine;
 import tech.kayys.andalus.execution.ExecutionResult;
-import tech.kayys.andalus.execution.SimpleExecutionContext;
+import tech.kayys.andalus.execution.SimpleGraphExecutionContext;
 import tech.kayys.andalus.extension.Id;
 import tech.kayys.andalus.extension.Metadata;
 import tech.kayys.andalus.identity.ResourceId;
@@ -86,7 +86,7 @@ public class DefaultAndalusRuntime extends BaseResource implements AndalusRuntim
 
     public AgentResponse executeSync(AgentDefinition agent, AgentRequest request) {
         try {
-            ExecutionContext context = SimpleExecutionContext.fromRequest(request);
+            GraphExecutionContext context = SimpleGraphExecutionContext.fromRequest(request);
             ExecutionResult result   = executionEngine.executeAgent(agent, context);
 
             // Map ExecutionResult → AgentResponse, carrying the real content.
