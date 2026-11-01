@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import tech.kayys.andalus.agent.AgentRequest;
 
 /**
- * Minimal {@link ExecutionContext} adapter built from an {@link AgentRequest}.
+ * Minimal {@link GraphExecutionContext} adapter built from an {@link AgentRequest}.
  *
  * <p>Used by {@link tech.kayys.andalus.core.DefaultAndalusRuntime} to convert the
  * top-level runtime request into the graph-execution context expected by
@@ -17,7 +17,7 @@ import tech.kayys.andalus.agent.AgentRequest;
  * graph-level concepts (nodes, graphs) return {@code null} since they are never
  * accessed on the linear agent execution path.
  */
-public final class SimpleExecutionContext implements ExecutionContext {
+public final class SimpleGraphExecutionContext implements GraphExecutionContext {
 
     /** Type-safe key for the agent prompt string. */
     public static final VariableKey<String> PROMPT_KEY = VariableKey.of("prompt", String.class);
@@ -25,22 +25,22 @@ public final class SimpleExecutionContext implements ExecutionContext {
     private final UUID executionId;
     private final SimpleVariableStore variableStore;
 
-    private SimpleExecutionContext(UUID executionId, Map<String, Object> vars) {
+    private SimpleGraphExecutionContext(UUID executionId, Map<String, Object> vars) {
         this.executionId   = executionId;
         this.variableStore = new SimpleVariableStore(vars);
     }
 
     /**
-     * Creates a {@link SimpleExecutionContext} from an {@link AgentRequest}.
+     * Creates a {@link SimpleGraphExecutionContext} from an {@link AgentRequest}.
      * The request content is stored under {@link #PROMPT_KEY}.
      */
-    public static SimpleExecutionContext fromRequest(AgentRequest request) {
+    public static SimpleGraphExecutionContext fromRequest(AgentRequest request) {
         UUID id = UUID.randomUUID();
         Map<String, Object> vars = new ConcurrentHashMap<>();
         if (request != null && request.content() != null) {
             vars.put(PROMPT_KEY.name(), request.content());
         }
-        return new SimpleExecutionContext(id, vars);
+        return new SimpleGraphExecutionContext(id, vars);
     }
 
     /** Convenience accessor for the stored prompt, if any. */
@@ -49,7 +49,7 @@ public final class SimpleExecutionContext implements ExecutionContext {
     }
 
     // -------------------------------------------------------------------------
-    // ExecutionContext
+    // GraphExecutionContext
     // -------------------------------------------------------------------------
 
     @Override public UUID executionId() { return executionId; }
@@ -67,17 +67,17 @@ public final class SimpleExecutionContext implements ExecutionContext {
     /** Not used on the linear agent execution path — returns null. */
     @Override public ExecutionNode currentNode() { return null; }
 
-    @Override public Optional<ExecutionContext> parent() { return Optional.empty(); }
+    @Override public Optional<GraphExecutionContext> parent() { return Optional.empty(); }
 
     @Override public ExecutionMetadata metadata() {
         return ExecutionMetadata.empty();
     }
 
     @Override
-    public ExecutionContext createChild(Map<String, Object> childVariables) {
+    public GraphExecutionContext createChild(Map<String, Object> childVariables) {
         Map<String, Object> merged = new ConcurrentHashMap<>(variableStore.rawMap());
         if (childVariables != null) merged.putAll(childVariables);
-        return new SimpleExecutionContext(UUID.randomUUID(), merged);
+        return new SimpleGraphExecutionContext(UUID.randomUUID(), merged);
     }
 
     // =========================================================================
