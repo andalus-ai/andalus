@@ -16,7 +16,7 @@
         <repository>
             <id>github</id>
             <name>GitHub Packages — Andalus (Release)</name>
-            <url>https://maven.pkg.github.com/workkayys/andalus</url>
+            <url>https://maven.pkg.github.com/andalus-ai/andalus</url>
         </repository>
         <snapshotRepository>
             <id>github</id>
@@ -27,8 +27,7 @@
 
 
     <properties>
-        <maven.compiler.source>25</maven.compiler.source>
-        <maven.compiler.target>25</maven.compiler.target>
+        <maven.compiler.release>25</maven.compiler.release>
         <aqli.version>0.1.0-SNAPSHOT</aqli.version>
         <gamelan.version>0.1.1</gamelan.version>
         <andalus-aqli-sdk.version>1.0.0-SNAPSHOT</andalus-aqli-sdk.version>
