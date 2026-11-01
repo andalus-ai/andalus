@@ -2,21 +2,35 @@
 
 Core execution and coordination primitives for Andalus agents.
 
-## Capability-based delegation selection
+## Capability-based delegation
 
-The coordination discovery package provides a deterministic, policy-neutral
-selector for choosing candidate agents:
+The coordination discovery package exposes a runtime SPI and planning path:
 
-- required capabilities are hard filters;
-- preferred capabilities improve ranking;
-- unavailable candidates are excluded;
-- an optional cost-factor ceiling can constrain candidates;
-- ties are resolved by configured priority, cost, then stable agent id.
+- `AgentCapabilitySource` lets a runtime module advertise candidates for a
+  specific coordination request and context.
+- `AgentCapabilityDirectory` aggregates CDI-discovered sources, rejects
+  duplicate agent ids, and returns stable id ordering.
+- `AgentDelegationPlanner` combines discovery with
+  `CapabilityBasedAgentSelector` to produce ranked delegation candidates.
 
-Capabilities use stable namespaced identifiers such as
-`research.web-search`. The selector only ranks descriptive candidate metadata:
-it does not authorize access, reserve execution budget, check tenant policy, or
-dispatch work. Those checks remain responsibilities of the runtime caller and
-its governance/execution layers.
+Candidate metadata uses stable namespaced capability identifiers such as
+`research.web-search`. Required capabilities are hard filters; preferred
+capabilities improve ranking; availability and optional cost ceilings are
+respected. Ties are resolved by configured priority, cost, then agent id.
 
-See `CapabilityBasedAgentSelectorTest` for ordering and filtering examples.
+This path plans a target only. Capability advertisements do not grant
+authorization. Coordinators must still enforce tenant visibility, policy,
+execution budgets, and dispatch rules before sending work to a candidate.
+
+
+## Coordination plan validation
+
+`CoordinationPlanValidator` checks a plan before compilation or dispatch:
+
+- participating agents are declared, unique, and within `CoordinationPolicy.maxAgents`;
+- every step has a unique id and targets a declared agent;
+- dependencies reference existing steps without duplicates or self-references;
+- the dependency graph is acyclic.
+
+Validation is structural only. It does not grant permissions, establish tenant visibility,
+reserve execution budget, or dispatch work; those checks remain mandatory at the execution boundary.
