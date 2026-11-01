@@ -21,3 +21,16 @@ respected. Ties are resolved by configured priority, cost, then agent id.
 This path plans a target only. Capability advertisements do not grant
 authorization. Coordinators must still enforce tenant visibility, policy,
 execution budgets, and dispatch rules before sending work to a candidate.
+
+
+## Coordination plan validation
+
+`CoordinationPlanValidator` checks a plan before compilation or dispatch:
+
+- participating agents are declared, unique, and within `CoordinationPolicy.maxAgents`;
+- every step has a unique id and targets a declared agent;
+- dependencies reference existing steps without duplicates or self-references;
+- the dependency graph is acyclic.
+
+Validation is structural only. It does not grant permissions, establish tenant visibility,
+reserve execution budget, or dispatch work; those checks remain mandatory at the execution boundary.
