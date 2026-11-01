@@ -11,6 +11,7 @@ import tech.kayys.andalus.coordination.CoordinationContext;
 import tech.kayys.andalus.coordination.CoordinationExecutionEngine;
 import tech.kayys.andalus.coordination.CoordinationPlan;
 import tech.kayys.andalus.coordination.CoordinationPlanCompiler;
+import tech.kayys.andalus.coordination.CoordinationPlanValidator;
 import tech.kayys.andalus.coordination.CoordinationRegistry;
 import tech.kayys.andalus.coordination.CoordinationRequest;
 import tech.kayys.andalus.coordination.CoordinationResult;
@@ -41,6 +42,9 @@ public class GamelanCoordinationExecutionEngine implements CoordinationExecution
     Instance<CoordinationPlanCompiler> planCompilerInstances;
 
     @Inject
+    Instance<CoordinationPlanValidator> planValidatorInstances;
+
+    @Inject
     Instance<CoordinationWorkflowDefinitionRegistry> definitionRegistryInstances;
 
     @Inject
@@ -48,6 +52,7 @@ public class GamelanCoordinationExecutionEngine implements CoordinationExecution
 
     private CoordinationRegistry coordinationRegistry;
     private CoordinationPlanCompiler planCompiler;
+    private CoordinationPlanValidator planValidator;
     private CoordinationWorkflowDefinitionRegistry definitionRegistry;
     private GamelanClient gamelanClient;
 
@@ -89,8 +94,24 @@ public class GamelanCoordinationExecutionEngine implements CoordinationExecution
 
         LOG.infof("Executing coordination with strategy: %s (pattern=%s)", strategy.id(), strategy.pattern());
 
-        // 1. Generate Coordination Plan IR
+        // 1. Generate and validate the plan before invoking any backend operation.
         CoordinationPlan plan = strategy.plan(request);
+        try {
+            resolvePlanValidator().validate(plan, context.policy());
+        } catch (IllegalArgumentException invalidPlan) {
+            LOG.warnf("Rejected invalid coordination plan for executionId %s: %s",
+                    context.executionId(), invalidPlan.getMessage());
+            return Uni.createFrom().item(new CoordinationResult(
+                    context.executionId().toString(),
+                    CoordinationResult.Status.FAILED,
+                    Map.of(),
+                    invalidPlan.getMessage(),
+                    context.startedAt(),
+                    Instant.now(),
+                    plan == null ? java.util.List.of() : plan.agentIds(),
+                    Map.of("coordination.planValidation", "rejected")
+            ));
+        }
 
         // 2. Compile Plan to Workflow Definition IR
         CoordinationPlanCompiler compiler = resolvePlanCompiler();
@@ -158,6 +179,16 @@ public class GamelanCoordinationExecutionEngine implements CoordinationExecution
                 plan.agentIds(),
                 Map.of("gamelan.runId", run.getRunId() != null ? run.getRunId() : "")
         );
+    }
+
+    private CoordinationPlanValidator resolvePlanValidator() {
+        if (planValidator != null) {
+            return planValidator;
+        }
+        if (planValidatorInstances != null && planValidatorInstances.isResolvable()) {
+            return planValidatorInstances.get();
+        }
+        return new CoordinationPlanValidator();
     }
 
     private CoordinationRegistry resolveCoordinationRegistry() {
