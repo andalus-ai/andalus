@@ -36,6 +36,40 @@ class CoordinationPlanValidatorTest {
     }
 
     @Test
+    void acceptsDependencyPathAtMaximumDepth() {
+        var plan = plan(List.of("a"), List.of(
+                step("one", "a", List.of()),
+                step("two", "a", List.of("one")),
+                step("three", "a", List.of("two"))));
+        var depthLimited = new CoordinationPolicy(3, 3, 10, policy.timeout(), false, true);
+
+        assertDoesNotThrow(() -> validator.validate(plan, depthLimited));
+    }
+
+    @Test
+    void rejectsDependencyPathExceedingMaximumDepth() {
+        var plan = plan(List.of("a"), List.of(
+                step("one", "a", List.of()),
+                step("two", "a", List.of("one")),
+                step("three", "a", List.of("two"))));
+        var depthLimited = new CoordinationPolicy(3, 2, 10, policy.timeout(), false, true);
+
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(plan, depthLimited));
+    }
+
+    @Test
+    void measuresDepthUsingLongestDependencyPath() {
+        var plan = plan(List.of("a"), List.of(
+                step("root", "a", List.of()),
+                step("short", "a", List.of("root")),
+                step("long", "a", List.of("short")),
+                step("join", "a", List.of("root", "long"))));
+        var depthLimited = new CoordinationPolicy(3, 3, 10, policy.timeout(), false, true);
+
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(plan, depthLimited));
+    }
+
+    @Test
     void rejectsUndeclaredStepAgent() {
         var plan = plan(List.of("known"), List.of(step("work", "unknown", List.of())));
         assertThrows(IllegalArgumentException.class, () -> validator.validate(plan, policy));
