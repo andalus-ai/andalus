@@ -67,7 +67,7 @@ public class DefaultExecutionEngine extends BaseResource implements ExecutionEng
     // -------------------------------------------------------------------------
 
     @Override
-    public ExecutionResult executeAgent(AgentDefinition agent, ExecutionContext context) {
+    public ExecutionResult executeAgent(AgentDefinition agent, GraphExecutionContext context) {
         Instant start = Instant.now();
         String executionId = context != null ? context.executionId().toString() : UUID.randomUUID().toString();
 
@@ -101,7 +101,7 @@ public class DefaultExecutionEngine extends BaseResource implements ExecutionEng
     }
 
     @Override
-    public ExecutionResult executeWorkflow(WorkflowDefinition workflow, ExecutionContext context) {
+    public ExecutionResult executeWorkflow(WorkflowDefinition workflow, GraphExecutionContext context) {
         if (workflowEngineInstances != null && workflowEngineInstances.isResolvable()) {
             Instant start = Instant.now();
             try {
@@ -125,7 +125,7 @@ public class DefaultExecutionEngine extends BaseResource implements ExecutionEng
     }
 
     @Override
-    public ExecutionResult executeSkill(SkillDefinition skill, ExecutionContext context) {
+    public ExecutionResult executeSkill(SkillDefinition skill, GraphExecutionContext context) {
         if (skillRegistryInstances != null && skillRegistryInstances.isResolvable() && skill != null) {
             Instant start = Instant.now();
             try {
@@ -154,18 +154,18 @@ public class DefaultExecutionEngine extends BaseResource implements ExecutionEng
     // Helpers
     // -------------------------------------------------------------------------
 
-    private AgentRequest extractRequest(ExecutionContext context) {
+    private AgentRequest extractRequest(GraphExecutionContext context) {
         if (context == null) {
             return AgentRequest.builder().content("").build();
         }
-        if (context instanceof SimpleExecutionContext sec) {
+        if (context instanceof SimpleGraphExecutionContext sec) {
             return AgentRequest.builder()
                 .content(sec.prompt().orElse(""))
                 .build();
         }
         try {
             Optional<String> promptOpt = context.variables()
-                .get(SimpleExecutionContext.PROMPT_KEY);
+                .get(SimpleGraphExecutionContext.PROMPT_KEY);
             if (promptOpt.isPresent()) {
                 return AgentRequest.builder().content(promptOpt.get()).build();
             }
@@ -175,7 +175,7 @@ public class DefaultExecutionEngine extends BaseResource implements ExecutionEng
         return AgentRequest.builder().content("").build();
     }
 
-    private Map<String, Object> extractVariables(ExecutionContext context) {
+    private Map<String, Object> extractVariables(GraphExecutionContext context) {
         if (context == null || context.variables() == null) {
             return Map.of();
         }
