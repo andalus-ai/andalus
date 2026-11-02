@@ -73,6 +73,8 @@ public final class FeedbackTrendReviewPolicy {
             FeedbackTrendAnalyzer.Trend trend,
             Policy policy,
             JdbcFeedbackAggregationSnapshotStore.Snapshot currentSnapshot) {
+        Objects.requireNonNull(trend, "trend");
+        Objects.requireNonNull(policy, "policy");
         Objects.requireNonNull(currentSnapshot, "currentSnapshot");
         if (!trend.subject().equals(currentSnapshot.subject())
                 || !Objects.equals(trend.currentSnapshotId(), currentSnapshot.id())) {
