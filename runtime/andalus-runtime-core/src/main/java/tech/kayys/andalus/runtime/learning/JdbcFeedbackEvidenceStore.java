@@ -15,10 +15,12 @@ import java.util.Optional;
 /**
  * JDBC-backed, cross-process feedback evidence reservation store.
  *
- * <p>Call {@link #initializeSchema()} from the application's migration/startup
- * process before admitting feedback. The table uses database uniqueness
- * constraints as the concurrency authority; JVM locks are deliberately not
- * used. All references in a batch are inserted in one transaction.</p>
+ * <p>Apply the versioned SQL migration under
+ * {@code src/main/resources/db/migration} before admitting feedback.
+ * {@link #initializeSchema()} is a convenience bootstrap for tests and local
+ * development, not a production migration mechanism. The table uses database
+ * uniqueness constraints as the concurrency authority; JVM locks are
+ * deliberately not used. All references in a batch are inserted in one transaction.</p>
  *
  * <p>Use a shared transactional database and a DataSource configured for the
  * required durability and isolation guarantees. This adapter does not select
