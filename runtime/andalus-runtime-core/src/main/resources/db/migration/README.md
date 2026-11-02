@@ -52,6 +52,17 @@ successive positive-consensus snapshots. Trend analysis is deterministic and
 advisory; it does not persist a second derived record or change production
 behavior.
 
+`FeedbackAggregationRecoveryService.reviewTrend(subject, policy)` evaluates
+the latest trend against explicit review guardrails. The conservative defaults
+require at least two distinct sources and two evidence references. Regression,
+emerging disagreement, removed contributing signals, and configured source or
+evidence count decreases can require human review. Below-minimum evidence and
+insufficient history return INCONCLUSIVE rather than NO_REVIEW_REQUIRED.
+Assessments include stable reason codes and the baseline/current snapshot IDs.
+The assessment is computed from immutable history and is not itself persisted;
+callers own any human-review workflow and its audit trail. No notification,
+ticket, training, routing, promotion, or deployment is triggered.
+
 Snapshots are audit records, not commands. They do not trigger training,
 routing changes, candidate promotion, or deployment. Keep the original policy
 inputs and corroboration data alongside operational change records when exact
