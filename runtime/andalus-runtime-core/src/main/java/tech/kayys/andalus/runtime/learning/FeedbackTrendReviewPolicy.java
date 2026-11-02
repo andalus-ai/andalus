@@ -66,31 +66,24 @@ public final class FeedbackTrendReviewPolicy {
     private FeedbackTrendReviewPolicy() {
     }
 
-    public static Assessment evaluate(FeedbackTrendAnalyzer.Trend trend, Policy policy) {
-        Objects.requireNonNull(trend, "trend");
-        Objects.requireNonNull(policy, "policy");
-
-        List<Reason> reasons = new ArrayList<>();
-        if (trend.classification() == FeedbackTrendAnalyzer.Classification.INSUFFICIENT_HISTORY) {
-            reasons.add(Reason.INSUFFICIENT_HISTORY);
-            return assessment(trend, Decision.INCONCLUSIVE, reasons);
+    /**
+     * Evaluates a trend using the current immutable snapshot's absolute evidence counts.
+     */
+    public static Assessment evaluate(
+            FeedbackTrendAnalyzer.Trend trend,
+            Policy policy,
+            JdbcFeedbackAggregationSnapshotStore.Snapshot currentSnapshot) {
+        Objects.requireNonNull(currentSnapshot, "currentSnapshot");
+        if (!trend.subject().equals(currentSnapshot.subject())
+                || !Objects.equals(trend.currentSnapshotId(), currentSnapshot.id())) {
+            throw new IllegalArgumentException("current snapshot must match the trend subject and snapshot id");
         }
-        if (trend.classification() == FeedbackTrendAnalyzer.Classification.INSUFFICIENT_EVIDENCE) {
-            reasons.add(Reason.INSUFFICIENT_EVIDENCE);
-            return assessment(trend, Decision.INCONCLUSIVE, reasons);
-        }
-
-        int currentSources = Math.max(0, trend.distinctSourceDelta());
-        int currentEvidence = Math.max(0, trend.evidenceReferenceDelta());
-        // Deltas alone cannot establish absolute counts. Guardrails therefore
-        // use negative deltas and trust the analyzer's current snapshot metrics
-        // only through the explicit threshold check in evaluate(trend, policy, counts).
-        return evaluate(trend, policy, currentSources, currentEvidence);
+        return evaluate(trend, policy, currentSnapshot.aggregation().distinctSources(),
+                currentSnapshot.aggregation().evidenceReferences());
     }
 
     /**
-     * Evaluates a trend with the absolute current source/evidence counts from its snapshot.
-     * Supplying counts explicitly keeps this pure policy independent of persistence.
+     * Evaluates a trend with explicit absolute source/evidence counts.
      */
     public static Assessment evaluate(
             FeedbackTrendAnalyzer.Trend trend,
