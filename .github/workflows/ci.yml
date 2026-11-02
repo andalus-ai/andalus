@@ -98,7 +98,7 @@ jobs:
             :sdk:aqli-sdk:publishToMavenLocal
             :sdk:aqli-sdk-local:publishToMavenLocal
           )
-          ./gradlew "${TASKS[@]}" --no-daemon -x test --parallel
+          ./gradlew "${TASKS[@]}" --no-daemon --configure-on-demand -x test --parallel
       # ────────────────────────────────────────────────────────────────────────
 
       - name: Build and Test (all modules)
