@@ -103,6 +103,44 @@ public class FeedbackAggregationRecoveryService {
                 trustPolicy, corroboratingSourcesBySignal));
     }
 
+    /** Aggregates and appends an immutable history entry; it never changes production policy. */
+    public Optional<JdbcFeedbackAggregationSnapshotStore.Snapshot> aggregateAndSnapshot(
+            Subject subject,
+            FeedbackAggregation.Policy aggregationPolicy,
+            FeedbackTrustPolicy.Policy trustPolicy,
+            Map<String, Set<String>> corroboratingSourcesBySignal) {
+        Objects.requireNonNull(subject, "subject");
+        if (dataSources == null || !dataSources.isResolvable()) {
+            return Optional.empty();
+        }
+        return Optional.of(aggregateAndSnapshot(dataSources.get(), subject, aggregationPolicy,
+                trustPolicy, corroboratingSourcesBySignal));
+    }
+
+    JdbcFeedbackAggregationSnapshotStore.Snapshot aggregateAndSnapshot(
+            DataSource dataSource,
+            Subject subject,
+            FeedbackAggregation.Policy aggregationPolicy,
+            FeedbackTrustPolicy.Policy trustPolicy,
+            Map<String, Set<String>> corroboratingSourcesBySignal) {
+        AdvisoryReport report = aggregate(dataSource, subject, aggregationPolicy,
+                trustPolicy, corroboratingSourcesBySignal);
+        return new JdbcFeedbackAggregationSnapshotStore(dataSource).save(report);
+    }
+
+    /** Reads immutable advisory history for the exact typed subject. */
+    public List<JdbcFeedbackAggregationSnapshotStore.Snapshot> history(
+            Subject subject) {
+        Objects.requireNonNull(subject, "subject");
+        if (dataSources == null || !dataSources.isResolvable()) {
+            return List.of();
+        }
+        JdbcFeedbackAggregationSnapshotStore store =
+                new JdbcFeedbackAggregationSnapshotStore(dataSources.get());
+        store.verifySchema();
+        return store.findBySubject(subject);
+    }
+
     /** Package-visible seam for tests and explicit datasource orchestration. */
     AdvisoryReport aggregate(
             DataSource dataSource,
