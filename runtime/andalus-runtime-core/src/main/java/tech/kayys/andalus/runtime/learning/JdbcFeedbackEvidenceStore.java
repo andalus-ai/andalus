@@ -63,6 +63,22 @@ public final class JdbcFeedbackEvidenceStore implements FeedbackEvidenceStore {
         }
     }
 
+    /**
+     * Performs a read-only readiness probe. It deliberately does not create or
+     * modify schema; production migrations remain deployment-owned.
+     *
+     * @throws IllegalStateException when the database or required table is unavailable
+     */
+    public void verifySchema() {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT evidence_reference FROM andalus_feedback_evidence WHERE 1 = 0")) {
+            statement.executeQuery().close();
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Feedback evidence store is not ready", exception);
+        }
+    }
+
     @Override
     public Reservation reserve(String signalId, List<String> evidenceReferences) {
         if (signalId == null || signalId.isBlank() || signalId.length() > 255
