@@ -72,9 +72,7 @@ public class AgentRuntimeLifecycleCoordinator {
 
         FencedLeaseManager leaseManager = resolveLeaseManager();
         String leaseKey = leaseKey(tenant, agent);
-        ExecutionLease lease = type == AgentRuntimeLifecycleEvent.Type.HEALTHY
-                ? acquireOrRenew(leaseManager, leaseKey, owner)
-                : leaseManager.acquireLease(leaseKey, owner, leaseTtl);
+        ExecutionLease lease = leaseManager.acquireLease(leaseKey, owner, leaseTtl);
 
         AgentRuntimeLifecycleEvent event = new AgentRuntimeLifecycleEvent(
                 agent, tenant, owner, lease.fencingToken().generation(),
@@ -92,20 +90,30 @@ public class AgentRuntimeLifecycleCoordinator {
         return event;
     }
 
-    private ExecutionLease acquireOrRenew(
-            FencedLeaseManager leaseManager, String leaseKey, String owner) {
-        ExecutionLease current = leaseManager.getLease(leaseKey).orElse(null);
-        if (current != null) {
-            if (!current.holderId().equals(owner)) {
-                throw new IllegalStateException("Agent lease is held by another runtime owner");
-            }
-            if (leaseManager.renewLease(
-                    leaseKey, owner, current.fencingToken(), leaseTtl)) {
-                return leaseManager.getLease(leaseKey)
-                        .orElseThrow(() -> new IllegalStateException("Renewed agent lease disappeared"));
-            }
+    /**
+     * Renews a healthy agent's current token without advancing its generation.
+     * Call this only for a heartbeat, not for a state transition into HEALTHY.
+     */
+    public AgentRuntimeLifecycleEvent renewHealthy(
+            String agentId, String tenantId, String ownerId, int priority, double costFactor) {
+        String agent = requireText(agentId, "agentId");
+        String tenant = requireText(tenantId, "tenantId");
+        String owner = requireText(ownerId, "ownerId");
+        FencedLeaseManager leaseManager = resolveLeaseManager();
+        String leaseKey = leaseKey(tenant, agent);
+        ExecutionLease current = leaseManager.getLease(leaseKey)
+                .orElseThrow(() -> new IllegalStateException("No active agent lease to renew"));
+        if (!current.holderId().equals(owner)) {
+            throw new IllegalStateException("Agent lease is held by another runtime owner");
         }
-        return leaseManager.acquireLease(leaseKey, owner, leaseTtl);
+        if (!leaseManager.renewLease(leaseKey, owner, current.fencingToken(), leaseTtl)) {
+            throw new IllegalStateException("Agent lease renewal was rejected; ownership may have changed");
+        }
+        AgentRuntimeLifecycleEvent event = new AgentRuntimeLifecycleEvent(
+                agent, tenant, owner, current.fencingToken().generation(),
+                AgentRuntimeLifecycleEvent.Type.HEALTHY, priority, costFactor);
+        lifecycleEvents.fire(event);
+        return event;
     }
 
     private FencedLeaseManager resolveLeaseManager() {
