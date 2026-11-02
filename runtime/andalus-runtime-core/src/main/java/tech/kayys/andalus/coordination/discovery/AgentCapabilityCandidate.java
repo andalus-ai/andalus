@@ -1,5 +1,6 @@
 package tech.kayys.andalus.coordination.discovery;
 
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -17,12 +18,27 @@ public record AgentCapabilityCandidate(
         double costFactor
 ) {
     public AgentCapabilityCandidate {
-        if (agentId == null || agentId.isBlank()) {
-            throw new IllegalArgumentException("agentId must not be blank");
-        }
+        agentId = requireText(agentId, "agentId");
         capabilities = capabilities == null ? Set.of() : Set.copyOf(capabilities);
+        Set<String> capabilityIds = new HashSet<>();
+        for (String capability : capabilities) {
+            String normalized = requireText(capability, "capability");
+            if (!capability.equals(normalized)) {
+                throw new IllegalArgumentException("capability identifiers must not contain surrounding whitespace");
+            }
+            if (!capabilityIds.add(normalized)) {
+                throw new IllegalArgumentException("duplicate capability identifier '" + normalized + "'");
+            }
+        }
         if (!Double.isFinite(costFactor) || costFactor < 0) {
             throw new IllegalArgumentException("costFactor must be finite and non-negative");
         }
+    }
+
+    private static String requireText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
+        }
+        return value.trim();
     }
 }
