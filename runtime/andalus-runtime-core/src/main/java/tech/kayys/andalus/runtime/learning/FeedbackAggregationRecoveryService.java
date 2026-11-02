@@ -140,6 +140,30 @@ public class FeedbackAggregationRecoveryService {
         return store.findBySubject(subject);
     }
 
+    /**
+     * Compares the two latest persisted snapshots for a subject.
+     * Returns empty when the durable datasource is not uniquely configured or no history exists.
+     */
+    public Optional<FeedbackTrendAnalyzer.Trend> analyzeTrend(Subject subject) {
+        Objects.requireNonNull(subject, "subject");
+        List<JdbcFeedbackAggregationSnapshotStore.Snapshot> snapshots = history(subject);
+        if (snapshots.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(FeedbackTrendAnalyzer.analyze(snapshots));
+    }
+
+    /** Same as {@link #analyzeTrend(Subject)} with an explicit positive-ratio regression threshold. */
+    public Optional<FeedbackTrendAnalyzer.Trend> analyzeTrend(
+            Subject subject, double minimumPositiveRatioDrop) {
+        Objects.requireNonNull(subject, "subject");
+        List<JdbcFeedbackAggregationSnapshotStore.Snapshot> snapshots = history(subject);
+        if (snapshots.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(FeedbackTrendAnalyzer.analyze(snapshots, minimumPositiveRatioDrop));
+    }
+
     /** Package-visible seam for tests and explicit datasource orchestration. */
     AdvisoryReport aggregate(
             DataSource dataSource,
