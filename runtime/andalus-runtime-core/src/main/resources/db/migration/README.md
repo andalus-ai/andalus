@@ -39,3 +39,18 @@ exception and no in-memory fallback is selected. Deployments should require
 this readiness check to be UP before routing feedback-admission traffic. The
 health check is an operational signal, not a replacement for deployment
 ordering or caller-side error handling.
+
+## Admission boundary
+
+Use the runtime `FeedbackAdmissionService` as the entry point for human
+feedback. It verifies the required schema before invoking the framework trust
+policy and atomic evidence reservation. If the datasource is missing,
+ambiguous, unreachable, or the migration is absent, it rejects admission with
+a bounded reason and does not create schema or select an in-memory fallback.
+
+The service returns the framework's `AdmissionResult`; rejected trust-policy
+decisions and evidence replays remain rejected by the framework contract.
+Accepted feedback is only made available as an advisory aggregation input.
+This path does not train models, alter routing, promote candidates, or deploy
+configuration. Callers should not bypass this service in production ingestion
+paths.
