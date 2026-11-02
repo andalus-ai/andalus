@@ -42,6 +42,12 @@ public class InMemoryAgentRuntimeStateProvider implements AgentRuntimeStateProvi
                 accepted[0] = true;
                 return lease;
             }
+            // Preserve the pre-fencing single-process API for legacy callers. Fenced
+            // hosts must use explicit owner IDs and positive generations.
+            if (lease.ownerId().equals("legacy") && current.ownerId().equals("legacy")) {
+                accepted[0] = true;
+                return lease;
+            }
             if (lease.generation() < current.generation()
                     || !lease.ownerId().equals(current.ownerId())) return current;
 
