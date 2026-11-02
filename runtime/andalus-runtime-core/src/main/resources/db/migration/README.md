@@ -24,6 +24,29 @@ normalized evidence references. The arbitrary `LearningSignal.metadata` map
 is intentionally excluded. `JdbcAdmittedFeedbackLedger.findAll()` recovers
 signals in deterministic timestamp/ID order after adapter or process restart.
 
+## Advisory aggregation snapshots
+
+Apply `V20261102_03__feedback_aggregation_snapshots.sql` after the two
+admitted-feedback migrations. It creates an append-only snapshot header and a
+normalized item table for signal IDs, sources, evidence references, and
+aggregation reasons.
+
+`FeedbackAggregationRecoveryService.aggregateAndSnapshot(...)` rebuilds the
+advisory result from the current durable ledger and appends a snapshot in one
+transaction. `history(subject)` reads prior snapshots for the exact typed
+subject. Each snapshot stores the outcome, weighted totals and ratios, counts,
+trust/aggregation/corroboration fingerprints, contributing and considered
+signal IDs, sources, evidence references, reasons, and creation timestamp.
+Repeated evaluations create separate history entries; they do not overwrite
+earlier conclusions.
+
+Snapshots are audit records, not commands. They do not trigger training,
+routing changes, candidate promotion, or deployment. Keep the original policy
+inputs and corroboration data alongside operational change records when exact
+reproduction is required; fingerprints identify policy inputs but do not
+reconstruct them. The snapshot store verifies its own schema and fails closed
+when the third migration is absent.
+
 ## Feedback evidence reservations
 
 The first migration creates `andalus_feedback_evidence`. Its primary key on
