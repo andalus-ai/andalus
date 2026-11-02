@@ -25,21 +25,13 @@ public final class DefaultProcessSandbox extends AbstractSandbox implements Proc
     private final Path inputDirectory;
     private final Path outputDirectory;
     private final SandboxFilesystem filesystem;
-
-    private final ExecutorService ioExecutor =
-            Executors.newVirtualThreadPerTaskExecutor();
-
+    private final ExecutorService ioExecutor = Executors.newVirtualThreadPerTaskExecutor();
     private volatile Process currentProcess;
 
-    public DefaultProcessSandbox(
-            String sandboxId,
-            SandboxRequest request,
-            Path workspace,
-            Path inputDirectory,
-            Path outputDirectory) {
-
-        super(createDescriptor(sandboxId), createSandboxContext(sandboxId, request, workspace, inputDirectory, outputDirectory));
-
+    public DefaultProcessSandbox(String sandboxId, SandboxRequest request, Path workspace,
+                                 Path inputDirectory, Path outputDirectory) {
+        super(createDescriptor(sandboxId),
+                createSandboxContext(sandboxId, request, workspace, inputDirectory, outputDirectory));
         this.sandboxId = Objects.requireNonNull(sandboxId, "sandboxId");
         this.request = Objects.requireNonNull(request, "request");
         this.workspace = Objects.requireNonNull(workspace, "workspace");
@@ -49,42 +41,21 @@ public final class DefaultProcessSandbox extends AbstractSandbox implements Proc
         List<FilesystemRoot> roots = List.of(
                 new FilesystemRoot("workspace", workspace, FilesystemAccess.READ_WRITE, false),
                 new FilesystemRoot("input", inputDirectory, FilesystemAccess.READ, false),
-                new FilesystemRoot("output", outputDirectory, FilesystemAccess.READ_WRITE, false)
-        );
+                new FilesystemRoot("output", outputDirectory, FilesystemAccess.READ_WRITE, false));
         this.filesystem = new DefaultSandboxFilesystem(FilesystemSandboxPolicy.strict(roots));
     }
 
     private static SandboxDescriptor createDescriptor(String sandboxId) {
-        return new SandboxDescriptor(
-                sandboxId,
-                "Process Sandbox",
-                "OS process execution sandbox",
-                SandboxType.PROCESS,
-                Version.parse("1.0.0"),
-                Set.of(
-                        "process-isolation",
-                        "temporary-workspace"
-                ),
-                Map.of()
-        );
+        return new SandboxDescriptor(sandboxId, "Process Sandbox", "OS process execution sandbox",
+                SandboxType.PROCESS, Version.parse("1.0.0"),
+                Set.of("process-isolation", "temporary-workspace"), Map.of());
     }
 
-    private static SandboxContext createSandboxContext(
-            String sandboxId,
-            SandboxRequest request,
-            Path workspace,
-            Path inputDirectory,
-            Path outputDirectory) {
-
-        return new DefaultProcessSandboxContext(
-                sandboxId,
-                request,
-                createDescriptor(sandboxId),
-                workspace,
-                inputDirectory,
-                outputDirectory,
-                Instant.now()
-        );
+    private static SandboxContext createSandboxContext(String sandboxId, SandboxRequest request,
+                                                         Path workspace, Path inputDirectory,
+                                                         Path outputDirectory) {
+        return new DefaultProcessSandboxContext(sandboxId, request, createDescriptor(sandboxId),
+                workspace, inputDirectory, outputDirectory, Instant.now());
     }
 
     @Override
@@ -94,14 +65,13 @@ public final class DefaultProcessSandbox extends AbstractSandbox implements Proc
 
     @Override
     protected void doStart() throws Exception {
-        // Ensure directories exist
         Files.createDirectories(workspace);
         Files.createDirectories(inputDirectory);
         Files.createDirectories(outputDirectory);
     }
 
     @Override
-    protected void doStop() throws Exception {
+    protected void doStop() {
         Process active = currentProcess;
         if (active != null && active.isAlive()) {
             terminateProcessTree(active);
@@ -117,12 +87,10 @@ public final class DefaultProcessSandbox extends AbstractSandbox implements Proc
     @Override
     public CompletableFuture<ProcessExecutionResult> execute(ProcessExecutionRequest executionRequest) {
         Objects.requireNonNull(executionRequest, "executionRequest");
-
         if (state() != SandboxState.RUNNING) {
             return CompletableFuture.failedFuture(
                     new IllegalStateException("Sandbox is not running: " + state()));
         }
-
         return CompletableFuture.supplyAsync(() -> executeBlocking(executionRequest), ioExecutor);
     }
 
@@ -135,52 +103,39 @@ public final class DefaultProcessSandbox extends AbstractSandbox implements Proc
         if (!execReq.inheritEnvironment()) {
             environment.clear();
         }
-
         environment.putAll(execReq.environment());
         environment.put("ANDALUS_SANDBOX_ID", sandboxId);
         environment.put("ANDALUS_WORKSPACE", workspace.toString());
         environment.put("ANDALUS_INPUT_DIR", inputDirectory.toString());
         environment.put("ANDALUS_OUTPUT_DIR", outputDirectory.toString());
 
-        long outputLimit = request.limits().hasOutputLimit() ? request.limits().outputBytes() : -1L;
+        long outputLimit = request.limits().hasOutputLimit()
+                ? request.limits().outputBytes() : -1L;
+        OutputCapture capture = new OutputCapture(outputLimit);
         AtomicBoolean outputLimitExceeded = new AtomicBoolean(false);
 
         try {
-            Process startedProcess = builder.start();
-            this.currentProcess = startedProcess;
-
+            Process process = builder.start();
+            currentProcess = process;
             CompletableFuture<String> stdoutFuture = readAsync(
-                    startedProcess.getInputStream(), outputLimit, outputLimitExceeded, startedProcess);
+                    process.getInputStream(), capture, outputLimitExceeded, process);
             CompletableFuture<String> stderrFuture = readAsync(
-                    startedProcess.getErrorStream(), outputLimit, outputLimitExceeded, startedProcess);
+                    process.getErrorStream(), capture, outputLimitExceeded, process);
 
-            boolean completed = startedProcess.waitFor(execReq.timeout().toMillis(), TimeUnit.MILLISECONDS);
-            boolean timedOut = false;
+            boolean completed = process.waitFor(execReq.timeout().toMillis(), TimeUnit.MILLISECONDS);
+            boolean timedOut = !completed;
             boolean forciblyTerminated = false;
-
-            if (!completed) {
-                timedOut = true;
-                terminateProcessTree(startedProcess);
-                if (startedProcess.isAlive()) {
-                    forciblyTerminated = true;
-                }
+            if (timedOut) {
+                terminateProcessTree(process);
+                forciblyTerminated = process.isAlive();
             }
 
-            int exitCode = startedProcess.isAlive() ? -1 : startedProcess.exitValue();
+            int exitCode = process.isAlive() ? -1 : process.exitValue();
             String stdout = stdoutFuture.join();
             String stderr = stderrFuture.join();
             Duration duration = Duration.between(started, Instant.now());
-
-            return new ProcessExecutionResult(
-                    exitCode,
-                    stdout,
-                    stderr,
-                    duration,
-                    timedOut,
-                    forciblyTerminated,
-                    outputLimitExceeded.get()
-            );
-
+            return new ProcessExecutionResult(exitCode, stdout, stderr, duration,
+                    timedOut, forciblyTerminated, outputLimitExceeded.get());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             Process active = currentProcess;
@@ -191,47 +146,55 @@ public final class DefaultProcessSandbox extends AbstractSandbox implements Proc
         } catch (IOException e) {
             throw new CompletionException(e);
         } finally {
-            this.currentProcess = null;
+            currentProcess = null;
         }
     }
 
-    private CompletableFuture<String> readAsync(
-            InputStream inputStream,
-            long outputLimit,
-            AtomicBoolean outputExceeded,
-            Process proc) {
-
+    private CompletableFuture<String> readAsync(InputStream inputStream, OutputCapture capture,
+                                                  AtomicBoolean outputExceeded, Process process) {
         return CompletableFuture.supplyAsync(() -> {
-            try (InputStream input = inputStream;
-                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-
+            try (InputStream input = inputStream; ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[8192];
                 int read;
-                long totalBytes = 0;
-
                 while ((read = input.read(buffer)) != -1) {
-                    out.write(buffer, 0, read);
-                    totalBytes += read;
-
-                    if (outputLimit >= 0 && totalBytes > outputLimit) {
+                    if (!capture.append(stream, buffer, read)) {
                         outputExceeded.set(true);
-                        terminateProcessTree(proc);
-                        break;
+                        terminateProcessTree(process);
                     }
                 }
-                return out.toString(StandardCharsets.UTF_8);
+                return stream.toString(StandardCharsets.UTF_8);
             } catch (IOException e) {
                 throw new CompletionException(e);
             }
         }, ioExecutor);
     }
 
+    /**
+     * A single synchronized budget is shared by stdout and stderr. Readers continue
+     * draining their pipes after the budget is exhausted, but retain no more bytes.
+     */
+    private static final class OutputCapture {
+        private final long limit;
+        private long captured;
+
+        private OutputCapture(long limit) {
+            this.limit = limit;
+        }
+
+        private synchronized boolean append(ByteArrayOutputStream target, byte[] bytes, int length) {
+            long remaining = limit < 0 ? length : Math.max(0, limit - captured);
+            int accepted = (int) Math.min(length, remaining);
+            if (accepted > 0) {
+                target.write(bytes, 0, accepted);
+                captured += accepted;
+            }
+            return accepted == length;
+        }
+    }
+
     private static void terminateProcessTree(Process root) {
         ProcessHandle handle = root.toHandle();
-        handle.descendants()
-                .toList()
-                .reversed()
-                .forEach(DefaultProcessSandbox::destroyHandle);
+        handle.descendants().toList().reversed().forEach(DefaultProcessSandbox::destroyHandle);
         destroyHandle(handle);
     }
 
@@ -250,18 +213,17 @@ public final class DefaultProcessSandbox extends AbstractSandbox implements Proc
     }
 
     private static void deleteWorkspace(Path path) throws IOException {
-        if (!Files.exists(path)) {
+        if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
             return;
         }
         try (var stream = Files.walk(path)) {
-            stream.sorted(Comparator.reverseOrder())
-                    .forEach(item -> {
-                        try {
-                            Files.deleteIfExists(item);
-                        } catch (IOException e) {
-                            throw new UncheckedIOException(e);
-                        }
-                    });
+            stream.sorted(Comparator.reverseOrder()).forEach(item -> {
+                try {
+                    Files.deleteIfExists(item);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
         }
     }
 }
