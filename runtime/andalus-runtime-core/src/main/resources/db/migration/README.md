@@ -38,7 +38,8 @@ subject. Each snapshot stores the outcome, weighted totals and ratios, counts,
 trust/aggregation/corroboration fingerprints, contributing and considered
 signal IDs, sources, evidence references, reasons, and creation timestamp.
 Repeated evaluations create separate history entries; they do not overwrite
-earlier conclusions.
+earlier conclusions. History is ordered by creation time, with snapshot ID as
+a stable tie-breaker for entries created within the same millisecond.
 
 Snapshots are audit records, not commands. They do not trigger training,
 routing changes, candidate promotion, or deployment. Keep the original policy
@@ -62,7 +63,7 @@ runs before feedback admission is enabled. Do not rely on
 `JdbcFeedbackEvidenceStore.initializeSchema()` in production; that method is
 only a convenience bootstrap for tests and local development.
 
-Both migrations currently use broadly supported `CREATE TABLE IF NOT EXISTS`
+All three migrations currently use broadly supported `CREATE TABLE IF NOT EXISTS`
 syntax and are exercised by H2 tests. Validate them against the production
 database vendor and its supported transactional DDL behavior before rollout.
 
