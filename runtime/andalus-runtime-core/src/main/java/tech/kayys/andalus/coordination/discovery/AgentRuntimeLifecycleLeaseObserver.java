@@ -9,6 +9,9 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 
 /**
+ * Converts fenced host lifecycle events into short-lived routing-state leases.
+ * Hosts renew by emitting HEALTHY periodically with the same owner and generation.
+ * Every state transition or ownership change must use a strictly newer generation.
  * Converts host lifecycle events into short-lived routing-state leases.
  * Hosts must renew by emitting HEALTHY periodically; missing renewals expire.
  */
@@ -35,19 +38,20 @@ public class AgentRuntimeLifecycleLeaseObserver {
     public void onLifecycleEvent(@Observes AgentRuntimeLifecycleEvent event) {
         if (event == null) throw new IllegalArgumentException("event must not be null");
         switch (event.type()) {
-            case STARTED, UNHEALTHY -> publishUnavailable(event);
-            case HEALTHY -> stateProvider.publish(new AgentRuntimeStateLease(
-                    event.agentId(), event.tenantId(),
-                    new AgentRuntimeState(true, event.priority(), event.costFactor()),
-                    clock.instant().plus(leaseTtl)));
-            case STOPPED -> stateProvider.revoke(event.tenantId(), event.agentId());
+            case STARTED, UNHEALTHY -> publish(event, false);
+            case HEALTHY -> publish(event, true);
+            case STOPPED -> stateProvider.revoke(
+                    event.tenantId(), event.agentId(), event.ownerId(), event.generation());
         }
     }
 
-    private void publishUnavailable(AgentRuntimeLifecycleEvent event) {
+    private void publish(AgentRuntimeLifecycleEvent event, boolean available) {
         stateProvider.publish(new AgentRuntimeStateLease(
-                event.agentId(), event.tenantId(),
-                new AgentRuntimeState(false, event.priority(), event.costFactor()),
-                clock.instant().plus(leaseTtl)));
+                event.agentId(),
+                event.tenantId(),
+                new AgentRuntimeState(available, event.priority(), event.costFactor()),
+                clock.instant().plus(leaseTtl),
+                event.ownerId(),
+                event.generation()));
     }
 }
