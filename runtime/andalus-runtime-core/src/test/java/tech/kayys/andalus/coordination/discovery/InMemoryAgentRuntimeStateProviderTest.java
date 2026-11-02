@@ -56,6 +56,51 @@ class InMemoryAgentRuntimeStateProviderTest {
         assertFalse(provider.revoke("tenant-a", "agent-a"));
     }
 
+
+    @Test
+    void newerGenerationFencesOutStalePublishAndRevoke() {
+        var provider = new InMemoryAgentRuntimeStateProvider(Clock.fixed(NOW, ZoneOffset.UTC));
+        var oldState = new AgentRuntimeState(false, 1, 1.0);
+        var newState = new AgentRuntimeState(true, 5, 0.8);
+
+        assertTrue(provider.publish(new AgentRuntimeStateLease("agent-a", "tenant-a",
+                oldState, NOW.plusSeconds(10), "host-old", 4)));
+        assertTrue(provider.publish(new AgentRuntimeStateLease("agent-a", "tenant-a",
+                newState, NOW.plusSeconds(30), "host-new", 5)));
+
+        assertFalse(provider.publish(new AgentRuntimeStateLease("agent-a", "tenant-a",
+                oldState, NOW.plusSeconds(60), "host-old", 4)));
+        assertFalse(provider.revoke("tenant-a", "agent-a", "host-old", 4));
+        assertEquals(newState, provider.resolve("agent-a", null,
+                CoordinationContext.of("tenant-a", "user")).orElseThrow());
+        assertTrue(provider.revoke("tenant-a", "agent-a", "host-new", 5));
+    }
+
+    @Test
+    void sameGenerationCanRenewOnlyUnchangedStateAndOwner() {
+        var provider = new InMemoryAgentRuntimeStateProvider(Clock.fixed(NOW, ZoneOffset.UTC));
+        var state = new AgentRuntimeState(true, 2, 1.0);
+        assertTrue(provider.publish(new AgentRuntimeStateLease("agent-a", "tenant-a",
+                state, NOW.plusSeconds(10), "host-a", 7)));
+        assertTrue(provider.publish(new AgentRuntimeStateLease("agent-a", "tenant-a",
+                state, NOW.plusSeconds(20), "host-a", 7)));
+        assertFalse(provider.publish(new AgentRuntimeStateLease("agent-a", "tenant-a",
+                new AgentRuntimeState(false, 2, 1.0), NOW.plusSeconds(30), "host-a", 7)));
+        assertFalse(provider.publish(new AgentRuntimeStateLease("agent-a", "tenant-a",
+                state, NOW.plusSeconds(40), "host-b", 7)));
+        assertEquals(state, provider.resolve("agent-a", null,
+                CoordinationContext.of("tenant-a", "user")).orElseThrow());
+    }
+
+    @Test
+    void rejectsNegativeGenerationAndBlankOwner() {
+        var state = new AgentRuntimeState(true, 0, 1.0);
+        assertThrows(IllegalArgumentException.class, () -> new AgentRuntimeStateLease(
+                "agent-a", "tenant-a", state, NOW.plusSeconds(1), "host-a", -1));
+        assertThrows(IllegalArgumentException.class, () -> new AgentRuntimeStateLease(
+                "agent-a", "tenant-a", state, NOW.plusSeconds(1), " ", 1));
+    }
+
     private static final class MutableClock extends Clock {
         private Instant instant;
         private MutableClock(Instant instant) { this.instant = instant; }
