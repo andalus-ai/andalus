@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS andalus_feedback_aggregation_snapshot (
     trust_policy_fingerprint VARCHAR(64) NOT NULL,
     aggregation_policy_fingerprint VARCHAR(64) NOT NULL,
     corroboration_fingerprint VARCHAR(64) NOT NULL,
-    created_at VARCHAR(64) NOT NULL
+    created_at_epoch_millis BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS andalus_feedback_aggregation_snapshot_item (
