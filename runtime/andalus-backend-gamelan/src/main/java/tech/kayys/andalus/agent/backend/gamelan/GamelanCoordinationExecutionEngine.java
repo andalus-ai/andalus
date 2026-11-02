@@ -24,7 +24,6 @@ import tech.kayys.andalus.coordination.DefaultCoordinationPlanCompiler;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Gamelan-backed execution engine for multi-agent coordination.
@@ -141,22 +140,21 @@ public class GamelanCoordinationExecutionEngine implements CoordinationExecution
                 ? request.request().parameters()
                 : Map.of();
 
-        return defRegistry.getOrCreate(workflowDef, effectiveTenant)
-                .flatMap(definitionId -> {
-                    LOG.debugf("Running Gamelan workflow definition: %s", definitionId);
+        return CoordinationTimeout.withFallback(
+                defRegistry.getOrCreate(workflowDef, effectiveTenant)
+                        .flatMap(definitionId -> {
+                            LOG.debugf("Running Gamelan workflow definition: %s", definitionId);
 
-                    return client.runs()
-                            .create(definitionId)
-                            .correlationId(context.executionId().toString())
-                            .inputs(inputParameters)
-                            .execute()
-                            .flatMap(createdRun -> client.runs().start(createdRun.getRunId()))
-                            .map(startedRun -> toCoordinationResult(startedRun, plan, context));
-                })
-                // This bounds the caller's wait. Mutiny cancellation is propagated upstream,
-                // but this adapter has no confirmed Gamelan stop-run API to terminate remote work.
-                .ifNoItem().after(context.policy().timeout()).fail()
-                .onFailure(TimeoutException.class).recoverWithItem(timeout -> {
+                            return client.runs()
+                                    .create(definitionId)
+                                    .correlationId(context.executionId().toString())
+                                    .inputs(inputParameters)
+                                    .execute()
+                                    .flatMap(createdRun -> client.runs().start(createdRun.getRunId()))
+                                    .map(startedRun -> toCoordinationResult(startedRun, plan, context));
+                        }),
+                context.policy().timeout(),
+                () -> {
                     LOG.warnf("Coordination execution timed out after %s for executionId: %s",
                             context.policy().timeout(), context.executionId());
                     return new CoordinationResult(

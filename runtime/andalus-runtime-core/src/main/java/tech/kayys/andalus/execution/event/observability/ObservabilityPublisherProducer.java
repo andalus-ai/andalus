@@ -9,6 +9,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import tech.kayys.andalus.observability.DefaultObservabilityPublisher;
 import tech.kayys.andalus.observability.ObservabilityPublisher;
 import tech.kayys.andalus.observability.ObservabilitySink;
+import tech.kayys.andalus.telemetry.Metrics;
 
 import java.time.Duration;
 import java.util.Locale;
@@ -35,16 +36,20 @@ public class ObservabilityPublisherProducer {
     @Produces
     @ApplicationScoped
     @DefaultBean
-    synchronized ObservabilityPublisher observabilityPublisher(Instance<ObservabilitySink> sinks) {
+    synchronized ObservabilityPublisher observabilityPublisher(
+            Instance<ObservabilitySink> sinks,
+            Instance<Metrics> metricsProviders) {
         if (publisher == null) {
             var synchronous = new DefaultObservabilityPublisher(sinks.stream().toList());
             var policy = BoundedAsyncObservabilityPublisher.OverflowPolicy.valueOf(
                     overflowPolicy.trim().toUpperCase(Locale.ROOT));
+            Metrics metrics = metricsProviders.isResolvable() ? metricsProviders.get() : null;
             publisher = new BoundedAsyncObservabilityPublisher(
                     synchronous,
                     queueCapacity,
                     policy,
-                    Duration.ofMillis(shutdownTimeoutMillis));
+                    Duration.ofMillis(shutdownTimeoutMillis),
+                    metrics);
         }
         return publisher;
     }

@@ -25,34 +25,40 @@ jobs:
           java-version: "25"
           cache: maven
 
-      # AQLI detects ../alkhawarizm as a composite build. Alkhawarizm in turn
-      # detects ../tafkir for its quantizer SNAPSHOTs. Check out both source
-      # repositories as siblings so these dependencies resolve from source.
-      - name: Checkout alkhawarizm dependency
+      # Alkhawarizm is the former name of Aljabr. AQLI still discovers the
+      # composite build using the historical repository/path identity.
+      - name: Checkout Aljabr foundation (legacy Alkhawarizm repository)
         uses: actions/checkout@v4
         with:
           repository: bhangun/alkhawarizm
           path: alkhawarizm
           ref: main
 
-      - name: Checkout tafkir dependency
+      # Aljabr's composite build detects Tafkir for quantizer SNAPSHOTs.
+      - name: Checkout Tafkir quantizer dependency
         uses: actions/checkout@v4
         with:
           repository: bhangun/tafkir
           path: tafkir
           ref: main
 
-      # Tafkir exposes legacy :quantizer:* aliases. Gradle creates the
-      # implicit :quantizer parent project at quantizer/, even though each
-      # leaf alias points to inference/quantization. Keep the parent directory
-      # present until Tafkir removes or remaps those legacy aliases.
-      - name: Prepare Tafkir legacy quantizer parent directory
+      # Keep only Tafkir modules needed to publish the quantizer SNAPSHOTs.
+      # Diffusion APIs/OPD are outside this bootstrap and contain unresolved
+      # project dependencies. tafkir-nlp also references tafkir-ml-optimize,
+      # whose declared project directory is absent from the upstream checkout.
+      # These exclusions affect only this ephemeral CI checkout.
+      # Legacy aliases also require their implicit parent directories.
+      - name: Isolate Tafkir quantizer projects for bootstrap
         working-directory: tafkir
-        run: mkdir -p quantizer
+        run: |
+          sed -i '/includeLegacyAlias("training:api:tafkir-train-diffusion-api",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("ml:tafkir-ml-diffusion-api",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("training:loop:tafkir-train-diffusion-opd",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("ml:tafkir-ml-diffusion-opd",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("nlp:core:tafkir-nlp",/d' settings.gradle.kts
+          mkdir -p quantizer trainer
 
-      # ── Aqli SPI/SDK Bootstrap ────────────────────────────────────────────
-      # aqli-spi* and aqli-sdk* are SNAPSHOT artifacts not on Maven Central.
-      # Build the pure-Java framework modules; no native backend build needed.
+      # ── AQLI SPI/SDK Bootstrap ────────────────────────────────────────────
       - name: Checkout aqli (SPI/SDK bootstrap)
         uses: actions/checkout@v4
         with:
@@ -61,10 +67,7 @@ jobs:
           ref: main
 
       # AQLI maps the optional :tokenizer parent project to framework/tokenizer,
-      # while the actual tokenizer module lives under framework/core. Keep the
-      # project included because aqli-sdk-local declares it as a dependency;
-      # create the missing parent directory rather than dropping the module.
-      # Remove this shim once AQLI corrects its directory mapping upstream.
+      # while the actual tokenizer module lives under framework/core.
       - name: Prepare AQLI tokenizer parent directory
         working-directory: _aqli
         run: mkdir -p framework/tokenizer
@@ -84,8 +87,6 @@ jobs:
         env:
           GRADLE_OPTS: "-Xmx2G -Dorg.gradle.daemon=false"
         run: |
-          # Publish only the modules that exist and that andalus depends on.
-          # aqli-spi-model is optional and may not be present in all checkouts.
           TASKS=(
             :spi:aqli-spi:publishToMavenLocal
             :spi:aqli-spi-audio:publishToMavenLocal
@@ -98,8 +99,7 @@ jobs:
             :sdk:aqli-sdk:publishToMavenLocal
             :sdk:aqli-sdk-local:publishToMavenLocal
           )
-          ./gradlew "${TASKS[@]}" --no-daemon -x test --parallel
-      # ────────────────────────────────────────────────────────────────────────
+          ./gradlew "${TASKS[@]}" --no-daemon --configure-on-demand -x test --parallel
 
       - name: Build and Test (all modules)
         run: ./mvnw clean verify -DskipTests=false -Pci -q
