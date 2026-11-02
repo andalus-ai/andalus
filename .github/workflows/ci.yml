@@ -42,6 +42,14 @@ jobs:
           path: tafkir
           ref: main
 
+      # Tafkir exposes legacy :quantizer:* aliases. Gradle creates the
+      # implicit :quantizer parent project at quantizer/, even though each
+      # leaf alias points to inference/quantization. Keep the parent directory
+      # present until Tafkir removes or remaps those legacy aliases.
+      - name: Prepare Tafkir legacy quantizer parent directory
+        working-directory: tafkir
+        run: mkdir -p quantizer
+
       # ── Aqli SPI/SDK Bootstrap ────────────────────────────────────────────
       # aqli-spi* and aqli-sdk* are SNAPSHOT artifacts not on Maven Central.
       # Build the pure-Java framework modules; no native backend build needed.
