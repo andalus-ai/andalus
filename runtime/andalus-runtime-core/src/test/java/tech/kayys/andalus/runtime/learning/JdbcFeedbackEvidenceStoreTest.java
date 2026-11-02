@@ -5,6 +5,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tech.kayys.andalus.harness.learning.FeedbackEvidenceStore.ReservationStatus;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.Statement;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -27,12 +32,12 @@ class JdbcFeedbackEvidenceStoreTest {
         dataSource.setUser("sa");
         dataSource.setPassword("");
         store = new JdbcFeedbackEvidenceStore(dataSource);
-        store.initializeSchema();
+        applyMigration();
     }
 
     @Test
-    void initializesSchemaIdempotently() {
-        store.initializeSchema();
+    void migrationIsIdempotent() {
+        applyMigration();
         assertThat(store.findOwner("unknown")).isEmpty();
     }
 
@@ -110,6 +115,21 @@ class JdbcFeedbackEvidenceStoreTest {
                 .isEqualTo(ReservationStatus.ALREADY_RESERVED_BY_SAME_SIGNAL);
     }
 
+    private void applyMigration() {
+        String resource = "/db/migration/V20261102_01__feedback_evidence_reservations.sql";
+        try (InputStream input = getClass().getResourceAsStream(resource)) {
+            if (input == null) {
+                throw new IllegalStateException("Missing migration resource: " + resource);
+            }
+            String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+            try (Connection connection = dataSource.getConnection();
+                 Statement statement = connection.createStatement()) {
+                statement.execute(sql);
+            }
+        } catch (IOException | java.sql.SQLException exception) {
+            throw new IllegalStateException("Unable to apply feedback evidence test migration", exception);
+        }
+    }
     private ReservationStatus reserveAfterBarrier(
             String signalId, CountDownLatch ready, CountDownLatch start) throws Exception {
         ready.countDown();
