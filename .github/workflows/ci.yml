@@ -36,15 +36,14 @@ jobs:
           path: _aqli
           ref: main
 
-      # The current AQLI settings include an optional tokenizer project whose
-      # parent path is mapped to the nonexistent framework/tokenizer directory.
-      # Andalus' bootstrap publishes only SPI/SDK artifacts, so omit that
-      # unrelated optional project from this isolated checkout. Remove this
-      # workaround once AQLI fixes the project-directory mapping upstream.
-      - name: Exclude unrelated broken AQLI tokenizer project
+      # AQLI maps the optional :tokenizer parent project to framework/tokenizer,
+      # while the actual tokenizer module lives under framework/core. Keep the
+      # project included because aqli-sdk-local declares it as a dependency;
+      # create the missing parent directory rather than dropping the module.
+      # Remove this shim once AQLI corrects its directory mapping upstream.
+      - name: Prepare AQLI tokenizer parent directory
         working-directory: _aqli
-        run: |
-          sed -i '/includeOptionalProject("tokenizer:aqli-tokenizer-core"/d' settings.gradle.kts
+        run: mkdir -p framework/tokenizer
 
       - name: Cache Gradle packages (aqli)
         uses: actions/cache@v4
