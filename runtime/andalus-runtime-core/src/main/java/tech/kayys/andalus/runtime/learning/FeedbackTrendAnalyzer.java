@@ -141,7 +141,8 @@ public final class FeedbackTrendAnalyzer {
         if (before == FeedbackAggregation.Outcome.CONSENSUS_POSITIVE
                 && (after == FeedbackAggregation.Outcome.CONSENSUS_NEGATIVE
                 || (after == FeedbackAggregation.Outcome.CONSENSUS_POSITIVE
-                && positiveRatioDelta <= -minimumPositiveRatioDrop))) {
+                && positiveRatioDelta < 0.0d
+                && -positiveRatioDelta >= minimumPositiveRatioDrop))) {
             return Classification.REGRESSION;
         }
         if (before == FeedbackAggregation.Outcome.CONSENSUS_NEGATIVE
