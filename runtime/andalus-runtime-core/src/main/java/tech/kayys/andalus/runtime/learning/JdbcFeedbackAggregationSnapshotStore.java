@@ -39,6 +39,7 @@ public final class JdbcFeedbackAggregationSnapshotStore {
     public Snapshot save(FeedbackAggregationRecoveryService.AdvisoryReport report) {
         Objects.requireNonNull(report, "report");
         validate(report);
+        verifySchema();
         String snapshotId = UUID.randomUUID().toString();
         Instant createdAt = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
         FeedbackAggregation.Result result = report.aggregation();
