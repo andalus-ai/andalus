@@ -25,3 +25,17 @@ only a convenience bootstrap for tests and local development.
 The migration currently uses broadly supported `CREATE TABLE IF NOT EXISTS`
 syntax and has an H2 test. Validate it against the production database vendor
 and its supported transactional DDL behavior before rollout.
+
+## Readiness and fail-closed behavior
+
+The runtime publishes a MicroProfile readiness check named
+`feedback-evidence-store`. It reports DOWN when no datasource is configured,
+the database cannot be reached, or the feedback evidence migration is absent.
+The probe performs a read-only zero-row query; it never creates the table and
+does not expose database exception details in health output.
+
+Feedback reservation itself also fails closed: JDBC errors are surfaced as an
+exception and no in-memory fallback is selected. Deployments should require
+this readiness check to be UP before routing feedback-admission traffic. The
+health check is an operational signal, not a replacement for deployment
+ordering or caller-side error handling.
