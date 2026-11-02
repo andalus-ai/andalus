@@ -25,16 +25,41 @@ jobs:
           java-version: "25"
           cache: maven
 
+      # AQLI detects ../alkhawarizm as a composite build. Alkhawarizm in turn
+      # detects ../tafkir for its quantizer SNAPSHOTs. Check out both source
+      # repositories as siblings so these dependencies resolve from source.
+      - name: Checkout alkhawarizm dependency
+        uses: actions/checkout@v4
+        with:
+          repository: bhangun/alkhawarizm
+          path: alkhawarizm
+          ref: main
+
+      - name: Checkout tafkir dependency
+        uses: actions/checkout@v4
+        with:
+          repository: bhangun/tafkir
+          path: tafkir
+          ref: main
+
       # ── Aqli SPI/SDK Bootstrap ────────────────────────────────────────────
       # aqli-spi* and aqli-sdk* are SNAPSHOT artifacts not on Maven Central.
-      # We check out aqli and publish its pure-Java framework modules to Maven
-      # Local (no native build: no llama.cpp / libtorch needed here).
+      # Build the pure-Java framework modules; no native backend build needed.
       - name: Checkout aqli (SPI/SDK bootstrap)
         uses: actions/checkout@v4
         with:
           repository: bhangun/aqli
           path: _aqli
           ref: main
+
+      # AQLI maps the optional :tokenizer parent project to framework/tokenizer,
+      # while the actual tokenizer module lives under framework/core. Keep the
+      # project included because aqli-sdk-local declares it as a dependency;
+      # create the missing parent directory rather than dropping the module.
+      # Remove this shim once AQLI corrects its directory mapping upstream.
+      - name: Prepare AQLI tokenizer parent directory
+        working-directory: _aqli
+        run: mkdir -p framework/tokenizer
 
       - name: Cache Gradle packages (aqli)
         uses: actions/cache@v4
