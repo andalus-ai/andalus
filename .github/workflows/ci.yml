@@ -25,30 +25,17 @@ jobs:
           java-version: "25"
           cache: maven
 
-      # AQLI detects ../alkhawarizm as a composite build. Alkhawarizm in turn
-      # detects ../tafkir for its quantizer SNAPSHOTs. Check out both source
-      # repositories as siblings so these dependencies resolve from source.
+      # AQLI detects ../alkhawarizm as a composite build. Check it out as a
+      # sibling so the foundational tensor, error-code and SPI model snapshots
+      # resolve from source. Do not check out Tafkir here: its composite build
+      # currently contains an unrelated broken trainer project reference, and
+      # none of the selected bootstrap tasks requires Tafkir quantizers.
       - name: Checkout alkhawarizm dependency
         uses: actions/checkout@v4
         with:
           repository: bhangun/alkhawarizm
           path: alkhawarizm
           ref: main
-
-      - name: Checkout tafkir dependency
-        uses: actions/checkout@v4
-        with:
-          repository: bhangun/tafkir
-          path: tafkir
-          ref: main
-
-      # Tafkir exposes legacy :quantizer:* aliases. Gradle creates the
-      # implicit :quantizer parent project at quantizer/, even though each
-      # leaf alias points to inference/quantization. Keep the parent directory
-      # present until Tafkir removes or remaps those legacy aliases.
-      - name: Prepare Tafkir legacy quantizer parent directory
-        working-directory: tafkir
-        run: mkdir -p quantizer
 
       # ── Aqli SPI/SDK Bootstrap ────────────────────────────────────────────
       # aqli-spi* and aqli-sdk* are SNAPSHOT artifacts not on Maven Central.
