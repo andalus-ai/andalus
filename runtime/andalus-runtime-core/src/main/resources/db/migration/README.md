@@ -3,6 +3,28 @@
 Apply the SQL files in this directory with the deployment's chosen migration
 runner before enabling the corresponding runtime feature.
 
+## Durable admitted-feedback ledger
+
+Apply both migrations in order:
+
+- `V20261102_01__feedback_evidence_reservations.sql` and
+`V20261102_02__admitted_feedback_ledger.sql`
+- `V20261102_02__admitted_feedback_ledger.sql`
+
+The second migration creates `andalus_admitted_feedback`, a typed provenance
+record for each accepted human-feedback signal. The evidence-reference rows
+remain normalized in `andalus_feedback_evidence`. Runtime admission writes the
+signal record and its complete evidence reservation in one JDBC transaction;
+a failure in either insert rolls back both. Exact retries with the same signal
+payload and evidence batch are idempotent; changed payloads or reused evidence
+are rejected.
+
+Only bounded, typed provenance is stored: signal ID/type, source, execution,
+polarity, optional turn/goal/task/evaluation references, timestamp, and
+normalized evidence references. The arbitrary `LearningSignal.metadata` map
+is intentionally excluded. `JdbcAdmittedFeedbackLedger.findAll()` recovers
+signals in deterministic timestamp/ID order after adapter or process restart.
+
 ## Feedback evidence reservations
 
 Apply:
@@ -29,7 +51,7 @@ and its supported transactional DDL behavior before rollout.
 ## Readiness and fail-closed behavior
 
 The runtime publishes a MicroProfile readiness check named
-`feedback-evidence-store`. It reports DOWN when no datasource is configured,
+`feedback-admitted-ledger`. It reports DOWN when no datasource is configured,
 the database cannot be reached, or the feedback evidence migration is absent.
 The probe performs a read-only zero-row query; it never creates the table and
 does not expose database exception details in health output.
@@ -43,14 +65,15 @@ ordering or caller-side error handling.
 ## Admission boundary
 
 Use the runtime `FeedbackAdmissionService` as the entry point for human
-feedback. It verifies the required schema before invoking the framework trust
-policy and atomic evidence reservation. If the datasource is missing,
+feedback. It verifies both required tables, evaluates the framework trust
+policy, then atomically reserves evidence and persists the admitted signal. If the datasource is missing,
 ambiguous, unreachable, or the migration is absent, it rejects admission with
 a bounded reason and does not create schema or select an in-memory fallback.
 
 The service returns the framework's `AdmissionResult`; rejected trust-policy
 decisions and evidence replays remain rejected by the framework contract.
-Accepted feedback is only made available as an advisory aggregation input.
+Accepted feedback is recoverable from the durable ledger and only made
+available as an advisory aggregation input.
 This path does not train models, alter routing, promote candidates, or deploy
 configuration. Callers should not bypass this service in production ingestion
 paths.
