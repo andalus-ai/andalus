@@ -15,10 +15,6 @@ import java.util.UUID;
 
 /** JDBC persistence for append-only advisory aggregation history. */
 public final class JdbcFeedbackAggregationSnapshotStore {
-    private static final String[] ITEM_KINDS = {
-            "CONSIDERED_SIGNAL", "ADMITTED_SIGNAL", "SOURCE", "EVIDENCE", "REASON"
-    };
-
     private final DataSource dataSource;
 
     public JdbcFeedbackAggregationSnapshotStore(DataSource dataSource) {
@@ -44,7 +40,7 @@ public final class JdbcFeedbackAggregationSnapshotStore {
         Objects.requireNonNull(report, "report");
         validate(report);
         String snapshotId = UUID.randomUUID().toString();
-        Instant createdAt = Instant.now();
+        Instant createdAt = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
         FeedbackAggregation.Result result = report.aggregation();
 
         try (Connection connection = dataSource.getConnection()) {
@@ -56,7 +52,7 @@ public final class JdbcFeedbackAggregationSnapshotStore {
                             (snapshot_id, subject_kind, subject_id, outcome, positive_weight,
                              negative_weight, ambiguous_weight, positive_ratio, negative_ratio,
                              distinct_sources, evidence_references, trust_policy_fingerprint,
-                             aggregation_policy_fingerprint, corroboration_fingerprint, created_at)
+                             aggregation_policy_fingerprint, corroboration_fingerprint, created_at_epoch_millis)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """)) {
                     statement.setString(1, snapshotId);
@@ -73,12 +69,11 @@ public final class JdbcFeedbackAggregationSnapshotStore {
                     statement.setString(12, report.trustPolicyFingerprint());
                     statement.setString(13, report.aggregationPolicyFingerprint());
                     statement.setString(14, report.corroborationFingerprint());
-                    statement.setString(15, createdAt.toString());
+                    statement.setLong(15, createdAt.toEpochMilli());
                     statement.executeUpdate();
                 }
 
-                int order = 0;
-                order = insertItems(connection, snapshotId, "CONSIDERED_SIGNAL", order,
+                insertItems(connection, snapshotId, "CONSIDERED_SIGNAL", 0,
                         report.consideredSignalIds());
                 order = insertItems(connection, snapshotId, "ADMITTED_SIGNAL", 0, report.signalIds());
                 order = insertItems(connection, snapshotId, "SOURCE", 0, report.sourceIds());
@@ -117,7 +112,7 @@ public final class JdbcFeedbackAggregationSnapshotStore {
                      SELECT snapshot_id, outcome, positive_weight, negative_weight, ambiguous_weight,
                             positive_ratio, negative_ratio, distinct_sources, evidence_references,
                             trust_policy_fingerprint, aggregation_policy_fingerprint,
-                            corroboration_fingerprint, created_at
+                            corroboration_fingerprint, created_at_epoch_millis
                      FROM andalus_feedback_aggregation_snapshot
                      WHERE subject_kind = ? AND subject_id = ?
                      ORDER BY created_at, snapshot_id
@@ -133,7 +128,7 @@ public final class JdbcFeedbackAggregationSnapshotStore {
                             rows.getDouble("negative_ratio"), rows.getInt("distinct_sources"),
                             rows.getInt("evidence_references"), rows.getString("trust_policy_fingerprint"),
                             rows.getString("aggregation_policy_fingerprint"),
-                            rows.getString("corroboration_fingerprint"), rows.getString("created_at")));
+                            rows.getString("corroboration_fingerprint"), rows.getLong("created_at_epoch_millis")));
                 }
             }
         } catch (SQLException exception) {
@@ -156,7 +151,7 @@ public final class JdbcFeedbackAggregationSnapshotStore {
                 snapshots.add(new Snapshot(header.id(), subject, result,
                         header.trustFingerprint(), header.aggregationFingerprint(),
                         header.corroborationFingerprint(), considered, admitted, sources, evidence,
-                        Instant.parse(header.createdAt())));
+                        Instant.ofEpochMilli(header.createdAtEpochMillis())));
             }
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to read feedback aggregation provenance", exception);
@@ -217,7 +212,7 @@ public final class JdbcFeedbackAggregationSnapshotStore {
                                   double positiveRatio, double negativeRatio, int distinctSources,
                                   int evidenceReferences, String trustFingerprint,
                                   String aggregationFingerprint, String corroborationFingerprint,
-                                  String createdAt) {
+                                  long createdAtEpochMillis) {
     }
 
     public record Snapshot(String id, FeedbackAggregationRecoveryService.Subject subject,
