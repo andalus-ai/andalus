@@ -7,8 +7,7 @@ runner before enabling the corresponding runtime feature.
 
 Apply both migrations in order:
 
-- `V20261102_01__feedback_evidence_reservations.sql` and
-`V20261102_02__admitted_feedback_ledger.sql`
+- `V20261102_01__feedback_evidence_reservations.sql`
 - `V20261102_02__admitted_feedback_ledger.sql`
 
 The second migration creates `andalus_admitted_feedback`, a typed provenance
@@ -27,11 +26,7 @@ signals in deterministic timestamp/ID order after adapter or process restart.
 
 ## Feedback evidence reservations
 
-Apply:
-
-`V20261102_01__feedback_evidence_reservations.sql`
-
-The migration creates `andalus_feedback_evidence`. Its primary key on
+The first migration creates `andalus_feedback_evidence`. Its primary key on
 `evidence_reference` and unique constraint on
 `(signal_id, reference_order)` are correctness constraints, not merely
 performance indexes: they prevent two processes from consuming the same
@@ -44,7 +39,7 @@ runs before feedback admission is enabled. Do not rely on
 `JdbcFeedbackEvidenceStore.initializeSchema()` in production; that method is
 only a convenience bootstrap for tests and local development.
 
-The migration currently uses broadly supported `CREATE TABLE IF NOT EXISTS`
+Both migrations currently use broadly supported `CREATE TABLE IF NOT EXISTS`
 syntax and has an H2 test. Validate it against the production database vendor
 and its supported transactional DDL behavior before rollout.
 
@@ -52,7 +47,7 @@ and its supported transactional DDL behavior before rollout.
 
 The runtime publishes a MicroProfile readiness check named
 `feedback-admitted-ledger`. It reports DOWN when no datasource is configured,
-the database cannot be reached, or the feedback evidence migration is absent.
+the database cannot be reached, or either required migration is absent.
 The probe performs a read-only zero-row query; it never creates the table and
 does not expose database exception details in health output.
 
