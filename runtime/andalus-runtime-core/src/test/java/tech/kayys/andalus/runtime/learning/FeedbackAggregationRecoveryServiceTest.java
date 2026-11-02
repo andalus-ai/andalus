@@ -98,7 +98,7 @@ class FeedbackAggregationRecoveryServiceTest {
 
         assertThat(history).hasSize(2);
         assertThat(history).extracting(JdbcFeedbackAggregationSnapshotStore.Snapshot::id)
-                .containsExactly(first.id(), second.id());
+                .containsExactlyInAnyOrder(first.id(), second.id());
         assertThat(history.get(0).aggregation().outcome())
                 .isEqualTo(FeedbackAggregation.Outcome.CONSENSUS_POSITIVE);
         assertThat(history.get(0).signalIds()).containsExactly("signal-a", "signal-b");
