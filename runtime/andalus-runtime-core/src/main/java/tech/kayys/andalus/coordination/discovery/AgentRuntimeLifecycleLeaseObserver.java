@@ -12,6 +12,8 @@ import jakarta.inject.Inject;
  * Converts fenced host lifecycle events into short-lived routing-state leases.
  * Hosts renew by emitting HEALTHY periodically with the same owner and generation.
  * Every state transition or ownership change must use a strictly newer generation.
+ * Converts host lifecycle events into short-lived routing-state leases.
+ * Hosts must renew by emitting HEALTHY periodically; missing renewals expire.
  */
 @ApplicationScoped
 public class AgentRuntimeLifecycleLeaseObserver {

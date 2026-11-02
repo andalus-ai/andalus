@@ -53,6 +53,12 @@ class AgentRuntimeLifecycleLeaseObserverTest {
         assertTrue(resolve(provider).available());
 
         observer.onLifecycleEvent(event(AgentRuntimeLifecycleEvent.Type.STOPPED, "host-a", 7));
+    void stoppedRevokesLease() {
+        var provider = new InMemoryAgentRuntimeStateProvider(Clock.fixed(NOW, ZoneOffset.UTC));
+        var observer = new AgentRuntimeLifecycleLeaseObserver(provider,
+                Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofSeconds(20));
+        observer.onLifecycleEvent(event(AgentRuntimeLifecycleEvent.Type.HEALTHY));
+        observer.onLifecycleEvent(event(AgentRuntimeLifecycleEvent.Type.STOPPED));
         assertTrue(provider.resolve("agent-a", null,
                 CoordinationContext.of("tenant-a", "user")).isEmpty());
     }
@@ -65,6 +71,7 @@ class AgentRuntimeLifecycleLeaseObserverTest {
                 "agent-a", "tenant-a", " ", 1,
                 AgentRuntimeLifecycleEvent.Type.HEALTHY, 3, 1.2));
 
+    void rejectsNonPositiveLeaseTtl() {
         var provider = new InMemoryAgentRuntimeStateProvider(Clock.fixed(NOW, ZoneOffset.UTC));
         assertThrows(IllegalArgumentException.class, () ->
                 new AgentRuntimeLifecycleLeaseObserver(provider,
@@ -86,5 +93,7 @@ class AgentRuntimeLifecycleLeaseObserverTest {
             AgentRuntimeLifecycleEvent.Type type, String owner, long generation) {
         return new AgentRuntimeLifecycleEvent(
                 "agent-a", "tenant-a", owner, generation, type, 3, 1.2);
+    private static AgentRuntimeLifecycleEvent event(AgentRuntimeLifecycleEvent.Type type) {
+        return new AgentRuntimeLifecycleEvent("agent-a", "tenant-a", type, 3, 1.2);
     }
 }
