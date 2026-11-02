@@ -25,11 +25,8 @@ jobs:
           java-version: "25"
           cache: maven
 
-      # AQLI detects ../alkhawarizm as a composite build. Check it out as a
-      # sibling so the foundational tensor, error-code and SPI model snapshots
-      # resolve from source. Do not check out Tafkir here: its composite build
-      # currently contains an unrelated broken trainer project reference, and
-      # none of the selected bootstrap tasks requires Tafkir quantizers.
+      # AQLI detects ../alkhawarizm as a composite build. Alkhawarizm detects
+      # ../tafkir for quantizer SNAPSHOTs. Keep all three repositories as siblings.
       - name: Checkout alkhawarizm dependency
         uses: actions/checkout@v4
         with:
@@ -37,9 +34,26 @@ jobs:
           path: alkhawarizm
           ref: main
 
+      - name: Checkout tafkir quantizer dependency
+        uses: actions/checkout@v4
+        with:
+          repository: bhangun/tafkir
+          path: tafkir
+          ref: main
+
+      # The Tafkir diffusion API has an unresolved project dependency on
+      # :trainer:alkhawarizm-trainer-api. It is unrelated to the quantizer
+      # artifacts needed by this bootstrap, so exclude its two aliases from
+      # this ephemeral CI checkout (do not modify the upstream repository).
+      # The legacy aliases also require their implicit parent directories.
+      - name: Isolate Tafkir quantizer projects for bootstrap
+        working-directory: tafkir
+        run: |
+          sed -i '/includeLegacyAlias("training:api:tafkir-train-diffusion-api",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("ml:tafkir-ml-diffusion-api",/d' settings.gradle.kts
+          mkdir -p quantizer trainer
+
       # ── Aqli SPI/SDK Bootstrap ────────────────────────────────────────────
-      # aqli-spi* and aqli-sdk* are SNAPSHOT artifacts not on Maven Central.
-      # Build the pure-Java framework modules; no native backend build needed.
       - name: Checkout aqli (SPI/SDK bootstrap)
         uses: actions/checkout@v4
         with:
@@ -48,10 +62,7 @@ jobs:
           ref: main
 
       # AQLI maps the optional :tokenizer parent project to framework/tokenizer,
-      # while the actual tokenizer module lives under framework/core. Keep the
-      # project included because aqli-sdk-local declares it as a dependency;
-      # create the missing parent directory rather than dropping the module.
-      # Remove this shim once AQLI corrects its directory mapping upstream.
+      # while the actual tokenizer module lives under framework/core.
       - name: Prepare AQLI tokenizer parent directory
         working-directory: _aqli
         run: mkdir -p framework/tokenizer
@@ -71,8 +82,6 @@ jobs:
         env:
           GRADLE_OPTS: "-Xmx2G -Dorg.gradle.daemon=false"
         run: |
-          # Publish only the modules that exist and that andalus depends on.
-          # aqli-spi-model is optional and may not be present in all checkouts.
           TASKS=(
             :spi:aqli-spi:publishToMavenLocal
             :spi:aqli-spi-audio:publishToMavenLocal
@@ -86,7 +95,6 @@ jobs:
             :sdk:aqli-sdk-local:publishToMavenLocal
           )
           ./gradlew "${TASKS[@]}" --no-daemon --configure-on-demand -x test --parallel
-      # ────────────────────────────────────────────────────────────────────────
 
       - name: Build and Test (all modules)
         run: ./mvnw clean verify -DskipTests=false -Pci -q
