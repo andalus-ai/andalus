@@ -15,8 +15,8 @@ import tech.kayys.andalus.execution.mobility.FencedLeaseManager;
  *
  * <p>The lease manager is the source of truth for ownership and generation. This class
  * deliberately fails closed when no unique lease manager is available or when another
- * owner holds the lease. HEALTHY signals renew the current token; other transitions
- * acquire a new generation. STOPPED is published under a fresh generation and then
+ * owner holds the lease. State transitions acquire a new generation; explicit healthy
+ * heartbeats renew the current token. STOPPED is published under a fresh generation and then
  * releases that exact token.</p>
  *
  * <p>In multi-instance deployments the configured {@link FencedLeaseManager} must use
@@ -53,7 +53,7 @@ public class AgentRuntimeLifecycleCoordinator {
 
     /**
      * Publishes a lifecycle transition only after obtaining its fencing generation.
-     * A HEALTHY signal renews the current generation when the same owner still holds it.
+     * Each transition, including entry into HEALTHY, obtains a new generation.
      *
      * @throws IllegalStateException if the lease manager is missing/ambiguous or another
      *                               owner currently holds the agent lease
