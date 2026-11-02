@@ -12,7 +12,8 @@ import tech.kayys.andalus.coordination.CoordinationRequest;
 
 /**
  * In-memory lease-backed state provider for a single runtime process.
- * Multi-instance deployments should supply a shared implementation of the SPI.
+ * Fencing semantics are suitable for shared-provider implementations too, but
+ * multi-instance deployments still require durable shared storage and atomic CAS.
  */
 @ApplicationScoped
 public class InMemoryAgentRuntimeStateProvider implements AgentRuntimeStateProvider {
@@ -25,19 +26,67 @@ public class InMemoryAgentRuntimeStateProvider implements AgentRuntimeStateProvi
         this.clock = java.util.Objects.requireNonNull(clock, "clock must not be null");
     }
 
-    /** Publishes or renews an agent's state lease for one tenant. */
-    public void publish(AgentRuntimeStateLease lease) {
-        if (lease == null) throw new IllegalArgumentException("lease must not be null");
-        if (!lease.expiresAt().isAfter(clock.instant())) {
-            throw new IllegalArgumentException("lease expiry must be in the future");
-        }
-        leases.put(new Key(lease.tenantId(), lease.agentId()), lease);
+    /**
+     * Publishes a lease if its fencing token is current. A newer generation replaces
+     * an older one. The same owner/generation may only renew an unchanged state;
+     * changing state requires a strictly newer generation.
+     *
+     * @return false when the lease is stale or conflicts with the current owner/token
+     */
+    public boolean publish(AgentRuntimeStateLease lease) {
+        validateLease(lease);
+        Key key = new Key(lease.tenantId(), lease.agentId());
+        final boolean[] accepted = {false};
+        leases.compute(key, (ignored, current) -> {
+            if (current == null || lease.generation() > current.generation()) {
+                accepted[0] = true;
+                return lease;
+            }
+            if (lease.generation() < current.generation()
+                    || !lease.ownerId().equals(current.ownerId())) return current;
+
+            // A token can renew an unchanged state, but cannot reorder transitions.
+            if (!lease.state().equals(current.state())) return current;
+            if (lease.expiresAt().isAfter(current.expiresAt())) {
+                accepted[0] = true;
+                return lease;
+            }
+            return current;
+        });
+        return accepted[0];
     }
 
-    /** Removes one tenant's lease for an agent. */
+    /** Removes a lease only when both owner and generation still match. */
+    public boolean revoke(String tenantId, String agentId, String ownerId, long generation) {
+        Key key = new Key(requireText(tenantId, "tenantId"), requireText(agentId, "agentId"));
+        String owner = requireText(ownerId, "ownerId");
+        if (generation < 0) throw new IllegalArgumentException("generation must not be negative");
+        final boolean[] removed = {false};
+        leases.computeIfPresent(key, (ignored, current) -> {
+            if (current.generation() == generation && current.ownerId().equals(owner)) {
+                removed[0] = true;
+                return null;
+            }
+            return current;
+        });
+        return removed[0];
+    }
+
+    /**
+     * Compatibility revocation for legacy single-process callers. Fenced hosts
+     * must use the owner/generation overload so an old host cannot revoke a successor.
+     */
     public boolean revoke(String tenantId, String agentId) {
-        return leases.remove(new Key(requireText(tenantId, "tenantId"),
-                requireText(agentId, "agentId"))) != null;
+        Key key = new Key(requireText(tenantId, "tenantId"), requireText(agentId, "agentId"));
+        AgentRuntimeStateLease current = leases.get(key);
+        if (current == null || !current.ownerId().equals("legacy")) return false;
+        return leases.remove(key, current);
+    }
+
+    private void validateLease(AgentRuntimeStateLease lease) {
+        if (lease == null) throw new IllegalArgumentException("lease must not be null");
+        if (!lease.expiresAt().isAfter(clock.instant()))
+            throw new IllegalArgumentException("lease expiry must be in the future");
     }
 
     @Override
@@ -60,7 +109,8 @@ public class InMemoryAgentRuntimeStateProvider implements AgentRuntimeStateProvi
     }
 
     private static String requireText(String value, String field) {
-        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
+        if (value == null || value.isBlank())
+            throw new IllegalArgumentException(field + " must not be blank");
         return value.trim();
     }
 
