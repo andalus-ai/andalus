@@ -40,8 +40,8 @@ runs before feedback admission is enabled. Do not rely on
 only a convenience bootstrap for tests and local development.
 
 Both migrations currently use broadly supported `CREATE TABLE IF NOT EXISTS`
-syntax and has an H2 test. Validate it against the production database vendor
-and its supported transactional DDL behavior before rollout.
+syntax and are exercised by H2 tests. Validate them against the production
+database vendor and its supported transactional DDL behavior before rollout.
 
 ## Readiness and fail-closed behavior
 
@@ -61,8 +61,8 @@ ordering or caller-side error handling.
 
 Use the runtime `FeedbackAdmissionService` as the entry point for human
 feedback. It verifies both required tables, evaluates the framework trust
-policy, then atomically reserves evidence and persists the admitted signal. If the datasource is missing,
-ambiguous, unreachable, or the migration is absent, it rejects admission with
+policy, then atomically reserves evidence and persists the admitted signal. If the
+datasource is missing, ambiguous, unreachable, or the migration is absent, it rejects admission with
 a bounded reason and does not create schema or select an in-memory fallback.
 
 The service returns the framework's `AdmissionResult`; rejected trust-policy
