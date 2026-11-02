@@ -25,14 +25,21 @@ jobs:
           java-version: "25"
           cache: maven
 
-      # AQLI's settings.gradle.kts detects ../alkhawarizm as a Gradle
-      # composite build. Check out the matching source repository at that
-      # sibling path so its tech.kayys.alkhawarizm SNAPSHOTs resolve from source.
+      # AQLI detects ../alkhawarizm as a composite build. Alkhawarizm in turn
+      # detects ../tafkir for its quantizer SNAPSHOTs. Check out both source
+      # repositories as siblings so these dependencies resolve from source.
       - name: Checkout alkhawarizm dependency
         uses: actions/checkout@v4
         with:
           repository: bhangun/alkhawarizm
           path: alkhawarizm
+          ref: main
+
+      - name: Checkout tafkir dependency
+        uses: actions/checkout@v4
+        with:
+          repository: bhangun/tafkir
+          path: tafkir
           ref: main
 
       # ── Aqli SPI/SDK Bootstrap ────────────────────────────────────────────
