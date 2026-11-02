@@ -111,30 +111,41 @@ public final class JdbcAdmittedFeedbackLedger {
                 FROM andalus_admitted_feedback
                 ORDER BY occurred_at, signal_id
                 """;
-        List<LearningSignal> signals = new ArrayList<>();
+        List<SignalRow> rows = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql);
-             ResultSet rows = statement.executeQuery()) {
-            while (rows.next()) {
-                String id = rows.getString("signal_id");
-                signals.add(new LearningSignal(
-                        id,
-                        LearningSignalType.valueOf(rows.getString("signal_type")),
-                        rows.getString("source_id"),
-                        rows.getString("execution_id"),
-                        Optional.ofNullable(rows.getString("turn_id")),
-                        Optional.ofNullable(rows.getString("goal_id")),
-                        Optional.ofNullable(rows.getString("task_id")),
-                        LearningSignalPolarity.valueOf(rows.getString("polarity")),
-                        references(connection, id),
-                        Optional.ofNullable(rows.getString("evaluation_reference")),
-                        Instant.parse(rows.getString("occurred_at")),
-                        java.util.Map.of()));
+             ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                rows.add(new SignalRow(
+                        result.getString("signal_id"), result.getString("signal_type"),
+                        result.getString("source_id"), result.getString("execution_id"),
+                        result.getString("polarity"), result.getString("turn_id"),
+                        result.getString("goal_id"), result.getString("task_id"),
+                        result.getString("evaluation_reference"), result.getString("occurred_at")));
             }
-            return List.copyOf(signals);
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to recover admitted feedback", exception);
         }
+
+        List<LearningSignal> signals = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection()) {
+            for (SignalRow row : rows) {
+                signals.add(new LearningSignal(
+                        row.id(), LearningSignalType.valueOf(row.type()), row.source(), row.executionId(),
+                        Optional.ofNullable(row.turnId()), Optional.ofNullable(row.goalId()),
+                        Optional.ofNullable(row.taskId()), LearningSignalPolarity.valueOf(row.polarity()),
+                        references(connection, row.id()), Optional.ofNullable(row.evaluationReference()),
+                        Instant.parse(row.occurredAt()), java.util.Map.of()));
+            }
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Unable to recover admitted feedback evidence", exception);
+        }
+        return List.copyOf(signals);
+    }
+
+    private record SignalRow(String id, String type, String source, String executionId,
+                             String polarity, String turnId, String goalId, String taskId,
+                             String evaluationReference, String occurredAt) {
     }
 
     private boolean sameSignal(Connection connection, LearningSignal signal) throws SQLException {
