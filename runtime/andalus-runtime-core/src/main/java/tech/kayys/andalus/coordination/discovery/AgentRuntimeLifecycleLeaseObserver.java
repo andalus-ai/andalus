@@ -1,0 +1,55 @@
+package tech.kayys.andalus.coordination.discovery;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.util.Objects;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
+import jakarta.inject.Inject;
+
+/**
+ * Converts fenced host lifecycle events into short-lived routing-state leases.
+ * Hosts renew by emitting HEALTHY periodically with the same owner and generation.
+ * Every state transition or ownership change must use a strictly newer generation.
+ */
+@ApplicationScoped
+public class AgentRuntimeLifecycleLeaseObserver {
+    private final InMemoryAgentRuntimeStateProvider stateProvider;
+    private final Clock clock;
+    private final Duration leaseTtl;
+
+    @Inject
+    public AgentRuntimeLifecycleLeaseObserver(InMemoryAgentRuntimeStateProvider stateProvider) {
+        this(stateProvider, Clock.systemUTC(), Duration.ofSeconds(30));
+    }
+
+    AgentRuntimeLifecycleLeaseObserver(
+            InMemoryAgentRuntimeStateProvider stateProvider, Clock clock, Duration leaseTtl) {
+        this.stateProvider = Objects.requireNonNull(stateProvider, "stateProvider must not be null");
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.leaseTtl = Objects.requireNonNull(leaseTtl, "leaseTtl must not be null");
+        if (leaseTtl.isZero() || leaseTtl.isNegative())
+            throw new IllegalArgumentException("leaseTtl must be positive");
+    }
+
+    public void onLifecycleEvent(@Observes AgentRuntimeLifecycleEvent event) {
+        if (event == null) throw new IllegalArgumentException("event must not be null");
+        switch (event.type()) {
+            case STARTED, UNHEALTHY -> publish(event, false);
+            case HEALTHY -> publish(event, true);
+            case STOPPED -> stateProvider.revoke(
+                    event.tenantId(), event.agentId(), event.ownerId(), event.generation());
+        }
+    }
+
+    private void publish(AgentRuntimeLifecycleEvent event, boolean available) {
+        stateProvider.publish(new AgentRuntimeStateLease(
+                event.agentId(),
+                event.tenantId(),
+                new AgentRuntimeState(available, event.priority(), event.costFactor()),
+                clock.instant().plus(leaseTtl),
+                event.ownerId(),
+                event.generation()));
+    }
+}
