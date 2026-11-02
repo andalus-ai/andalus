@@ -41,6 +41,17 @@ Repeated evaluations create separate history entries; they do not overwrite
 earlier conclusions. History is ordered by creation time, with snapshot ID as
 a stable tie-breaker for entries created within the same millisecond.
 
+`FeedbackAggregationRecoveryService.analyzeTrend(subject)` compares the two
+newest snapshots for that exact typed subject. It reports outcome transitions,
+positive/negative ratio and weight deltas, source/evidence-count deltas, and
+added or removed contributing signal IDs. A positive-consensus reversal is
+reported as a regression; a transition to conflicted evidence is reported as
+emerging disagreement. Insufficient evidence is explicitly inconclusive, not a
+regression. A configurable positive-ratio drop threshold is available for
+successive positive-consensus snapshots. Trend analysis is deterministic and
+advisory; it does not persist a second derived record or change production
+behavior.
+
 Snapshots are audit records, not commands. They do not trigger training,
 routing changes, candidate promotion, or deployment. Keep the original policy
 inputs and corroboration data alongside operational change records when exact
