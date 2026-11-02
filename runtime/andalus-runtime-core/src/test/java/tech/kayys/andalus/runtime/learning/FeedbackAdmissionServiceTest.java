@@ -36,6 +36,43 @@ class FeedbackAdmissionServiceTest {
         assertThat(result.accepted()).isTrue();
         assertThat(new JdbcFeedbackEvidenceStore(dataSource).findOwner("evidence-a"))
                 .contains("signal-a");
+        assertThat(new JdbcAdmittedFeedbackLedger(dataSource).findAll())
+                .extracting(LearningSignal::id).containsExactly("signal-a");
+    }
+
+    @Test
+    void recoversBoundedProvenanceAndExcludesArbitraryMetadata() throws Exception {
+        JdbcDataSource dataSource = dataSource();
+        applyMigration(dataSource);
+        LearningSignal original = new LearningSignal("signal-ledger", LearningSignalType.HUMAN_FEEDBACK,
+                "reviewer", "execution-7", java.util.Optional.of("turn-2"), java.util.Optional.of("goal-3"),
+                java.util.Optional.of("task-4"), LearningSignalPolarity.NEGATIVE, List.of("evidence-ledger"),
+                java.util.Optional.of("evaluation-5"), java.time.Instant.parse("2026-11-02T01:00:00Z"),
+                Map.of("private-note", "must-not-be-persisted"));
+
+        assertThat(service.admit(dataSource, original, trustPolicy(), Set.of()).accepted()).isTrue();
+
+        LearningSignal recovered = new JdbcAdmittedFeedbackLedger(dataSource).findAll().get(0);
+        assertThat(recovered).isEqualTo(new LearningSignal("signal-ledger", LearningSignalType.HUMAN_FEEDBACK,
+                "reviewer", "execution-7", java.util.Optional.of("turn-2"), java.util.Optional.of("goal-3"),
+                java.util.Optional.of("task-4"), LearningSignalPolarity.NEGATIVE, List.of("evidence-ledger"),
+                java.util.Optional.of("evaluation-5"), java.time.Instant.parse("2026-11-02T01:00:00Z"), Map.of()));
+    }
+
+    @Test
+    void exactSignalRetryIsIdempotentAndChangedPayloadIsRejected() throws Exception {
+        JdbcDataSource dataSource = dataSource();
+        applyMigration(dataSource);
+        LearningSignal original = signal("signal-retry", LearningSignalType.HUMAN_FEEDBACK, "evidence-retry");
+
+        assertThat(service.admit(dataSource, original, trustPolicy(), Set.of()).accepted()).isTrue();
+        assertThat(service.admit(dataSource, original, trustPolicy(), Set.of()).accepted()).isTrue();
+
+        LearningSignal changed = new LearningSignal("signal-retry", LearningSignalType.HUMAN_FEEDBACK,
+                "reviewer", "different-execution", java.util.Optional.empty(), java.util.Optional.empty(),
+                java.util.Optional.empty(), LearningSignalPolarity.POSITIVE, List.of("evidence-retry"),
+                java.util.Optional.empty(), java.time.Instant.parse("2026-11-02T00:00:00Z"), Map.of());
+        assertThat(service.admit(dataSource, changed, trustPolicy(), Set.of()).accepted()).isFalse();
     }
 
     @Test
@@ -114,13 +151,16 @@ class FeedbackAdmissionServiceTest {
     }
 
     private void applyMigration(DataSource dataSource) throws Exception {
-        String resource = "/db/migration/V20261102_01__feedback_evidence_reservations.sql";
-        try (InputStream input = getClass().getResourceAsStream(resource)) {
-            assertThat(input).isNotNull();
-            String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-            try (Connection connection = dataSource.getConnection();
-                 Statement statement = connection.createStatement()) {
-                statement.execute(sql);
+        for (String resource : List.of(
+                "/db/migration/V20261102_01__feedback_evidence_reservations.sql",
+                "/db/migration/V20261102_02__admitted_feedback_ledger.sql")) {
+            try (InputStream input = getClass().getResourceAsStream(resource)) {
+                assertThat(input).isNotNull();
+                String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+                try (Connection connection = dataSource.getConnection();
+                     Statement statement = connection.createStatement()) {
+                    statement.execute(sql);
+                }
             }
         }
     }
