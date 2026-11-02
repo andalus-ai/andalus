@@ -25,10 +25,19 @@ jobs:
           java-version: "25"
           cache: maven
 
+      # AQLI's settings.gradle.kts detects ../alkhawarizm as a Gradle
+      # composite build. Check out the matching source repository at that
+      # sibling path so its tech.kayys.alkhawarizm SNAPSHOTs resolve from source.
+      - name: Checkout alkhawarizm dependency
+        uses: actions/checkout@v4
+        with:
+          repository: bhangun/alkhawarizm
+          path: alkhawarizm
+          ref: main
+
       # ── Aqli SPI/SDK Bootstrap ────────────────────────────────────────────
       # aqli-spi* and aqli-sdk* are SNAPSHOT artifacts not on Maven Central.
-      # We check out aqli and publish its pure-Java framework modules to Maven
-      # Local (no native build: no llama.cpp / libtorch needed here).
+      # Build the pure-Java framework modules; no native backend build needed.
       - name: Checkout aqli (SPI/SDK bootstrap)
         uses: actions/checkout@v4
         with:
