@@ -42,11 +42,11 @@ jobs:
           path: tafkir
           ref: main
 
-      # Tafkir's diffusion API has an unresolved dependency on
-      # :trainer:alkhawarizm-trainer-api. Its diffusion OPD module also
-      # depends on the excluded diffusion API. Neither is needed for the
-      # quantizer artifacts used by this bootstrap, so exclude these aliases
-      # in this ephemeral CI checkout only; do not modify upstream sources.
+      # Keep only Tafkir modules needed to publish the quantizer SNAPSHOTs.
+      # Diffusion APIs/OPD are outside this bootstrap and contain unresolved
+      # project dependencies. tafkir-nlp also references tafkir-ml-optimize,
+      # whose declared project directory is absent from the upstream checkout.
+      # These exclusions affect only this ephemeral CI checkout.
       # Legacy aliases also require their implicit parent directories.
       - name: Isolate Tafkir quantizer projects for bootstrap
         working-directory: tafkir
@@ -55,6 +55,7 @@ jobs:
           sed -i '/includeLegacyAlias("ml:tafkir-ml-diffusion-api",/d' settings.gradle.kts
           sed -i '/includeLegacyAlias("training:loop:tafkir-train-diffusion-opd",/d' settings.gradle.kts
           sed -i '/includeLegacyAlias("ml:tafkir-ml-diffusion-opd",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("nlp:core:tafkir-nlp",/d' settings.gradle.kts
           mkdir -p quantizer trainer
 
       # ── AQLI SPI/SDK Bootstrap ────────────────────────────────────────────
