@@ -60,6 +60,9 @@ public class FeedbackAggregationRecoveryService {
             Subject subject,
             FeedbackAggregation.Result aggregation,
             String trustPolicyFingerprint,
+            String aggregationPolicyFingerprint,
+            String corroborationFingerprint,
+            List<String> consideredSignalIds,
             List<String> signalIds,
             List<String> sourceIds,
             List<String> evidenceReferences
@@ -70,6 +73,11 @@ public class FeedbackAggregationRecoveryService {
             if (trustPolicyFingerprint == null || trustPolicyFingerprint.isBlank()) {
                 throw new IllegalArgumentException("trust policy fingerprint is required");
             }
+            if (aggregationPolicyFingerprint == null || aggregationPolicyFingerprint.isBlank()
+                    || corroborationFingerprint == null || corroborationFingerprint.isBlank()) {
+                throw new IllegalArgumentException("all policy fingerprints are required");
+            }
+            consideredSignalIds = List.copyOf(consideredSignalIds);
             signalIds = List.copyOf(signalIds);
             sourceIds = List.copyOf(sourceIds);
             evidenceReferences = List.copyOf(evidenceReferences);
@@ -111,6 +119,7 @@ public class FeedbackAggregationRecoveryService {
         ledger.verifySchema();
 
         List<FeedbackAggregation.AdmittedFeedback> admitted = new ArrayList<>();
+        Set<String> consideredSignalIds = new TreeSet<>();
         Set<String> signalIds = new TreeSet<>();
         Set<String> sourceIds = new TreeSet<>();
         Set<String> evidenceReferences = new TreeSet<>();
@@ -121,6 +130,7 @@ public class FeedbackAggregationRecoveryService {
             if (!subject.matches(signal)) {
                 continue;
             }
+            consideredSignalIds.add(signal.id());
             Optional<FeedbackAggregation.AdmittedFeedback> trusted = FeedbackAggregation.admit(
                     signal, trustPolicy, Set.of(), corroboration.getOrDefault(signal.id(), Set.of()));
             if (trusted.isEmpty()) {
@@ -135,7 +145,38 @@ public class FeedbackAggregationRecoveryService {
         FeedbackAggregation.Result result = FeedbackAggregation.aggregate(
                 subject.key(), admitted, aggregationPolicy);
         return new AdvisoryReport(subject, result, fingerprint(trustPolicy),
-                List.copyOf(signalIds), List.copyOf(sourceIds), List.copyOf(evidenceReferences));
+                fingerprint(aggregationPolicy), fingerprint(corroboration),
+                List.copyOf(consideredSignalIds), List.copyOf(signalIds),
+                List.copyOf(sourceIds), List.copyOf(evidenceReferences));
+    }
+
+
+    static String fingerprint(FeedbackAggregation.Policy policy) {
+        String canonical = policy.minimumDistinctSources() + "|"
+                + policy.minimumEvidenceReferences() + "|"
+                + Double.toHexString(policy.consensusRatio());
+        return sha256(canonical);
+    }
+
+    static String fingerprint(Map<String, Set<String>> corroboration) {
+        StringBuilder canonical = new StringBuilder();
+        new TreeMap<>(corroboration).forEach((signalId, sources) -> {
+            canonical.append(signalId.length()).append(':').append(signalId).append('=');
+            new TreeSet<>(sources).forEach(source ->
+                    canonical.append(source.length()).append(':').append(source).append(';'));
+            canonical.append('|');
+        });
+        return sha256(canonical.toString());
+    }
+
+    private static String sha256(String canonical) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
     }
 
     static String fingerprint(FeedbackTrustPolicy.Policy policy) {
@@ -146,12 +187,6 @@ public class FeedbackAggregationRecoveryService {
         canonical.append('|').append(Double.toHexString(policy.minimumSourceTrust()))
                 .append('|').append(policy.minimumEvidenceReferences())
                 .append('|').append(policy.minimumDistinctTrustedSources());
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(canonical.toString().getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 is unavailable", impossible);
-        }
+        return sha256(canonical.toString());
     }
 }
