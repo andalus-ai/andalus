@@ -75,9 +75,9 @@ public final class JdbcFeedbackAggregationSnapshotStore {
 
                 insertItems(connection, snapshotId, "CONSIDERED_SIGNAL", 0,
                         report.consideredSignalIds());
-                order = insertItems(connection, snapshotId, "ADMITTED_SIGNAL", 0, report.signalIds());
-                order = insertItems(connection, snapshotId, "SOURCE", 0, report.sourceIds());
-                order = insertItems(connection, snapshotId, "EVIDENCE", 0, report.evidenceReferences());
+                insertItems(connection, snapshotId, "ADMITTED_SIGNAL", 0, report.signalIds());
+                insertItems(connection, snapshotId, "SOURCE", 0, report.sourceIds());
+                insertItems(connection, snapshotId, "EVIDENCE", 0, report.evidenceReferences());
                 insertItems(connection, snapshotId, "REASON", 0, result.reasons());
                 connection.commit();
             } catch (SQLException | RuntimeException exception) {
@@ -115,7 +115,7 @@ public final class JdbcFeedbackAggregationSnapshotStore {
                             corroboration_fingerprint, created_at_epoch_millis
                      FROM andalus_feedback_aggregation_snapshot
                      WHERE subject_kind = ? AND subject_id = ?
-                     ORDER BY created_at, snapshot_id
+                     ORDER BY created_at_epoch_millis, snapshot_id
                      """)) {
             statement.setString(1, subject.kind().name());
             statement.setString(2, subject.id());
