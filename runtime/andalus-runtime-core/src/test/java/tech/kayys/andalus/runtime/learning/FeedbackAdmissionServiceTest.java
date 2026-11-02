@@ -76,6 +76,29 @@ class FeedbackAdmissionServiceTest {
     }
 
     @Test
+    void rollsBackEvidenceReservationWhenLedgerInsertFails() throws Exception {
+        JdbcDataSource dataSource = dataSource();
+        applyMigration(dataSource);
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("ALTER TABLE andalus_admitted_feedback "
+                    + "ADD CONSTRAINT ck_test_source CHECK (source_id <> 'blocked')");
+        }
+        LearningSignal blocked = new LearningSignal("signal-rollback", LearningSignalType.HUMAN_FEEDBACK,
+                "blocked", "execution-1", java.util.Optional.empty(), java.util.Optional.empty(),
+                java.util.Optional.empty(), LearningSignalPolarity.POSITIVE, List.of("evidence-rollback"),
+                java.util.Optional.empty(), java.time.Instant.parse("2026-11-02T00:00:00Z"), Map.of());
+
+        FeedbackAggregation.AdmissionResult result = service.admit(
+                dataSource, blocked, new FeedbackTrustPolicy.Policy(Map.of("blocked", 1.0), 0.8, 1, 1),
+                Set.of());
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(new JdbcFeedbackEvidenceStore(dataSource).findOwner("evidence-rollback")).isEmpty();
+        assertThat(new JdbcAdmittedFeedbackLedger(dataSource).findAll()).isEmpty();
+    }
+
+    @Test
     void rejectsAdmissionWhenSchemaIsMissingWithoutCreatingIt() {
         JdbcDataSource dataSource = dataSource();
 
