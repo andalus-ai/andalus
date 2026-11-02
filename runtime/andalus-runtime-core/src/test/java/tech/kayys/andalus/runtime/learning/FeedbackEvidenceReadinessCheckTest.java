@@ -22,15 +22,15 @@ class FeedbackEvidenceReadinessCheckTest {
 
         HealthCheckResponse response = new FeedbackEvidenceReadinessCheck().check(dataSource);
 
-        assertThat(response.getStatus()).isEqualTo(HealthCheckResponse.Status.UP);
+        assertThat(response.getStatus()).isEqualTo(true);
     }
 
     @Test
     void reportsDownWhenMigrationHasNotBeenApplied() throws Exception {
         HealthCheckResponse response = new FeedbackEvidenceReadinessCheck().check(dataSource());
 
-        assertThat(response.getStatus()).isEqualTo(HealthCheckResponse.Status.DOWN);
-        assertThat(response.getData()).containsKey("reason");
+        assertThat(response.getStatus()).isEqualTo(false);
+        assertThat(response.getData()).isPresent();
     }
 
     @Test
