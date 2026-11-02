@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 import tech.kayys.andalus.coordination.CoordinationContext;
@@ -24,20 +25,15 @@ class InMemoryAgentRuntimeStateProviderTest {
 
     @Test
     void expiredLeaseIsNotResolvedAndIsRemoved() {
-        var provider = new InMemoryAgentRuntimeStateProvider(Clock.fixed(NOW, ZoneOffset.UTC));
+        var clock = new MutableClock(NOW);
+        var provider = new InMemoryAgentRuntimeStateProvider(clock);
         provider.publish(new AgentRuntimeStateLease("agent-a", "tenant-a",
                 new AgentRuntimeState(true, 0, 1.0), NOW.plusSeconds(1)));
 
-        var atExpiry = new InMemoryAgentRuntimeStateProvider(Clock.fixed(NOW.plusSeconds(1), ZoneOffset.UTC));
-        // A lease can be accepted before expiry but must be invisible at the expiry instant.
-        var beforeExpiry = new InMemoryAgentRuntimeStateProvider(
-                Clock.fixed(NOW.minusSeconds(1), ZoneOffset.UTC));
-        beforeExpiry.publish(new AgentRuntimeStateLease("agent-b", "tenant-a",
-                new AgentRuntimeState(true, 0, 1.0), NOW.plusSeconds(1)));
-
-        assertTrue(atExpiry.resolve("agent-a", null, CoordinationContext.of("tenant-a", "user")).isEmpty());
-        assertTrue(beforeExpiry.resolve("agent-b", null, CoordinationContext.of("tenant-a", "user")).isPresent());
-        assertTrue(provider.resolve("agent-a", null, CoordinationContext.of("tenant-a", "user")).isPresent());
+        clock.set(NOW.plusSeconds(1));
+        assertTrue(provider.resolve("agent-a", null,
+                CoordinationContext.of("tenant-a", "user")).isEmpty());
+        assertFalse(provider.revoke("tenant-a", "agent-a"));
     }
 
     @Test
@@ -58,5 +54,14 @@ class InMemoryAgentRuntimeStateProviderTest {
         assertFalse(provider.revoke("tenant-b", "agent-a"));
         assertTrue(provider.revoke("tenant-a", "agent-a"));
         assertFalse(provider.revoke("tenant-a", "agent-a"));
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant instant;
+        private MutableClock(Instant instant) { this.instant = instant; }
+        void set(Instant instant) { this.instant = instant; }
+        @Override public ZoneId getZone() { return ZoneOffset.UTC; }
+        @Override public Clock withZone(ZoneId zone) { return this; }
+        @Override public Instant instant() { return instant; }
     }
 }
