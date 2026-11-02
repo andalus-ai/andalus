@@ -164,6 +164,26 @@ public class FeedbackAggregationRecoveryService {
         return Optional.of(FeedbackTrendAnalyzer.analyze(snapshots, minimumPositiveRatioDrop));
     }
 
+    /**
+     * Produces a human-review recommendation from persisted history.
+     * The assessment is advisory and never dispatches or applies a change.
+     */
+    public Optional<FeedbackTrendReviewPolicy.Assessment> reviewTrend(
+            Subject subject, FeedbackTrendReviewPolicy.Policy reviewPolicy) {
+        Objects.requireNonNull(subject, "subject");
+        Objects.requireNonNull(reviewPolicy, "reviewPolicy");
+        List<JdbcFeedbackAggregationSnapshotStore.Snapshot> snapshots = history(subject);
+        if (snapshots.isEmpty()) {
+            return Optional.empty();
+        }
+        FeedbackTrendAnalyzer.Trend trend = FeedbackTrendAnalyzer.analyze(snapshots);
+        JdbcFeedbackAggregationSnapshotStore.Snapshot current = snapshots.stream()
+                .filter(snapshot -> snapshot.id().equals(trend.currentSnapshotId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("current trend snapshot is missing"));
+        return Optional.of(FeedbackTrendReviewPolicy.evaluate(trend, reviewPolicy, current));
+    }
+
     /** Package-visible seam for tests and explicit datasource orchestration. */
     AdvisoryReport aggregate(
             DataSource dataSource,
