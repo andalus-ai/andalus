@@ -76,6 +76,68 @@ class FeedbackAggregationRecoveryServiceTest {
     }
 
     @Test
+    void snapshotsAppendImmutableHistoryAndRecoverAllProvenance() throws Exception {
+        JdbcDataSource dataSource = dataSource();
+        applyMigrations(dataSource);
+        FeedbackTrustPolicy.Policy trust = trustPolicy();
+        admit(dataSource, signal("signal-a", "reviewer-a", "task-snapshot", "evidence-a",
+                LearningSignalPolarity.POSITIVE, "2026-11-02T00:01:00Z"), trust);
+        admit(dataSource, signal("signal-b", "reviewer-b", "task-snapshot", "evidence-b",
+                LearningSignalPolarity.POSITIVE, "2026-11-02T00:02:00Z"), trust);
+
+        var subject = new FeedbackAggregationRecoveryService.Subject(
+                FeedbackAggregationRecoveryService.SubjectKind.TASK, "task-snapshot");
+        var policy = new FeedbackAggregation.Policy(2, 2, 0.75);
+        var first = recovery.aggregateAndSnapshot(dataSource, subject, policy, trust, Map.of());
+        var second = recovery.aggregateAndSnapshot(dataSource, subject, policy, trust, Map.of());
+
+        JdbcFeedbackAggregationSnapshotStore recreated =
+                new JdbcFeedbackAggregationSnapshotStore(dataSource);
+        recreated.verifySchema();
+        var history = recreated.findBySubject(subject);
+
+        assertThat(history).hasSize(2);
+        assertThat(history).extracting(JdbcFeedbackAggregationSnapshotStore.Snapshot::id)
+                .containsExactly(first.id(), second.id());
+        assertThat(history.get(0).aggregation().outcome())
+                .isEqualTo(FeedbackAggregation.Outcome.CONSENSUS_POSITIVE);
+        assertThat(history.get(0).signalIds()).containsExactly("signal-a", "signal-b");
+        assertThat(history.get(0).consideredSignalIds()).containsExactly("signal-a", "signal-b");
+        assertThat(history.get(0).sourceIds()).containsExactly("reviewer-a", "reviewer-b");
+        assertThat(history.get(0).evidenceReferences()).containsExactly("evidence-a", "evidence-b");
+        assertThat(history.get(0).trustPolicyFingerprint()).hasSize(64);
+        assertThat(history.get(0).aggregationPolicyFingerprint()).hasSize(64);
+        assertThat(history.get(0).corroborationFingerprint()).hasSize(64);
+        assertThat(history.get(0).aggregation().reasons()).isEmpty();
+    }
+
+    @Test
+    void snapshotHistoryIsIsolatedByTypedSubject() throws Exception {
+        JdbcDataSource dataSource = dataSource();
+        applyMigrations(dataSource);
+        FeedbackTrustPolicy.Policy trust = trustPolicy();
+        LearningSignal signal = new LearningSignal("signal-a", LearningSignalType.HUMAN_FEEDBACK,
+                "reviewer-a", "execution-a", Optional.empty(), Optional.of("same"),
+                Optional.of("same"), LearningSignalPolarity.POSITIVE, List.of("evidence-a"),
+                Optional.of("same"), Instant.parse("2026-11-02T00:01:00Z"), Map.of());
+        admit(dataSource, signal, trust);
+        var task = new FeedbackAggregationRecoveryService.Subject(
+                FeedbackAggregationRecoveryService.SubjectKind.TASK, "same");
+        var goal = new FeedbackAggregationRecoveryService.Subject(
+                FeedbackAggregationRecoveryService.SubjectKind.GOAL, "same");
+        recovery.aggregateAndSnapshot(dataSource, task,
+                new FeedbackAggregation.Policy(1, 1, 0.75), trust, Map.of());
+        recovery.aggregateAndSnapshot(dataSource, goal,
+                new FeedbackAggregation.Policy(1, 1, 0.75), trust, Map.of());
+
+        JdbcFeedbackAggregationSnapshotStore store = new JdbcFeedbackAggregationSnapshotStore(dataSource);
+        assertThat(store.findBySubject(task)).hasSize(1);
+        assertThat(store.findBySubject(goal)).hasSize(1);
+        assertThat(store.findBySubject(new FeedbackAggregationRecoveryService.Subject(
+                FeedbackAggregationRecoveryService.SubjectKind.EVALUATION, "same"))).isEmpty();
+    }
+
+    @Test
     void subjectKindsDoNotCollideWhenIdentifiersAreEqual() throws Exception {
         JdbcDataSource dataSource = dataSource();
         applyMigrations(dataSource);
@@ -128,7 +190,8 @@ class FeedbackAggregationRecoveryServiceTest {
     private void applyMigrations(DataSource dataSource) throws Exception {
         for (String resource : List.of(
                 "/db/migration/V20261102_01__feedback_evidence_reservations.sql",
-                "/db/migration/V20261102_02__admitted_feedback_ledger.sql")) {
+                "/db/migration/V20261102_02__admitted_feedback_ledger.sql",
+                "/db/migration/V20261102_03__feedback_aggregation_snapshots.sql")) {
             try (InputStream input = getClass().getResourceAsStream(resource)) {
                 assertThat(input).isNotNull();
                 String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
