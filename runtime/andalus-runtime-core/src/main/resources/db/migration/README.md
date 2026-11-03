@@ -219,6 +219,8 @@ identified result per case and computes aggregate metrics. Required comparison m
 must exist on both sides; missing metrics fail the run rather than being treated as
 zero or as a pass.
 
+The proposal policy fingerprint supplied to the runner must bind the exact proposed candidate identity/version, evaluator configuration, and metric policy approved by the reviewer; do not reuse a fingerprint across materially different candidate configurations. The persisted report separately retains both model identities/versions and both evaluator configuration fingerprints for audit.
+
 The dataset fingerprint is SHA-256 over the dataset ID/version and ordered case IDs,
 inputs, expected outputs, and sorted metadata. Raw dataset contents and case-level
 details are not persisted. Two content-digest evidence references are generated from
