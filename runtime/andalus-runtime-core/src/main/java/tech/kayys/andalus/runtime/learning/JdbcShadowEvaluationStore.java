@@ -21,7 +21,7 @@ public final class JdbcShadowEvaluationStore {
     public void verifySchema() {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement header = connection.prepareStatement(
-                     "SELECT run_id, baseline_candidate_id, candidate_id FROM andalus_feedback_shadow_evaluation WHERE 1 = 0");
+                     "SELECT run_id, baseline_evaluator_config_fingerprint, candidate_evaluator_config_fingerprint, baseline_candidate_id, candidate_id FROM andalus_feedback_shadow_evaluation WHERE 1 = 0");
              PreparedStatement metrics = connection.prepareStatement(
                      "SELECT run_id FROM andalus_feedback_shadow_evaluation_metric WHERE 1 = 0");
              PreparedStatement evidence = connection.prepareStatement(
@@ -53,11 +53,12 @@ public final class JdbcShadowEvaluationStore {
                         INSERT INTO andalus_feedback_shadow_evaluation
                             (run_id, proposal_id, subject_kind, subject_id, source_snapshot_id,
                              approval_id, policy_fingerprint, baseline_evaluator_id,
-                             baseline_evaluator_version, candidate_evaluator_id,
-                             candidate_evaluator_version, baseline_candidate_id, baseline_candidate_version,
+                             baseline_evaluator_version, baseline_evaluator_config_fingerprint,
+                             candidate_evaluator_id, candidate_evaluator_version,
+                             candidate_evaluator_config_fingerprint, baseline_candidate_id, baseline_candidate_version,
                              candidate_id, candidate_version, dataset_id, dataset_version,
                              dataset_fingerprint, evaluation_status, evaluated_at_epoch_millis)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """)) {
                     insert.setString(1, report.runId());
                     insert.setString(2, report.proposalId());
@@ -68,17 +69,19 @@ public final class JdbcShadowEvaluationStore {
                     insert.setString(7, report.policyFingerprint());
                     insert.setString(8, report.baselineEvaluatorId());
                     insert.setString(9, report.baselineEvaluatorVersion());
-                    insert.setString(10, report.candidateEvaluatorId());
-                    insert.setString(11, report.candidateEvaluatorVersion());
-                    insert.setString(12, report.baselineCandidateId());
-                    insert.setString(13, report.baselineCandidateVersion());
-                    insert.setString(14, report.candidateId());
-                    insert.setString(15, report.candidateVersion());
-                    insert.setString(16, report.datasetId());
-                    insert.setString(17, report.datasetVersion());
-                    insert.setString(18, report.datasetFingerprint());
-                    insert.setString(19, report.status().name());
-                    insert.setLong(20, evaluatedAt.toEpochMilli());
+                    insert.setString(10, report.baselineEvaluatorConfigFingerprint());
+                    insert.setString(11, report.candidateEvaluatorId());
+                    insert.setString(12, report.candidateEvaluatorVersion());
+                    insert.setString(13, report.candidateEvaluatorConfigFingerprint());
+                    insert.setString(14, report.baselineCandidateId());
+                    insert.setString(15, report.baselineCandidateVersion());
+                    insert.setString(16, report.candidateId());
+                    insert.setString(17, report.candidateVersion());
+                    insert.setString(18, report.datasetId());
+                    insert.setString(19, report.datasetVersion());
+                    insert.setString(20, report.datasetFingerprint());
+                    insert.setString(21, report.status().name());
+                    insert.setLong(22, evaluatedAt.toEpochMilli());
                     insert.executeUpdate();
                 }
                 insertMetrics(connection, report);
@@ -133,7 +136,7 @@ public final class JdbcShadowEvaluationStore {
                      SELECT * FROM andalus_feedback_shadow_evaluation WHERE run_id = ?
                      """)) {
             query.setString(1, runId);
-            String[] header = new String[19];
+            String[] header = new String[21];
             long evaluatedAt;
             try (ResultSet row = query.executeQuery()) {
                 if (!row.next()) return java.util.Optional.empty();
@@ -146,16 +149,18 @@ public final class JdbcShadowEvaluationStore {
                 header[6] = row.getString("policy_fingerprint");
                 header[7] = row.getString("baseline_evaluator_id");
                 header[8] = row.getString("baseline_evaluator_version");
-                header[9] = row.getString("candidate_evaluator_id");
-                header[10] = row.getString("candidate_evaluator_version");
-                header[11] = row.getString("baseline_candidate_id");
-                header[12] = row.getString("baseline_candidate_version");
-                header[13] = row.getString("candidate_id");
-                header[14] = row.getString("candidate_version");
-                header[15] = row.getString("dataset_id");
-                header[16] = row.getString("dataset_version");
-                header[17] = row.getString("dataset_fingerprint");
-                header[18] = row.getString("evaluation_status");
+                header[9] = row.getString("baseline_evaluator_config_fingerprint");
+                header[10] = row.getString("candidate_evaluator_id");
+                header[11] = row.getString("candidate_evaluator_version");
+                header[12] = row.getString("candidate_evaluator_config_fingerprint");
+                header[13] = row.getString("baseline_candidate_id");
+                header[14] = row.getString("baseline_candidate_version");
+                header[15] = row.getString("candidate_id");
+                header[16] = row.getString("candidate_version");
+                header[17] = row.getString("dataset_id");
+                header[18] = row.getString("dataset_version");
+                header[19] = row.getString("dataset_fingerprint");
+                header[20] = row.getString("evaluation_status");
                 evaluatedAt = row.getLong("evaluated_at_epoch_millis");
             }
             FeedbackAggregationRecoveryService.Subject subject =
@@ -165,9 +170,9 @@ public final class JdbcShadowEvaluationStore {
             List<String> evidence = readEvidence(connection, runId);
             return java.util.Optional.of(new ShadowEvaluationReport(
                     header[0], header[1], subject, header[4], header[5], header[6],
-                    header[7], header[8], header[9], header[10],
-                    header[11], header[12], header[13], header[14],
-                    header[15], header[16], header[17], ShadowEvaluationReport.Status.valueOf(header[18]),
+                    header[7], header[8], header[9], header[10], header[11], header[12],
+                    header[13], header[14], header[15], header[16],
+                    header[17], header[18], header[19], ShadowEvaluationReport.Status.valueOf(header[20]),
                     metrics, evidence, Instant.ofEpochMilli(evaluatedAt)));
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to recover shadow evaluation report", exception);
@@ -282,7 +287,9 @@ public final class JdbcShadowEvaluationStore {
         return new ShadowEvaluationReport(report.runId(), report.proposalId(), report.subject(),
                 report.sourceSnapshotId(), report.approvalId(), report.policyFingerprint(),
                 report.baselineEvaluatorId(), report.baselineEvaluatorVersion(),
+                report.baselineEvaluatorConfigFingerprint(),
                 report.candidateEvaluatorId(), report.candidateEvaluatorVersion(),
+                report.candidateEvaluatorConfigFingerprint(),
                 report.baselineCandidateId(), report.baselineCandidateVersion(),
                 report.candidateId(), report.candidateVersion(),
                 report.datasetId(), report.datasetVersion(), report.datasetFingerprint(), report.status(), report.metrics(),
