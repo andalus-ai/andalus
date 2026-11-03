@@ -6,9 +6,10 @@ import tech.kayys.andalus.harness.evaluation.Evaluator;
  * Cryptographic trust boundary for signed evaluation inputs.
  *
  * Production implementations must verify signatures against an explicitly managed trust store.
- * Dataset verification must bind the signature to the manifest and supplied dataset fingerprint.
- * Artifact verification must verify both the signed manifest and the bytes fetched from its immutable
- * artifact reference against artifactDigest. Returning true based only on metadata equality is unsafe.
+ * Dataset verification binds the signature to the manifest and supplied dataset fingerprint.
+ * Evaluator verification must bind the signed artifact digest to the actual supplied adapter instance
+ * (for example, through a trusted artifact loader that records adapter provenance). Merely checking
+ * manifest metadata while accepting an arbitrary evaluator instance is not sufficient.
  */
 public interface ShadowEvaluationManifestVerifier {
     boolean verifyDataset(
@@ -16,5 +17,6 @@ public interface ShadowEvaluationManifestVerifier {
             Evaluator.Dataset dataset);
 
     boolean verifyEvaluatorArtifact(
-            ShadowEvaluationManifest.EvaluatorArtifactManifest manifest);
+            ShadowEvaluationManifest.EvaluatorArtifactManifest manifest,
+            Evaluator evaluator);
 }
