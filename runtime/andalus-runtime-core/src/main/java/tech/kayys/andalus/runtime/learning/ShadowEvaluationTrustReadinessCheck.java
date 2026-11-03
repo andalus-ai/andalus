@@ -19,17 +19,27 @@ public class ShadowEvaluationTrustReadinessCheck implements HealthCheck {
     @Inject
     Instance<ShadowEvaluationManifestVerifier> verifiers;
 
+    @Inject
+    Instance<ShadowEvaluationPublicKeyResolver> keyResolvers;
+
+    @Inject
+    Instance<ShadowEvaluationArtifactResolver> artifactResolvers;
+
     @Override
     public HealthCheckResponse call() {
         if (dataSources == null || !dataSources.isResolvable())
             return down("datasource-not-configured");
-        if (verifiers == null || !verifiers.isResolvable())
-            return down("manifest-verifier-not-configured");
+        if (verifiers == null || !verifiers.isResolvable() || verifiers.isAmbiguous())
+            return down("manifest-verifier-not-configured-or-ambiguous");
+        if (keyResolvers == null || !keyResolvers.isResolvable() || keyResolvers.isAmbiguous())
+            return down("public-key-resolver-not-configured-or-ambiguous");
+        if (artifactResolvers == null || !artifactResolvers.isResolvable() || artifactResolvers.isAmbiguous())
+            return down("artifact-resolver-not-configured-or-ambiguous");
         try {
             new JdbcShadowEvaluationTrustRegistry(dataSources.get()).verifySchema();
             return HealthCheckResponse.named("shadow-evaluation-trust")
                     .up().withData("registry", "jdbc")
-                    .withData("verifier", "configured").build();
+                    .withData("verifier", "configured")\n                    .withData("publicKeyResolver", "configured")\n                    .withData("artifactResolver", "configured").build();
         } catch (RuntimeException exception) {
             return down("schema-or-database-unavailable");
         }
