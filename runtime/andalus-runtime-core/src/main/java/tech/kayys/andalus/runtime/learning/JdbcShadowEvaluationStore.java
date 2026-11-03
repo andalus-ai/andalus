@@ -38,7 +38,7 @@ public final class JdbcShadowEvaluationStore {
      * Appends a report only when its approval row exactly authorizes the proposal.
      * Exact run-ID retries are idempotent; a changed payload under the same ID is rejected.
      */
-    public ShadowEvaluationReport append(ShadowEvaluationReport report) {
+    ShadowEvaluationReport append(ShadowEvaluationReport report) {
         Objects.requireNonNull(report, "report");
         verifySchema();
         ShadowEvaluationReport existing = findByRunId(report.runId()).orElse(null);
