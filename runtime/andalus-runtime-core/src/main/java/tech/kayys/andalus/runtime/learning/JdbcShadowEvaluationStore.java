@@ -158,7 +158,7 @@ public final class JdbcShadowEvaluationStore {
                     header[0], header[1], subject, header[4], header[5], header[6],
                     header[7], header[8], header[9], header[10], header[11], header[12],
                     header[13], ShadowEvaluationReport.Status.valueOf(header[14]),
-                    metrics, evidence, Instant.ofEpochMilli(evaluatedAt));
+                    metrics, evidence, Instant.ofEpochMilli(evaluatedAt)));
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to recover shadow evaluation report", exception);
         }
