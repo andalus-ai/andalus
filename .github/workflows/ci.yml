@@ -46,9 +46,9 @@ jobs:
       # Diffusion APIs/OPD are outside this bootstrap and contain unresolved
       # project dependencies. Both Tafkir NLP aliases point to the same
       # incomplete NLP module; exclude both aliases in this ephemeral checkout.
-      # Tafkir Learn API/trainer and NLP/diffusion modules are unrelated to
-      # quantizer SNAPSHOT publication and currently have unresolved project
-      # edges. Exclude their aliases only in this ephemeral CI checkout.
+      # Tafkir Learn API/trainer, examples, NLP, and diffusion modules are
+      # unrelated to quantizer SNAPSHOT publication and have unresolved
+      # project edges. Exclude their aliases only in this ephemeral checkout.
       # Legacy quantizer aliases also require their implicit parent directory.
       - name: Isolate Tafkir quantizer projects for bootstrap
         working-directory: tafkir
@@ -62,6 +62,7 @@ jobs:
           sed -i '/includeLegacyAlias("training:api:tafkir-learn-api",/d' settings.gradle.kts
           sed -i '/includeLegacyAlias("ml:tafkir-ml-api",/d' settings.gradle.kts
           sed -i '/includeLegacyAlias("ecosystem:cli:tafkir-cli",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("ecosystem:examples:tafkir-train-examples",/d' settings.gradle.kts
           sed -i '/includeLegacyAlias("training:loop:tafkir-learn-trainer",/d' settings.gradle.kts
           sed -i '/includeLegacyAlias("training:tafkir-learn-trainer",/d' settings.gradle.kts
           mkdir -p quantizer trainer
