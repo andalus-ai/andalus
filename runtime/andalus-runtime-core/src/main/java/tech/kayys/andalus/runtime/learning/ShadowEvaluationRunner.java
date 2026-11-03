@@ -151,7 +151,8 @@ public final class ShadowEvaluationRunner {
             for (Evaluator.EvaluationCase item : dataset.cases()) {
                 update(digest, item.id());
                 update(digest, item.input());
-                update(digest, item.expectedOutput() == null ? "" : item.expectedOutput());
+                update(digest, item.expectedOutput() == null ? "expected-output:null" : "expected-output:value");
+                if (item.expectedOutput() != null) update(digest, item.expectedOutput());
                 new TreeMap<>(item.metadata()).forEach((key, value) -> {
                     update(digest, key);
                     update(digest, value);
