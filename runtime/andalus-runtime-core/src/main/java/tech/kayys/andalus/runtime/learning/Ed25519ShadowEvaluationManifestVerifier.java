@@ -45,7 +45,6 @@ public class Ed25519ShadowEvaluationManifestVerifier implements ShadowEvaluation
         if (manifest == null || evaluator == null || !unique(dataSources)
                 || !unique(keyResolvers) || !unique(artifactResolvers)) return false;
         try {
-            if (!"Ed25519".equals("Ed25519")) return false;
             if (!verifySignature(manifest.signerId(), manifest.signature(),
                     ShadowEvaluationSigning.evaluatorPayload(manifest))) return false;
             try (ShadowEvaluationArtifactResolver.ResolvedArtifact artifact =
