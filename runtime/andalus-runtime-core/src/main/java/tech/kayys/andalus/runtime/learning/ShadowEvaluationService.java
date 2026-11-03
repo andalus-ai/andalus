@@ -22,7 +22,7 @@ public class ShadowEvaluationService {
     FeedbackTrendReviewService reviewService;
 
     /** Fails closed unless the authenticated reviewer still matches the exact proposal approval. */
-    public ShadowEvaluationReport record(ShadowEvaluationReport report, String authenticatedReviewerId) {
+    ShadowEvaluationReport record(ShadowEvaluationReport report, String authenticatedReviewerId) {
         Objects.requireNonNull(report, "report");
         FeedbackAdaptationGate.Proposal proposal = new FeedbackAdaptationGate.Proposal(
                 report.proposalId(), report.subject(), report.sourceSnapshotId(), report.policyFingerprint());
