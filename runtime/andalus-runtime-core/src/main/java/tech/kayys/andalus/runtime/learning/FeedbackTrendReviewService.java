@@ -7,8 +7,9 @@ import jakarta.inject.Inject;
 import javax.sql.DataSource;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
-/** Runtime boundary for recording and recovering explicit human review dispositions. */
+/** Runtime boundary for recording reviews and checking shadow-evaluation eligibility. */
 @ApplicationScoped
 public class FeedbackTrendReviewService {
     @Inject
@@ -34,5 +35,25 @@ public class FeedbackTrendReviewService {
             return List.of();
         }
         return new JdbcFeedbackTrendReviewStore(dataSources.get()).findBySubject(subject);
+    }
+
+    /**
+     * Checks a persisted accepted review before a proposal may enter shadow evaluation.
+     * authenticatedReviewerId must come from the caller's authenticated security principal.
+     */
+    public FeedbackAdaptationGate.Result evaluateForShadow(
+            FeedbackAdaptationGate.Proposal proposal,
+            String reviewId,
+            String authenticatedReviewerId) {
+        Objects.requireNonNull(proposal, "proposal");
+        if (dataSources == null || !dataSources.isResolvable()) {
+            return FeedbackAdaptationGate.evaluate(proposal, Optional.empty(), authenticatedReviewerId);
+        }
+        List<JdbcFeedbackTrendReviewStore.Review> reviews =
+                new JdbcFeedbackTrendReviewStore(dataSources.get()).findBySubject(proposal.subject());
+        Optional<JdbcFeedbackTrendReviewStore.Review> review = reviews.stream()
+                .filter(candidate -> candidate.id().equals(reviewId))
+                .findFirst();
+        return FeedbackAdaptationGate.evaluate(proposal, review, authenticatedReviewerId);
     }
 }
