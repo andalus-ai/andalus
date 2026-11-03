@@ -46,6 +46,10 @@ class ShadowEvaluationRunnerTest {
         assertThat(report.evidenceReferences().toString()).doesNotContain("must-not-be-persisted");
         assertThat(report.proposalId()).isEqualTo("proposal-1");
         assertThat(report.approvalId()).isEqualTo("approval-1");
+        assertThat(report.baselineCandidateId()).isEqualTo("baseline-model");
+        assertThat(report.baselineCandidateVersion()).isEqualTo("v1");
+        assertThat(report.candidateId()).isEqualTo("candidate-model");
+        assertThat(report.candidateVersion()).isEqualTo("v2");
     }
 
     @Test
@@ -75,6 +79,26 @@ class ShadowEvaluationRunnerTest {
                 List.of(new ShadowEvaluationRunner.MetricRule(
                         "quality", ShadowEvaluationReport.Direction.HIGHER_IS_BETTER, 0))));
         assertThatThrownBy(() -> stage.toCompletableFuture().join())
+                .isInstanceOf(java.util.concurrent.CompletionException.class)
+                .hasCauseInstanceOf(IllegalStateException.class);
+    }
+
+
+    @Test
+    void rejectsMetricMissingFromOneCaseEvenWhenAggregateContainsIt() {
+        AtomicInteger index = new AtomicInteger();
+        Evaluator baseline = item -> {
+            int current = index.getAndIncrement();
+            return CompletableFuture.completedFuture(new Evaluator.CaseResult(item.id(),
+                    current == 0 ? Map.of("quality", 0.8) : Map.of(), true, null));
+        };
+        Evaluator candidate = item -> CompletableFuture.completedFuture(new Evaluator.CaseResult(
+                item.id(), Map.of("quality", 0.9), true, null));
+
+        assertThatThrownBy(() -> new ShadowEvaluationRunner().evaluate(request(
+                dataset(), baseline, candidate, List.of(new ShadowEvaluationRunner.MetricRule(
+                        "quality", ShadowEvaluationReport.Direction.HIGHER_IS_BETTER, 0))))
+                .toCompletableFuture().join())
                 .isInstanceOf(java.util.concurrent.CompletionException.class)
                 .hasCauseInstanceOf(IllegalStateException.class);
     }
