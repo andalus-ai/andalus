@@ -200,3 +200,35 @@ PASS is not promotion approval: no model training, policy activation, routing
 change, candidate promotion, or deployment is performed. Validate migration
 06 against the production database vendor and transactional DDL behavior
 before rollout.
+
+
+### Paired evaluator execution
+
+`ShadowEvaluationService.evaluateAndRecord(...)` is the gated execution entry point. It verifies the persisted
+proposal-specific approval and authenticated reviewer before invoking either evaluator,
+then rechecks the same approval before storing the result. Callers supply separate
+baseline and candidate evaluator adapters and descriptors, plus explicit candidate
+identities/versions and metric-direction thresholds.
+
+`ShadowEvaluationRunner` executes the baseline and candidate sequentially against the
+same immutable `Evaluator.Dataset` instance and revision. Sequential pairing avoids overlap
+between potentially stateful adapters. The harness runtime validates one correctly
+identified result per case and computes aggregate metrics. Required comparison metrics
+must exist on both sides; missing metrics fail the run rather than being treated as
+zero or as a pass.
+
+The dataset fingerprint is SHA-256 over the dataset ID/version and ordered case IDs,
+inputs, expected outputs, and sorted metadata. Raw dataset contents and case-level
+details are not persisted. Two content-digest evidence references are generated from
+the baseline and candidate evaluation reports; they include evaluator identity/config,
+case IDs, pass flags, and metrics, but exclude raw inputs, expected outputs, and
+free-form result details. Keep the exact dataset revision and evaluator artifacts
+available in the controlled evaluation environment if reruns are required.
+
+This is offline evaluator orchestration, not production traffic shadowing: the supplied
+adapters must be explicitly configured to invoke isolated baseline/candidate instances
+and must not route through production user traffic. The runner has no router, deployment,
+or promotion integration. The service does not create model instances, resolve providers,
+fetch datasets, or execute arbitrary candidate code. The caller owns those trusted
+provisioning boundaries and must pass an immutable, approved dataset and isolated
+adapters. A PASS remains evidence only and never activates a candidate.
