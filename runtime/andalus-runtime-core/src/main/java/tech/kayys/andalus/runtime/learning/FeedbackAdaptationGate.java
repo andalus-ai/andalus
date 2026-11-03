@@ -6,19 +6,21 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Fail-closed gate from a persisted human disposition to shadow evaluation eligibility.
- * Eligibility is not approval for production activation or deployment.
+ * Fail-closed gate from an explicit, persisted proposal decision to shadow evaluation.
+ * A generic feedback-trend review disposition is not approval of a learning-policy proposal.
  */
 public final class FeedbackAdaptationGate {
 
     public enum BlockReason {
-        REVIEW_NOT_FOUND,
+        APPROVAL_NOT_FOUND,
+        APPROVAL_NOT_GRANTED,
         REVIEW_NOT_ACCEPTED,
         INCONCLUSIVE_ASSESSMENT,
         SUBJECT_MISMATCH,
         SNAPSHOT_MISMATCH,
-        REVIEWER_IDENTITY_MISMATCH,
-        INVALID_PROPOSAL
+        PROPOSAL_ID_MISMATCH,
+        POLICY_FINGERPRINT_MISMATCH,
+        REVIEWER_IDENTITY_MISMATCH
     }
 
     public record Proposal(
@@ -43,7 +45,7 @@ public final class FeedbackAdaptationGate {
             String proposalId,
             boolean eligibleForShadowEvaluation,
             List<BlockReason> blockReasons,
-            String reviewId,
+            String approvalId,
             String reviewerId,
             String sourceSnapshotId) {
         public Result {
@@ -61,48 +63,51 @@ public final class FeedbackAdaptationGate {
     private FeedbackAdaptationGate() {
     }
 
-    /**
-     * Checks a stored review against the proposal and the caller's authenticated principal.
-     * The caller must obtain authenticatedReviewerId from its trusted security context.
-     */
+    /** authenticatedReviewerId must be derived from the caller's trusted security context. */
     public static Result evaluate(
             Proposal proposal,
-            Optional<JdbcFeedbackTrendReviewStore.Review> storedReview,
+            Optional<JdbcFeedbackAdaptationApprovalStore.Approval> storedApproval,
             String authenticatedReviewerId) {
         Objects.requireNonNull(proposal, "proposal");
-        List<BlockReason> reasons = new ArrayList<>();
-        if (storedReview == null || storedReview.isEmpty()) {
-            reasons.add(BlockReason.REVIEW_NOT_FOUND);
-            return blocked(proposal, reasons, null);
+        if (storedApproval == null || storedApproval.isEmpty()) {
+            return blocked(proposal, List.of(BlockReason.APPROVAL_NOT_FOUND), null);
         }
 
-        JdbcFeedbackTrendReviewStore.Review review = storedReview.get();
-        if (!review.subject().equals(proposal.subject())) reasons.add(BlockReason.SUBJECT_MISMATCH);
-        if (!review.currentSnapshotId().equals(proposal.sourceSnapshotId())) {
+        JdbcFeedbackAdaptationApprovalStore.Approval approval = storedApproval.get();
+        List<BlockReason> reasons = new ArrayList<>();
+        if (!approval.subject().equals(proposal.subject())) reasons.add(BlockReason.SUBJECT_MISMATCH);
+        if (!approval.sourceSnapshotId().equals(proposal.sourceSnapshotId())) {
             reasons.add(BlockReason.SNAPSHOT_MISMATCH);
         }
-        if (review.disposition() != JdbcFeedbackTrendReviewStore.Disposition.ACCEPTED) {
+        if (!approval.proposalId().equals(proposal.id())) reasons.add(BlockReason.PROPOSAL_ID_MISMATCH);
+        if (!approval.policyFingerprint().equals(proposal.policyFingerprint())) {
+            reasons.add(BlockReason.POLICY_FINGERPRINT_MISMATCH);
+        }
+        if (approval.decision() != JdbcFeedbackAdaptationApprovalStore.Decision.APPROVED) {
+            reasons.add(BlockReason.APPROVAL_NOT_GRANTED);
+        }
+        if (approval.reviewDisposition() != JdbcFeedbackTrendReviewStore.Disposition.ACCEPTED) {
             reasons.add(BlockReason.REVIEW_NOT_ACCEPTED);
         }
-        if (review.assessmentDecision() == FeedbackTrendReviewPolicy.Decision.INCONCLUSIVE) {
+        if (approval.assessmentDecision() == FeedbackTrendReviewPolicy.Decision.INCONCLUSIVE) {
             reasons.add(BlockReason.INCONCLUSIVE_ASSESSMENT);
         }
         if (authenticatedReviewerId == null || authenticatedReviewerId.isBlank()
-                || !review.reviewerId().equals(authenticatedReviewerId)) {
+                || !approval.reviewerId().equals(authenticatedReviewerId)) {
             reasons.add(BlockReason.REVIEWER_IDENTITY_MISMATCH);
         }
         if (reasons.isEmpty()) {
-            return new Result(proposal.id(), true, List.of(), review.id(),
-                    review.reviewerId(), proposal.sourceSnapshotId());
+            return new Result(proposal.id(), true, List.of(), approval.id(),
+                    approval.reviewerId(), proposal.sourceSnapshotId());
         }
-        return blocked(proposal, reasons, review);
+        return blocked(proposal, reasons, approval);
     }
 
     private static Result blocked(Proposal proposal, List<BlockReason> reasons,
-                                  JdbcFeedbackTrendReviewStore.Review review) {
+                                  JdbcFeedbackAdaptationApprovalStore.Approval approval) {
         return new Result(proposal.id(), false, reasons,
-                review == null ? null : review.id(),
-                review == null ? null : review.reviewerId(),
+                approval == null ? null : approval.id(),
+                approval == null ? null : approval.reviewerId(),
                 proposal.sourceSnapshotId());
     }
 }
