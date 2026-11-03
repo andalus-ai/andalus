@@ -82,16 +82,17 @@ public class ShadowEvaluationService {
             throw new IllegalStateException("dataset manifest verification failed");
         }
         verifyEvaluatorArtifact(registry, verifier, request.baselineCandidateId(),
-                request.baselineCandidateVersion(), request.baselineDescriptor());
+                request.baselineCandidateVersion(), request.baselineDescriptor(), request.evaluatorForBaseline());
         verifyEvaluatorArtifact(registry, verifier, request.candidateId(),
-                request.candidateVersion(), request.candidateDescriptor());
+                request.candidateVersion(), request.candidateDescriptor(), request.evaluatorForCandidate());
     }
 
     private static void verifyEvaluatorArtifact(
             ShadowEvaluationTrustRegistry registry,
             ShadowEvaluationManifestVerifier verifier,
             String candidateId, String candidateVersion,
-            tech.kayys.andalus.harness.evaluation.Evaluator.EvaluatorDescriptor descriptor) {
+            tech.kayys.andalus.harness.evaluation.Evaluator.EvaluatorDescriptor descriptor,
+            tech.kayys.andalus.harness.evaluation.Evaluator evaluator) {
         String fingerprint = descriptor.configurationFingerprint();
         var manifest = registry.findEvaluatorArtifact(candidateId, candidateVersion,
                         descriptor.id(), descriptor.version(), fingerprint)
@@ -101,7 +102,7 @@ public class ShadowEvaluationService {
                 || !manifest.evaluatorId().equals(descriptor.id())
                 || !manifest.evaluatorVersion().equals(descriptor.version())
                 || !manifest.configurationFingerprint().equals(fingerprint)
-                || !verifier.verifyEvaluatorArtifact(manifest)) {
+                || !verifier.verifyEvaluatorArtifact(manifest, evaluator)) {
             throw new IllegalStateException("evaluator artifact verification failed");
         }
     }
