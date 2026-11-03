@@ -19,6 +19,10 @@ public record ShadowEvaluationReport(
         String baselineEvaluatorVersion,
         String candidateEvaluatorId,
         String candidateEvaluatorVersion,
+        String baselineCandidateId,
+        String baselineCandidateVersion,
+        String candidateId,
+        String candidateVersion,
         String datasetId,
         String datasetVersion,
         String datasetFingerprint,
@@ -59,6 +63,10 @@ public record ShadowEvaluationReport(
         required(baselineEvaluatorVersion, 128, "baselineEvaluatorVersion");
         required(candidateEvaluatorId, 255, "candidateEvaluatorId");
         required(candidateEvaluatorVersion, 128, "candidateEvaluatorVersion");
+        required(baselineCandidateId, 255, "baselineCandidateId");
+        required(baselineCandidateVersion, 128, "baselineCandidateVersion");
+        required(candidateId, 255, "candidateId");
+        required(candidateVersion, 128, "candidateVersion");
         required(datasetId, 255, "datasetId");
         required(datasetVersion, 128, "datasetVersion");
         required(datasetFingerprint, 128, "datasetFingerprint");
