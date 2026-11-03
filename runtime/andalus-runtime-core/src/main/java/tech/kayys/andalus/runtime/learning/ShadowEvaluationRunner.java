@@ -33,6 +33,8 @@ public final class ShadowEvaluationRunner {
 
     public record RunRequest(
             String runId,
+            FeedbackAdaptationGate.Proposal proposal,
+            String approvalId,
             String baselineCandidateId,
             String baselineCandidateVersion,
             Evaluator evaluatorForBaseline,
@@ -45,6 +47,8 @@ public final class ShadowEvaluationRunner {
             List<MetricRule> metricRules) {
         public RunRequest {
             required(runId, 36, "runId");
+            Objects.requireNonNull(proposal, "proposal");
+            required(approvalId, 36, "approvalId");
             required(baselineCandidateId, 255, "baselineCandidateId");
             required(baselineCandidateVersion, 128, "baselineCandidateVersion");
             Objects.requireNonNull(evaluatorForBaseline, "evaluatorForBaseline");
@@ -94,11 +98,10 @@ public final class ShadowEvaluationRunner {
                             ? ShadowEvaluationReport.Status.PASS : ShadowEvaluationReport.Status.FAIL;
                     String baselineEvidence = evidenceReference("baseline", baseline);
                     String candidateEvidence = evidenceReference("candidate", candidate);
+                    FeedbackAdaptationGate.Proposal proposal = request.proposal();
                     return new ShadowEvaluationReport(
-                            request.runId(), "pending-proposal", // replaced by the approval-bound service
-                            new FeedbackAggregationRecoveryService.Subject(
-                                    FeedbackAggregationRecoveryService.SubjectKind.TASK, "pending-subject"),
-                            "pending-snapshot", "pending-approval", "pending-policy-fingerprint",
+                            request.runId(), proposal.id(), proposal.subject(), proposal.sourceSnapshotId(),
+                            request.approvalId(), proposal.policyFingerprint(),
                             baseline.evaluatorId(), baseline.evaluatorVersion(),
                             candidate.evaluatorId(), candidate.evaluatorVersion(),
                             request.dataset().id(), request.dataset().version(), datasetFingerprint,
