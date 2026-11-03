@@ -61,6 +61,7 @@ jobs:
           sed -i '/includeLegacyAlias("ml:tafkir-ml-nlp",/d' settings.gradle.kts
           sed -i '/includeLegacyAlias("training:api:tafkir-learn-api",/d' settings.gradle.kts
           sed -i '/includeLegacyAlias("ml:tafkir-ml-api",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("ecosystem:cli:tafkir-cli",/d' settings.gradle.kts
           sed -i '/includeLegacyAlias("training:loop:tafkir-learn-trainer",/d' settings.gradle.kts
           sed -i '/includeLegacyAlias("training:tafkir-learn-trainer",/d' settings.gradle.kts
           mkdir -p quantizer trainer
