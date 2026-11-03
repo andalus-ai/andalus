@@ -82,6 +82,7 @@ public final class ShadowEvaluationRunner {
         return baselineRuntime.evaluate(baselineRequest).thenCompose(baseline ->
                 candidateRuntime.evaluate(candidateRequest).thenApply(candidate -> {
                     validateComparableReports(baseline, candidate, request.dataset());
+                    validateMetricCoverage(baseline, candidate, request.dataset(), request.metricRules());
                     List<ShadowEvaluationReport.Metric> metrics = new ArrayList<>();
                     for (MetricRule rule : request.metricRules()) {
                         Double baselineValue = baseline.aggregateMetrics().get(rule.name());
@@ -122,6 +123,22 @@ public final class ShadowEvaluationRunner {
         if (baseline.results().size() != dataset.cases().size()
                 || candidate.results().size() != dataset.cases().size()) {
             throw new IllegalStateException("baseline and candidate must produce one result per dataset case");
+        }
+    }
+
+    private static void validateMetricCoverage(Evaluator.Report baseline, Evaluator.Report candidate,
+                                                Evaluator.Dataset dataset, List<MetricRule> rules) {
+        for (int index = 0; index < dataset.cases().size(); index++) {
+            String caseId = dataset.cases().get(index).id();
+            Evaluator.CaseResult baselineResult = baseline.results().get(index);
+            Evaluator.CaseResult candidateResult = candidate.results().get(index);
+            for (MetricRule rule : rules) {
+                if (!baselineResult.metrics().containsKey(rule.name())
+                        || !candidateResult.metrics().containsKey(rule.name())) {
+                    throw new IllegalStateException("required metric " + rule.name()
+                            + " is missing for case " + caseId + " on baseline or candidate");
+                }
+            }
         }
     }
 
