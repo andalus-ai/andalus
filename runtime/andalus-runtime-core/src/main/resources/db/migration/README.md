@@ -164,3 +164,39 @@ available as an advisory aggregation input.
 This path does not train models, alter routing, promote candidates, or deploy
 configuration. Callers should not bypass this service in production ingestion
 paths.
+
+
+## Shadow-evaluation evidence
+
+Apply `V20261103_06__feedback_shadow_evaluation_evidence.sql` after migration 05.
+It creates an append-only run header plus normalized metric and evidence
+reference tables. The report captures the exact proposal, typed subject,
+source snapshot, approval ID, policy fingerprint, baseline/candidate evaluator
+identities and versions, dataset identity/version/fingerprint, metric values,
+directional improvement thresholds, result, timestamp, and evidence references.
+Dataset contents, prompts, and arbitrary metadata are not stored.
+
+A shadow report's status is derived from its metrics: all metrics meeting their
+directional minimum improvement yields PASS; any metric missing its threshold
+yields FAIL; an empty metric set is INCONCLUSIVE. Non-finite values, duplicate
+metric names, duplicate evidence references, and oversized identifiers are
+rejected. Metric and evidence ordering is retained for deterministic recovery.
+
+Use `ShadowEvaluationService.record(report, authenticatedReviewerId)` to
+re-check the current exact proposal approval before persisting a report.
+The authenticated reviewer must come from the trusted security principal.
+The JDBC store independently verifies that the approval is APPROVED, its
+linked trend review is ACCEPTED and conclusive, and every proposal identity
+field matches. A run ID is immutable: an exact retry is idempotent and a
+changed payload under the same ID is rejected. Header, metrics, and evidence
+references are written atomically.
+
+This increment defines and persists evidence; it does not execute an evaluator,
+fetch datasets, verify externally supplied artifact signatures, or attest that
+a reported metric was honestly measured. Those responsibilities belong to a
+future evaluator adapter and trusted artifact-verification boundary. Treat
+reports as externally produced evidence until that boundary is implemented.
+PASS is not promotion approval: no model training, policy activation, routing
+change, candidate promotion, or deployment is performed. Validate migration
+06 against the production database vendor and transactional DDL behavior
+before rollout.
