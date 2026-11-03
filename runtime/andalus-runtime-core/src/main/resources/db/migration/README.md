@@ -93,6 +93,29 @@ The review store fails closed if migration 04 is absent or a unique durable
 datasource is unavailable. Apply and validate this migration with the
 deployment's selected migration runner before enabling review recording.
 
+## Proposal-specific adaptation approvals
+
+Apply `V20261103_05__feedback_adaptation_approvals.sql` after migration 04.
+It records an explicit human APPROVED or REJECTED decision for one exact
+proposal ID, typed subject, source snapshot, and policy fingerprint, linked to
+the persisted trend review. Approval records are append-only and retain the
+reviewer, rationale, and decision timestamp.
+
+A generic ACCEPTED trend-review disposition is not itself approval of a
+learning-policy change. Use `FeedbackTrendReviewService.decideProposal(...)`
+to record a separate proposal-specific decision. APPROVED can be recorded
+only when the linked review is ACCEPTED and its assessment is conclusive.
+`evaluateForShadow(...)` opens the gate only when the persisted approval
+matches the exact proposal ID, source snapshot, policy fingerprint, subject,
+and authenticated reviewer identity. The caller must obtain that identity
+from a trusted security principal, not an untrusted request field.
+
+The gate grants eligibility for shadow evaluation only. It does not authorize
+production activation, routing changes, model training, candidate promotion,
+or deployment. Those require separate evaluation and approval workflows.
+Missing datasource or migration fails closed. Validate migration 05 against
+the production database vendor and its transactional DDL behavior before use.
+
 ## Feedback evidence reservations
 
 The first migration creates `andalus_feedback_evidence`. Its primary key on
