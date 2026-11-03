@@ -45,6 +45,8 @@ class JdbcShadowEvaluationStoreTest {
                 report.subject(), report.sourceSnapshotId(), report.approvalId(), report.policyFingerprint(),
                 report.baselineEvaluatorId(), report.baselineEvaluatorVersion(),
                 report.candidateEvaluatorId(), report.candidateEvaluatorVersion(),
+                report.baselineCandidateId(), report.baselineCandidateVersion(),
+                report.candidateId(), report.candidateVersion(),
                 report.datasetId(), report.datasetVersion(), "different-dataset-fingerprint",
                 report.status(), report.metrics(), report.evidenceReferences(), report.evaluatedAt());
         assertThatThrownBy(() -> store.append(changed))
@@ -74,6 +76,7 @@ class JdbcShadowEvaluationStoreTest {
         assertThat(fail.passes()).isFalse();
         assertThatThrownBy(() -> new ShadowEvaluationReport("run-1", "proposal-1", subject(),
                 "snapshot-1", "approval-1", "fp-1", "baseline", "1", "candidate", "2",
+                "baseline-model", "v1", "candidate-model", "v2",
                 "dataset", "v1", "dataset-fp", ShadowEvaluationReport.Status.PASS,
                 List.of(fail), List.of(), Instant.parse("2026-11-03T00:00:00Z")))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -83,6 +86,7 @@ class JdbcShadowEvaluationStoreTest {
     private static ShadowEvaluationReport report() {
         return new ShadowEvaluationReport("run-1", "proposal-1", subject(), "snapshot-1",
                 "approval-1", "fp-1", "baseline-evaluator", "1.0", "candidate-evaluator", "2.0",
+                "baseline-model", "v1", "candidate-model", "v2",
                 "offline-validation", "2026-11", "dataset-fingerprint",
                 ShadowEvaluationReport.Status.PASS,
                 List.of(new ShadowEvaluationReport.Metric("accuracy", 0.80, 0.84,
@@ -115,7 +119,7 @@ class JdbcShadowEvaluationStoreTest {
                 "CREATE TABLE andalus_feedback_aggregation_snapshot (snapshot_id VARCHAR(36) PRIMARY KEY, subject_kind VARCHAR(32) NOT NULL, subject_id VARCHAR(255) NOT NULL)",
                 "CREATE TABLE andalus_feedback_trend_review (review_id VARCHAR(36) PRIMARY KEY, disposition VARCHAR(32) NOT NULL, assessment_decision VARCHAR(32) NOT NULL)",
                 "CREATE TABLE andalus_feedback_adaptation_approval (approval_id VARCHAR(36) PRIMARY KEY, proposal_id VARCHAR(255) NOT NULL, subject_kind VARCHAR(32) NOT NULL, subject_id VARCHAR(255) NOT NULL, source_snapshot_id VARCHAR(36) NOT NULL, review_id VARCHAR(36) NOT NULL, policy_fingerprint VARCHAR(128) NOT NULL, decision VARCHAR(16) NOT NULL, FOREIGN KEY (source_snapshot_id) REFERENCES andalus_feedback_aggregation_snapshot(snapshot_id), FOREIGN KEY (review_id) REFERENCES andalus_feedback_trend_review(review_id))",
-                "CREATE TABLE andalus_feedback_shadow_evaluation (run_id VARCHAR(36) PRIMARY KEY, proposal_id VARCHAR(255) NOT NULL, subject_kind VARCHAR(32) NOT NULL, subject_id VARCHAR(255) NOT NULL, source_snapshot_id VARCHAR(36) NOT NULL, approval_id VARCHAR(36) NOT NULL, policy_fingerprint VARCHAR(128) NOT NULL, baseline_evaluator_id VARCHAR(255) NOT NULL, baseline_evaluator_version VARCHAR(128) NOT NULL, candidate_evaluator_id VARCHAR(255) NOT NULL, candidate_evaluator_version VARCHAR(128) NOT NULL, dataset_id VARCHAR(255) NOT NULL, dataset_version VARCHAR(128) NOT NULL, dataset_fingerprint VARCHAR(128) NOT NULL, evaluation_status VARCHAR(16) NOT NULL, evaluated_at_epoch_millis BIGINT NOT NULL, FOREIGN KEY (source_snapshot_id) REFERENCES andalus_feedback_aggregation_snapshot(snapshot_id), FOREIGN KEY (approval_id) REFERENCES andalus_feedback_adaptation_approval(approval_id))",
+                "CREATE TABLE andalus_feedback_shadow_evaluation (run_id VARCHAR(36) PRIMARY KEY, proposal_id VARCHAR(255) NOT NULL, subject_kind VARCHAR(32) NOT NULL, subject_id VARCHAR(255) NOT NULL, source_snapshot_id VARCHAR(36) NOT NULL, approval_id VARCHAR(36) NOT NULL, policy_fingerprint VARCHAR(128) NOT NULL, baseline_evaluator_id VARCHAR(255) NOT NULL, baseline_evaluator_version VARCHAR(128) NOT NULL, candidate_evaluator_id VARCHAR(255) NOT NULL, candidate_evaluator_version VARCHAR(128) NOT NULL, baseline_candidate_id VARCHAR(255) NOT NULL, baseline_candidate_version VARCHAR(128) NOT NULL, candidate_id VARCHAR(255) NOT NULL, candidate_version VARCHAR(128) NOT NULL, dataset_id VARCHAR(255) NOT NULL, dataset_version VARCHAR(128) NOT NULL, dataset_fingerprint VARCHAR(128) NOT NULL, evaluation_status VARCHAR(16) NOT NULL, evaluated_at_epoch_millis BIGINT NOT NULL, FOREIGN KEY (source_snapshot_id) REFERENCES andalus_feedback_aggregation_snapshot(snapshot_id), FOREIGN KEY (approval_id) REFERENCES andalus_feedback_adaptation_approval(approval_id))",
                 "CREATE TABLE andalus_feedback_shadow_evaluation_metric (run_id VARCHAR(36) NOT NULL, metric_order INTEGER NOT NULL, metric_name VARCHAR(128) NOT NULL, baseline_value DOUBLE PRECISION NOT NULL, candidate_value DOUBLE PRECISION NOT NULL, direction VARCHAR(32) NOT NULL, required_improvement DOUBLE PRECISION NOT NULL, PRIMARY KEY (run_id, metric_order), UNIQUE (run_id, metric_name), FOREIGN KEY (run_id) REFERENCES andalus_feedback_shadow_evaluation(run_id))",
                 "CREATE TABLE andalus_feedback_shadow_evaluation_evidence (run_id VARCHAR(36) NOT NULL, evidence_order INTEGER NOT NULL, evidence_reference VARCHAR(2048) NOT NULL, PRIMARY KEY (run_id, evidence_order), UNIQUE (run_id, evidence_reference), FOREIGN KEY (run_id) REFERENCES andalus_feedback_shadow_evaluation(run_id))"
         );
