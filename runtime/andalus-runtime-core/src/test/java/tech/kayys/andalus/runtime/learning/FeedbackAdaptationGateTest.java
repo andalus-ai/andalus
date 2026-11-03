@@ -3,57 +3,69 @@ package tech.kayys.andalus.runtime.learning;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FeedbackAdaptationGateTest {
-
     private final FeedbackAggregationRecoveryService.Subject subject =
             new FeedbackAggregationRecoveryService.Subject(
                     FeedbackAggregationRecoveryService.SubjectKind.TASK, "task-gate");
 
     @Test
-    void acceptedPersistedReviewByAuthenticatedReviewerAllowsOnlyShadowEvaluation() {
-        var proposal = proposal("snapshot-current");
-        var review = review("snapshot-current",
-                JdbcFeedbackTrendReviewStore.Disposition.ACCEPTED,
-                FeedbackTrendReviewPolicy.Decision.REVIEW_REQUIRED, "reviewer-1");
-
-        var result = FeedbackAdaptationGate.evaluate(proposal, Optional.of(review), "reviewer-1");
-
+    void exactApprovedProposalByAuthenticatedReviewerEntersShadowEvaluation() {
+        var proposal = proposal("proposal-1", "snapshot-current", "sha256:policy");
+        var result = FeedbackAdaptationGate.evaluate(proposal,
+                Optional.of(approval(proposal, JdbcFeedbackAdaptationApprovalStore.Decision.APPROVED,
+                        JdbcFeedbackTrendReviewStore.Disposition.ACCEPTED,
+                        FeedbackTrendReviewPolicy.Decision.REVIEW_REQUIRED, "reviewer-1")), "reviewer-1");
         assertThat(result.eligibleForShadowEvaluation()).isTrue();
         assertThat(result.blockReasons()).isEmpty();
-        assertThat(result.reviewId()).isEqualTo("review-1");
     }
 
     @Test
-    void missingReviewAndUnauthenticatedOrDifferentReviewerFailClosed() {
-        var proposal = proposal("snapshot-current");
+    void missingOrRejectedApprovalFailsClosed() {
+        var proposal = proposal("proposal-1", "snapshot-current", "sha256:policy");
         assertThat(FeedbackAdaptationGate.evaluate(proposal, Optional.empty(), "reviewer-1")
-                .blockReasons()).containsExactly(FeedbackAdaptationGate.BlockReason.REVIEW_NOT_FOUND);
-
-        var review = review("snapshot-current",
+                .blockReasons()).containsExactly(FeedbackAdaptationGate.BlockReason.APPROVAL_NOT_FOUND);
+        var rejected = approval(proposal, JdbcFeedbackAdaptationApprovalStore.Decision.REJECTED,
                 JdbcFeedbackTrendReviewStore.Disposition.ACCEPTED,
                 FeedbackTrendReviewPolicy.Decision.REVIEW_REQUIRED, "reviewer-1");
-        assertThat(FeedbackAdaptationGate.evaluate(proposal, Optional.of(review), "reviewer-2")
-                .blockReasons()).containsExactly(FeedbackAdaptationGate.BlockReason.REVIEWER_IDENTITY_MISMATCH);
-        assertThat(FeedbackAdaptationGate.evaluate(proposal, Optional.of(review), null)
-                .eligibleForShadowEvaluation()).isFalse();
+        assertThat(FeedbackAdaptationGate.evaluate(proposal, Optional.of(rejected), "reviewer-1")
+                .blockReasons()).contains(FeedbackAdaptationGate.BlockReason.APPROVAL_NOT_GRANTED);
     }
 
     @Test
-    void rejectedOrInconclusiveReviewCannotOpenGate() {
-        var proposal = proposal("snapshot-current");
-        var rejected = review("snapshot-current",
+    void approvalMustMatchExactProposalSnapshotFingerprintAndAuthenticatedReviewer() {
+        var proposal = proposal("proposal-1", "snapshot-current", "sha256:policy");
+        var approved = approval(proposal, JdbcFeedbackAdaptationApprovalStore.Decision.APPROVED,
+                JdbcFeedbackTrendReviewStore.Disposition.ACCEPTED,
+                FeedbackTrendReviewPolicy.Decision.REVIEW_REQUIRED, "reviewer-1");
+
+        assertThat(FeedbackAdaptationGate.evaluate(proposal("proposal-2", "snapshot-current", "sha256:policy"),
+                Optional.of(approved), "reviewer-1").blockReasons())
+                .contains(FeedbackAdaptationGate.BlockReason.PROPOSAL_ID_MISMATCH);
+        assertThat(FeedbackAdaptationGate.evaluate(proposal("proposal-1", "snapshot-new", "sha256:policy"),
+                Optional.of(approved), "reviewer-1").blockReasons())
+                .contains(FeedbackAdaptationGate.BlockReason.SNAPSHOT_MISMATCH);
+        assertThat(FeedbackAdaptationGate.evaluate(proposal("proposal-1", "snapshot-current", "sha256:other"),
+                Optional.of(approved), "reviewer-1").blockReasons())
+                .contains(FeedbackAdaptationGate.BlockReason.POLICY_FINGERPRINT_MISMATCH);
+        assertThat(FeedbackAdaptationGate.evaluate(proposal, Optional.of(approved), "reviewer-2")
+                .blockReasons()).contains(FeedbackAdaptationGate.BlockReason.REVIEWER_IDENTITY_MISMATCH);
+    }
+
+    @Test
+    void onlyAcceptedNonInconclusiveTrendReviewCanBeApprovedForShadow() {
+        var proposal = proposal("proposal-1", "snapshot-current", "sha256:policy");
+        var notAccepted = approval(proposal, JdbcFeedbackAdaptationApprovalStore.Decision.APPROVED,
                 JdbcFeedbackTrendReviewStore.Disposition.REJECTED,
                 FeedbackTrendReviewPolicy.Decision.REVIEW_REQUIRED, "reviewer-1");
-        assertThat(FeedbackAdaptationGate.evaluate(proposal, Optional.of(rejected), "reviewer-1")
+        assertThat(FeedbackAdaptationGate.evaluate(proposal, Optional.of(notAccepted), "reviewer-1")
                 .blockReasons()).contains(FeedbackAdaptationGate.BlockReason.REVIEW_NOT_ACCEPTED);
 
-        var inconclusive = review("snapshot-current",
+        var inconclusive = approval(proposal, JdbcFeedbackAdaptationApprovalStore.Decision.APPROVED,
                 JdbcFeedbackTrendReviewStore.Disposition.ACCEPTED,
                 FeedbackTrendReviewPolicy.Decision.INCONCLUSIVE, "reviewer-1");
         assertThat(FeedbackAdaptationGate.evaluate(proposal, Optional.of(inconclusive), "reviewer-1")
@@ -61,42 +73,22 @@ class FeedbackAdaptationGateTest {
     }
 
     @Test
-    void proposalMustMatchReviewedSubjectAndSnapshot() {
-        var proposal = proposal("newer-snapshot");
-        var review = review("snapshot-current",
-                JdbcFeedbackTrendReviewStore.Disposition.ACCEPTED,
-                FeedbackTrendReviewPolicy.Decision.REVIEW_REQUIRED, "reviewer-1");
-
-        var result = FeedbackAdaptationGate.evaluate(proposal, Optional.of(review), "reviewer-1");
-
-        assertThat(result.eligibleForShadowEvaluation()).isFalse();
-        assertThat(result.blockReasons()).contains(FeedbackAdaptationGate.BlockReason.SNAPSHOT_MISMATCH);
-        var otherSubject = new FeedbackAdaptationGate.Proposal("proposal-1",
-                new FeedbackAggregationRecoveryService.Subject(
-                        FeedbackAggregationRecoveryService.SubjectKind.GOAL, "task-gate"),
-                "snapshot-current", "sha256:policy");
-        assertThat(FeedbackAdaptationGate.evaluate(otherSubject, Optional.of(review), "reviewer-1")
-                .blockReasons()).contains(FeedbackAdaptationGate.BlockReason.SUBJECT_MISMATCH);
-    }
-
-    @Test
-    void invalidProposalFieldsAreRejected() {
-        assertThatThrownBy(() -> new FeedbackAdaptationGate.Proposal(
-                " ", subject, "snapshot", "fingerprint"))
+    void invalidProposalIsRejected() {
+        assertThatThrownBy(() -> new FeedbackAdaptationGate.Proposal(" ", subject, "snapshot", "fingerprint"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    private FeedbackAdaptationGate.Proposal proposal(String snapshot) {
-        return new FeedbackAdaptationGate.Proposal(
-                "proposal-1", subject, snapshot, "sha256:policy");
+    private FeedbackAdaptationGate.Proposal proposal(String id, String snapshot, String fingerprint) {
+        return new FeedbackAdaptationGate.Proposal(id, subject, snapshot, fingerprint);
     }
 
-    private JdbcFeedbackTrendReviewStore.Review review(
-            String snapshot, JdbcFeedbackTrendReviewStore.Disposition disposition,
-            FeedbackTrendReviewPolicy.Decision decision, String reviewer) {
-        return new JdbcFeedbackTrendReviewStore.Review("review-1", subject,
-                "snapshot-baseline", snapshot, decision,
-                List.of(FeedbackTrendReviewPolicy.Reason.REGRESSION_DETECTED),
-                reviewer, disposition, "Reviewed rationale", Instant.parse("2026-11-03T00:00:00Z"));
+    private JdbcFeedbackAdaptationApprovalStore.Approval approval(
+            FeedbackAdaptationGate.Proposal proposal, JdbcFeedbackAdaptationApprovalStore.Decision decision,
+            JdbcFeedbackTrendReviewStore.Disposition reviewDisposition,
+            FeedbackTrendReviewPolicy.Decision assessmentDecision, String reviewer) {
+        return new JdbcFeedbackAdaptationApprovalStore.Approval("approval-1", proposal.id(),
+                proposal.subject(), proposal.sourceSnapshotId(), "review-1", proposal.policyFingerprint(),
+                reviewer, decision, "Explicit proposal disposition", Instant.parse("2026-11-03T00:00:00Z"),
+                reviewDisposition, assessmentDecision);
     }
 }
