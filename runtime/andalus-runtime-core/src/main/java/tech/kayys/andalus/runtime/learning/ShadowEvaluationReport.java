@@ -17,8 +17,10 @@ public record ShadowEvaluationReport(
         String policyFingerprint,
         String baselineEvaluatorId,
         String baselineEvaluatorVersion,
+        String baselineEvaluatorConfigFingerprint,
         String candidateEvaluatorId,
         String candidateEvaluatorVersion,
+        String candidateEvaluatorConfigFingerprint,
         String baselineCandidateId,
         String baselineCandidateVersion,
         String candidateId,
@@ -61,8 +63,10 @@ public record ShadowEvaluationReport(
         required(policyFingerprint, 128, "policyFingerprint");
         required(baselineEvaluatorId, 255, "baselineEvaluatorId");
         required(baselineEvaluatorVersion, 128, "baselineEvaluatorVersion");
+        required(baselineEvaluatorConfigFingerprint, 128, "baselineEvaluatorConfigFingerprint");
         required(candidateEvaluatorId, 255, "candidateEvaluatorId");
         required(candidateEvaluatorVersion, 128, "candidateEvaluatorVersion");
+        required(candidateEvaluatorConfigFingerprint, 128, "candidateEvaluatorConfigFingerprint");
         required(baselineCandidateId, 255, "baselineCandidateId");
         required(baselineCandidateVersion, 128, "baselineCandidateVersion");
         required(candidateId, 255, "candidateId");
