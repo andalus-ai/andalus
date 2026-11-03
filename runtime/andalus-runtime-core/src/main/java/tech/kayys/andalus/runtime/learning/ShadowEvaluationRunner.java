@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -104,6 +103,8 @@ public final class ShadowEvaluationRunner {
                             request.approvalId(), proposal.policyFingerprint(),
                             baseline.evaluatorId(), baseline.evaluatorVersion(),
                             candidate.evaluatorId(), candidate.evaluatorVersion(),
+                            baseline.candidateId(), baseline.candidateVersion(),
+                            candidate.candidateId(), candidate.candidateVersion(),
                             request.dataset().id(), request.dataset().version(), datasetFingerprint,
                             status, metrics, List.of(baselineEvidence, candidateEvidence),
                             baseline.completedAt().isAfter(candidate.completedAt())
