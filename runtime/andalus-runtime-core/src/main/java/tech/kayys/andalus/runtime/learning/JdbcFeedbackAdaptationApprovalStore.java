@@ -77,6 +77,12 @@ public final class JdbcFeedbackAdaptationApprovalStore {
             connection.setAutoCommit(false);
             try {
                 review = verifyReview(connection, proposal, reviewId);
+                if (decision == Decision.APPROVED
+                        && (review.disposition() != JdbcFeedbackTrendReviewStore.Disposition.ACCEPTED
+                        || review.assessmentDecision() == FeedbackTrendReviewPolicy.Decision.INCONCLUSIVE)) {
+                    throw new IllegalArgumentException(
+                            "proposal approval requires an accepted, conclusive trend review");
+                }
                 try (PreparedStatement insert = connection.prepareStatement("""
                         INSERT INTO andalus_feedback_adaptation_approval
                             (approval_id, proposal_id, subject_kind, subject_id, source_snapshot_id,
