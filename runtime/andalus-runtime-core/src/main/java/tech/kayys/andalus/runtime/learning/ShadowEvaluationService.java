@@ -22,9 +22,6 @@ public class ShadowEvaluationService {
     FeedbackTrendReviewService reviewService;
 
     @Inject
-    Instance<ShadowEvaluationTrustRegistry> trustRegistries;
-
-    @Inject
     Instance<ShadowEvaluationManifestVerifier> manifestVerifiers;
 
     /** Fails closed unless the authenticated reviewer still matches the exact proposal approval. */
@@ -64,11 +61,11 @@ public class ShadowEvaluationService {
     }
 
     private void verifyTrustedInputs(ShadowEvaluationRunner.RunRequest request) {
-        if (trustRegistries == null || !trustRegistries.isResolvable()
+        if (dataSources == null || !dataSources.isResolvable()
                 || manifestVerifiers == null || !manifestVerifiers.isResolvable()) {
-            throw new IllegalStateException("a unique trusted manifest registry and verifier are required");
+            throw new IllegalStateException("a unique durable datasource and manifest verifier are required");
         }
-        ShadowEvaluationTrustRegistry registry = trustRegistries.get();
+        ShadowEvaluationTrustRegistry registry = new JdbcShadowEvaluationTrustRegistry(dataSources.get());
         ShadowEvaluationManifestVerifier verifier = manifestVerifiers.get();
         var dataset = request.dataset();
         var manifest = registry.findDataset(dataset.id(), dataset.version())
