@@ -70,6 +70,29 @@ reproduction is required; fingerprints identify policy inputs but do not
 reconstruct them. The snapshot store verifies its own schema and fails closed
 when the third migration is absent.
 
+## Human feedback trend review decisions
+
+Apply `V20261103_04__feedback_trend_review_decisions.sql` after the
+aggregation snapshot migration. It creates an append-only review header and
+normalized reason-code table, both linked to immutable aggregation snapshots.
+
+Use `FeedbackTrendReviewService.record(assessment, reviewerId, disposition,
+rationale)` to persist an explicit human disposition. The store verifies that
+the baseline and current snapshot IDs belong to the assessment's exact typed
+subject, stores the assessment decision and stable reason codes, and writes the
+review header and reasons atomically. Each call appends a new review; it never
+overwrites an earlier disposition. Reviewer identity and rationale are
+mandatory and bounded. `history(subject)` recovers decisions in deterministic
+timestamp/ID order.
+
+Dispositions describe the human response (`ACKNOWLEDGED`, `ACCEPTED`,
+`REJECTED`, or `NEEDS_MORE_EVIDENCE`); they do not approve or apply a model,
+routing, policy, or deployment change. Recording a decision triggers no
+notification, ticket, training, promotion, routing change, or deployment.
+The review store fails closed if migration 04 is absent or a unique durable
+datasource is unavailable. Apply and validate this migration with the
+deployment's selected migration runner before enabling review recording.
+
 ## Feedback evidence reservations
 
 The first migration creates `andalus_feedback_evidence`. Its primary key on
