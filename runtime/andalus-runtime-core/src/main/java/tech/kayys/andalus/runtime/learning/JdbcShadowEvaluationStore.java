@@ -128,24 +128,37 @@ public final class JdbcShadowEvaluationStore {
                      SELECT * FROM andalus_feedback_shadow_evaluation WHERE run_id = ?
                      """)) {
             query.setString(1, runId);
+            String[] header = new String[15];
+            long evaluatedAt;
             try (ResultSet row = query.executeQuery()) {
                 if (!row.next()) return java.util.Optional.empty();
-                FeedbackAggregationRecoveryService.Subject subject =
-                        new FeedbackAggregationRecoveryService.Subject(
-                                FeedbackAggregationRecoveryService.SubjectKind.valueOf(row.getString("subject_kind")),
-                                row.getString("subject_id"));
-                List<ShadowEvaluationReport.Metric> metrics = readMetrics(connection, runId);
-                List<String> evidence = readEvidence(connection, runId);
-                return java.util.Optional.of(new ShadowEvaluationReport(
-                        row.getString("run_id"), row.getString("proposal_id"), subject,
-                        row.getString("source_snapshot_id"), row.getString("approval_id"),
-                        row.getString("policy_fingerprint"), row.getString("baseline_evaluator_id"),
-                        row.getString("baseline_evaluator_version"), row.getString("candidate_evaluator_id"),
-                        row.getString("candidate_evaluator_version"), row.getString("dataset_id"),
-                        row.getString("dataset_version"), row.getString("dataset_fingerprint"),
-                        ShadowEvaluationReport.Status.valueOf(row.getString("evaluation_status")),
-                        metrics, evidence, Instant.ofEpochMilli(row.getLong("evaluated_at_epoch_millis"))));
+                header[0] = row.getString("run_id");
+                header[1] = row.getString("proposal_id");
+                header[2] = row.getString("subject_kind");
+                header[3] = row.getString("subject_id");
+                header[4] = row.getString("source_snapshot_id");
+                header[5] = row.getString("approval_id");
+                header[6] = row.getString("policy_fingerprint");
+                header[7] = row.getString("baseline_evaluator_id");
+                header[8] = row.getString("baseline_evaluator_version");
+                header[9] = row.getString("candidate_evaluator_id");
+                header[10] = row.getString("candidate_evaluator_version");
+                header[11] = row.getString("dataset_id");
+                header[12] = row.getString("dataset_version");
+                header[13] = row.getString("dataset_fingerprint");
+                header[14] = row.getString("evaluation_status");
+                evaluatedAt = row.getLong("evaluated_at_epoch_millis");
             }
+            FeedbackAggregationRecoveryService.Subject subject =
+                    new FeedbackAggregationRecoveryService.Subject(
+                            FeedbackAggregationRecoveryService.SubjectKind.valueOf(header[2]), header[3]);
+            List<ShadowEvaluationReport.Metric> metrics = readMetrics(connection, runId);
+            List<String> evidence = readEvidence(connection, runId);
+            return java.util.Optional.of(new ShadowEvaluationReport(
+                    header[0], header[1], subject, header[4], header[5], header[6],
+                    header[7], header[8], header[9], header[10], header[11], header[12],
+                    header[13], ShadowEvaluationReport.Status.valueOf(header[14]),
+                    metrics, evidence, Instant.ofEpochMilli(evaluatedAt));
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to recover shadow evaluation report", exception);
         }
