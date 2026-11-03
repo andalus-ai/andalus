@@ -21,6 +21,12 @@ public class ShadowEvaluationService {
     @Inject
     FeedbackTrendReviewService reviewService;
 
+    @Inject
+    Instance<ShadowEvaluationTrustRegistry> trustRegistries;
+
+    @Inject
+    Instance<ShadowEvaluationManifestVerifier> manifestVerifiers;
+
     /** Fails closed unless the authenticated reviewer still matches the exact proposal approval. */
     ShadowEvaluationReport record(ShadowEvaluationReport report, String authenticatedReviewerId) {
         Objects.requireNonNull(report, "report");
@@ -52,6 +58,7 @@ public class ShadowEvaluationService {
                 || !request.proposal().sourceSnapshotId().equals(gate.sourceSnapshotId())) {
             throw new IllegalStateException("shadow evaluation is not authorized by the current proposal approval");
         }
+        verifyTrustedInputs(request);
         return new ShadowEvaluationRunner().evaluate(request)
                 .thenApply(report -> record(report, authenticatedReviewerId));
     }
