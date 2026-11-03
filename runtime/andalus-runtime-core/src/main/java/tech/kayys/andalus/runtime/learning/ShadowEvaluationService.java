@@ -63,6 +63,49 @@ public class ShadowEvaluationService {
                 .thenApply(report -> record(report, authenticatedReviewerId));
     }
 
+    private void verifyTrustedInputs(ShadowEvaluationRunner.RunRequest request) {
+        if (trustRegistries == null || !trustRegistries.isResolvable()
+                || manifestVerifiers == null || !manifestVerifiers.isResolvable()) {
+            throw new IllegalStateException("a unique trusted manifest registry and verifier are required");
+        }
+        ShadowEvaluationTrustRegistry registry = trustRegistries.get();
+        ShadowEvaluationManifestVerifier verifier = manifestVerifiers.get();
+        var dataset = request.dataset();
+        var manifest = registry.findDataset(dataset.id(), dataset.version())
+                .orElseThrow(() -> new IllegalStateException("trusted dataset manifest not found"));
+        String fingerprint = ShadowEvaluationRunner.fingerprint(dataset);
+        if (!manifest.datasetId().equals(dataset.id())
+                || !manifest.datasetVersion().equals(dataset.version())
+                || manifest.caseCount() != dataset.cases().size()
+                || !manifest.contentFingerprint().equals(fingerprint)
+                || !verifier.verifyDataset(manifest, dataset)) {
+            throw new IllegalStateException("dataset manifest verification failed");
+        }
+        verifyEvaluatorArtifact(registry, verifier, request.baselineCandidateId(),
+                request.baselineCandidateVersion(), request.baselineDescriptor());
+        verifyEvaluatorArtifact(registry, verifier, request.candidateId(),
+                request.candidateVersion(), request.candidateDescriptor());
+    }
+
+    private static void verifyEvaluatorArtifact(
+            ShadowEvaluationTrustRegistry registry,
+            ShadowEvaluationManifestVerifier verifier,
+            String candidateId, String candidateVersion,
+            tech.kayys.andalus.harness.evaluation.Evaluator.EvaluatorDescriptor descriptor) {
+        String fingerprint = descriptor.configurationFingerprint();
+        var manifest = registry.findEvaluatorArtifact(candidateId, candidateVersion,
+                        descriptor.id(), descriptor.version(), fingerprint)
+                .orElseThrow(() -> new IllegalStateException("trusted evaluator artifact manifest not found"));
+        if (!manifest.candidateId().equals(candidateId)
+                || !manifest.candidateVersion().equals(candidateVersion)
+                || !manifest.evaluatorId().equals(descriptor.id())
+                || !manifest.evaluatorVersion().equals(descriptor.version())
+                || !manifest.configurationFingerprint().equals(fingerprint)
+                || !verifier.verifyEvaluatorArtifact(manifest)) {
+            throw new IllegalStateException("evaluator artifact verification failed");
+        }
+    }
+
     public List<ShadowEvaluationReport> history(FeedbackAdaptationGate.Proposal proposal) {
         Objects.requireNonNull(proposal, "proposal");
         if (dataSources == null || !dataSources.isResolvable()) return List.of();
