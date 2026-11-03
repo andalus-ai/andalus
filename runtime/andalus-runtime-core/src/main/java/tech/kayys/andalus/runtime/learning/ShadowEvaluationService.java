@@ -62,7 +62,7 @@ public class ShadowEvaluationService {
 
     private void verifyTrustedInputs(ShadowEvaluationRunner.RunRequest request) {
         if (dataSources == null || !dataSources.isResolvable()
-                || manifestVerifiers == null || !manifestVerifiers.isResolvable()) {
+                || manifestVerifiers == null || !manifestVerifiers.isResolvable() || manifestVerifiers.isAmbiguous()) {
             throw new IllegalStateException("a unique durable datasource and manifest verifier are required");
         }
         ShadowEvaluationTrustRegistry registry = new JdbcShadowEvaluationTrustRegistry(dataSources.get());
