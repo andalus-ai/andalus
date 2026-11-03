@@ -172,7 +172,8 @@ Apply `V20261103_06__feedback_shadow_evaluation_evidence.sql` after migration 05
 It creates an append-only run header plus normalized metric and evidence
 reference tables. The report captures the exact proposal, typed subject,
 source snapshot, approval ID, policy fingerprint, baseline/candidate evaluator
-identities and versions, dataset identity/version/fingerprint, metric values,
+identities and versions, baseline/candidate model identities and versions, dataset
+identity/version/fingerprint, metric values,
 directional improvement thresholds, result, timestamp, and evidence references.
 Dataset contents, prompts, and arbitrary metadata are not stored.
 
