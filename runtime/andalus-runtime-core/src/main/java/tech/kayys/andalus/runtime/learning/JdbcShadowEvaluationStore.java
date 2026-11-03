@@ -21,7 +21,7 @@ public final class JdbcShadowEvaluationStore {
     public void verifySchema() {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement header = connection.prepareStatement(
-                     "SELECT run_id FROM andalus_feedback_shadow_evaluation WHERE 1 = 0");
+                     "SELECT run_id, baseline_candidate_id, candidate_id FROM andalus_feedback_shadow_evaluation WHERE 1 = 0");
              PreparedStatement metrics = connection.prepareStatement(
                      "SELECT run_id FROM andalus_feedback_shadow_evaluation_metric WHERE 1 = 0");
              PreparedStatement evidence = connection.prepareStatement(
