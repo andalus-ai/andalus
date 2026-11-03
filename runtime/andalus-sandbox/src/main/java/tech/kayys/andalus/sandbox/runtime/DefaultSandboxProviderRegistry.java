@@ -64,11 +64,9 @@ public class DefaultSandboxProviderRegistry implements SandboxProviderRegistry {
             }
         }
 
-        // Fallback to first available provider
-        if (!providers.isEmpty()) {
-            return providers.values().iterator().next();
-        }
-
-        throw new IllegalStateException("No sandbox provider registered matching request: " + request.preferredType());
+        // Never silently downgrade an isolation request. In particular, a
+        // CONTAINER or VM request must not fall back to a local PROCESS provider.
+        throw new IllegalStateException(
+                "No sandbox provider registered for requested type: " + request.preferredType());
     }
 }
