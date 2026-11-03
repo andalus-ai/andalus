@@ -202,16 +202,28 @@ one unambiguous `ShadowEvaluationTrustRegistry` and one unambiguous
 dataset content/case count, descriptor mismatches, and failed signature or
 artifact verification before invoking either evaluator.
 
-The verifier is a security-critical SPI, not a built-in cryptographic
-implementation. Production wiring must verify signatures against a managed
-trust store, validate artifact bytes against the immutable artifact digest,
-and attest that each supplied evaluator adapter instance was loaded from that
-verified artifact. A verifier that checks metadata only is unsafe. There is
-deliberately no permissive default or in-memory fallback: without both trusted
-implementations, execution fails closed. Keep signing keys, revocation policy,
-artifact storage, and registry administration in the deployment's security
-boundary. The current SPI does not itself provide a registry implementation,
-key management, or signature algorithm.
+`JdbcShadowEvaluationTrustRegistry` is the durable exact-version registry
+for these manifests. Apply `V20261103_07__shadow_evaluation_trust_registry.sql`
+after migration 06. Dataset identity is unique by (dataset ID, version);
+evaluator artifact identity is unique by candidate ID/version, evaluator
+ID/version, and configuration fingerprint. Registration is immutable and
+exact retries are idempotent; a changed manifest under an existing identity
+is rejected. The registry stores signer ID, signature algorithm, and an
+external public-key reference, never key bytes. Revoking a signer immediately
+hides all of its manifests from lookups and prevents new registrations.
+Re-registering a revoked signer ID cannot reactivate it; use a new signer ID
+after key rotation.
+
+The verifier remains a security-critical SPI, not a built-in cryptographic
+implementation. Production wiring must verify signatures against the
+deployment-managed trust store, validate artifact bytes against the immutable
+artifact digest, and attest that each supplied evaluator adapter instance was
+loaded from that verified artifact. A verifier that checks metadata only is
+unsafe. There is deliberately no permissive default or in-memory fallback:
+without a verifier implementation, execution fails closed. Keep signing keys,
+revocation policy, artifact storage, and trust-registry administration in the
+deployment's security boundary. The `shadow-evaluation-trust` readiness
+check reports DOWN if the registry schema or verifier bean is unavailable.
 
 The manifest gate verifies evaluator artifacts and the actual supplied adapter
 instances, but it does not independently derive the proposal policy fingerprint.
