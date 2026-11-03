@@ -193,15 +193,34 @@ field matches. A run ID is immutable: an exact retry is idempotent and a
 changed payload under the same ID is rejected. Header, metrics, and evidence
 references are written atomically.
 
-This increment defines and persists evidence; it does not execute an evaluator,
-fetch datasets, verify externally supplied artifact signatures, or attest that
-a reported metric was honestly measured. Those responsibilities belong to a
-future evaluator adapter and trusted artifact-verification boundary. Treat
-reports as externally produced evidence until that boundary is implemented.
-PASS is not promotion approval: no model training, policy activation, routing
-change, candidate promotion, or deployment is performed. Validate migration
-06 against the production database vendor and transactional DDL behavior
-before rollout.
+The runtime now defines a trusted manifest boundary before execution.
+Register an immutable dataset manifest for the exact dataset ID/version and
+signed evaluator-artifact manifests for each exact candidate ID/version,
+evaluator ID/version, and configuration fingerprint. `ShadowEvaluationService.evaluateAndRecord(...)` requires
+one unambiguous `ShadowEvaluationTrustRegistry` and one unambiguous
+`ShadowEvaluationManifestVerifier`. It rejects missing manifests, changed
+dataset content/case count, descriptor mismatches, and failed signature or
+artifact verification before invoking either evaluator.
+
+The verifier is a security-critical SPI, not a built-in cryptographic
+implementation. Production wiring must verify signatures against a managed
+trust store, validate artifact bytes against the immutable artifact digest,
+and attest that each supplied evaluator adapter instance was loaded from that
+verified artifact. A verifier that checks metadata only is unsafe. There is
+deliberately no permissive default or in-memory fallback: without both trusted
+implementations, execution fails closed. Keep signing keys, revocation policy,
+artifact storage, and registry administration in the deployment's security
+boundary. The current SPI does not itself provide a registry implementation,
+key management, or signature algorithm.
+
+The manifest gate verifies evaluator artifacts and the actual supplied adapter
+instances, but it does not independently derive the proposal policy fingerprint.
+The proposal fingerprint must continue to bind the exact candidate identity,
+evaluator configuration, and metric policy approved by the reviewer. PASS is
+not promotion approval: no model training, policy activation, routing change,
+candidate promotion, or deployment is performed. Validate migration 06
+against the production database vendor and transactional DDL behavior before
+rollout.
 
 
 ### Paired evaluator execution
