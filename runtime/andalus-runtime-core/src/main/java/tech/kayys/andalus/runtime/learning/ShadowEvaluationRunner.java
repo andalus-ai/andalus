@@ -102,8 +102,8 @@ public final class ShadowEvaluationRunner {
                     return new ShadowEvaluationReport(
                             request.runId(), proposal.id(), proposal.subject(), proposal.sourceSnapshotId(),
                             request.approvalId(), proposal.policyFingerprint(),
-                            baseline.evaluatorId(), baseline.evaluatorVersion(),
-                            candidate.evaluatorId(), candidate.evaluatorVersion(),
+                            baseline.evaluatorId(), baseline.evaluatorVersion(), baseline.evaluatorConfigFingerprint(),
+                            candidate.evaluatorId(), candidate.evaluatorVersion(), candidate.evaluatorConfigFingerprint(),
                             baseline.candidateId(), baseline.candidateVersion(),
                             candidate.candidateId(), candidate.candidateVersion(),
                             request.dataset().id(), request.dataset().version(), datasetFingerprint,
