@@ -7,6 +7,7 @@ import jakarta.inject.Inject;
 import javax.sql.DataSource;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Records externally-produced shadow evidence only after re-checking the exact persisted approval.
@@ -35,6 +36,24 @@ public class ShadowEvaluationService {
             throw new IllegalStateException("a unique durable datasource is required for shadow evidence");
         }
         return new JdbcShadowEvaluationStore(dataSources.get()).append(report);
+    }
+
+    /**
+     * Checks approval before any evaluator is invoked, runs both sides offline on the same dataset,
+     * then re-checks approval before durable recording.
+     */
+    public CompletionStage<ShadowEvaluationReport> evaluateAndRecord(
+            ShadowEvaluationRunner.RunRequest request, String authenticatedReviewerId) {
+        Objects.requireNonNull(request, "request");
+        FeedbackAdaptationGate.Result gate = reviewService.evaluateForShadow(
+                request.proposal(), authenticatedReviewerId);
+        if (!gate.eligibleForShadowEvaluation()
+                || !request.approvalId().equals(gate.approvalId())
+                || !request.proposal().sourceSnapshotId().equals(gate.sourceSnapshotId())) {
+            throw new IllegalStateException("shadow evaluation is not authorized by the current proposal approval");
+        }
+        return new ShadowEvaluationRunner().evaluate(request)
+                .thenApply(report -> record(report, authenticatedReviewerId));
     }
 
     public List<ShadowEvaluationReport> history(FeedbackAdaptationGate.Proposal proposal) {
