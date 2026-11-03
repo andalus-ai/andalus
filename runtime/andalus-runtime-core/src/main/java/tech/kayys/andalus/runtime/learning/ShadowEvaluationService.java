@@ -10,8 +10,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Records externally-produced shadow evidence only after re-checking the exact persisted approval.
- * This service does not execute evaluators or activate candidate behavior.
+ * Gates paired offline evaluator execution and records its evidence after re-checking the exact persisted approval.
+ * This service never activates candidate behavior or changes production routing.
  */
 @ApplicationScoped
 public class ShadowEvaluationService {
