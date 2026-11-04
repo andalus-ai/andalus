@@ -11,6 +11,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -26,8 +27,7 @@ public class ExecutionLeaseMetricsObserver implements ExecutionLeaseObserver {
     private final AtomicLong renewalSuccesses = new AtomicLong();
     private final AtomicLong renewalFailures = new AtomicLong();
     private final AtomicLong renewalRejections = new AtomicLong();
-    private final AtomicLong lastRenewalSuccessEpochMillis = new AtomicLong();
-    private final AtomicLong lastHeartbeatObservedEpochMillis = new AtomicLong();
+    private final ConcurrentHashMap<String, Long> heartbeatExecutions = new ConcurrentHashMap<>();
     private final Clock clock;
     private final Instance<Metrics> metrics;
 
@@ -49,11 +49,13 @@ public class ExecutionLeaseMetricsObserver implements ExecutionLeaseObserver {
         long now = clock.millis();
         switch (observation.type()) {
             case ACQUIRED -> activeLeases.incrementAndGet();
-            case RELEASED -> activeLeases.updateAndGet(value -> Math.max(0, value - 1));
+            case RELEASED -> {
+                activeLeases.updateAndGet(value -> Math.max(0, value - 1));
+                heartbeatExecutions.remove(observation.executionId());
+            }
             case RENEWAL_SUCCEEDED -> {
                 renewalSuccesses.incrementAndGet();
-                lastRenewalSuccessEpochMillis.set(now);
-                lastHeartbeatObservedEpochMillis.set(now);
+                heartbeatExecutions.put(observation.executionId(), now);
                 recordCounter("renewals", "outcome", "success");
                 if (observation.renewalDuration() != null) {
                     recordHistogram("renewal.duration", observation.renewalDuration().toNanos() / 1_000_000.0,
@@ -62,7 +64,7 @@ public class ExecutionLeaseMetricsObserver implements ExecutionLeaseObserver {
             }
             case RENEWAL_REJECTED -> {
                 renewalRejections.incrementAndGet();
-                lastHeartbeatObservedEpochMillis.set(now);
+                heartbeatExecutions.computeIfPresent(observation.executionId(), (id, previous) -> now);
                 recordCounter("renewals", "outcome", "rejected");
                 recordCounter("ownership.loss", "reason", "renewal_rejected");
             }
@@ -92,19 +94,20 @@ public class ExecutionLeaseMetricsObserver implements ExecutionLeaseObserver {
     public long renewalFailureCount() { return renewalFailures.get(); }
     public long renewalRejectionCount() { return renewalRejections.get(); }
 
-    /** Returns true only when a worker that has emitted heartbeats is still reporting them. */
+    /** Returns false if any currently heartbeat-enabled execution has stopped reporting. */
     public boolean heartbeatFresh(Duration staleAfter) {
-        if (activeLeases.get() == 0 || lastRenewalSuccessEpochMillis.get() == 0) {
-            return true;
-        }
-        long last = lastHeartbeatObservedEpochMillis.get();
-        return last > 0 && Duration.between(Instant.ofEpochMilli(last), clock.instant())
-                .compareTo(staleAfter) <= 0;
+        long now = clock.millis();
+        return heartbeatExecutions.values().stream()
+                .allMatch(last -> Math.max(0, now - last) <= staleAfter.toMillis());
     }
 
+    /** Age of the oldest currently tracked heartbeat, or -1 when none are tracked. */
     public long millisSinceLastHeartbeat() {
-        long last = lastHeartbeatObservedEpochMillis.get();
-        return last == 0 ? -1 : Math.max(0, clock.millis() - last);
+        long now = clock.millis();
+        return heartbeatExecutions.values().stream()
+                .mapToLong(last -> Math.max(0, now - last))
+                .max()
+                .orElse(-1);
     }
 
     private void recordCounter(String metric, String tag, String value) {
