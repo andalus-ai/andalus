@@ -9,7 +9,6 @@ import tech.kayys.andalus.telemetry.Metrics;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -70,7 +69,7 @@ public class ExecutionLeaseMetricsObserver implements ExecutionLeaseObserver {
             }
             case RENEWAL_FAILED -> {
                 renewalFailures.incrementAndGet();
-                lastHeartbeatObservedEpochMillis.set(now);
+                heartbeatExecutions.computeIfPresent(observation.executionId(), (id, previous) -> now);
                 recordCounter("renewals", "outcome", "failure");
                 recordCounter("ownership.loss", "reason", "renewal_failed");
                 if (observation.renewalDuration() != null) {
