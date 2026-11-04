@@ -35,7 +35,7 @@ public class ShadowEvaluationService {
                 || !report.sourceSnapshotId().equals(gate.sourceSnapshotId())) {
             throw new IllegalStateException("shadow evaluation is not authorized by the current proposal approval");
         }
-        if (dataSources == null || !dataSources.isResolvable()) {
+        if (dataSources == null || !dataSources.isResolvable() || dataSources.isAmbiguous()) {
             throw new IllegalStateException("a unique durable datasource is required for shadow evidence");
         }
         return new JdbcShadowEvaluationStore(dataSources.get()).append(report);
@@ -61,7 +61,7 @@ public class ShadowEvaluationService {
     }
 
     private void verifyTrustedInputs(ShadowEvaluationRunner.RunRequest request) {
-        if (dataSources == null || !dataSources.isResolvable()
+        if (dataSources == null || !dataSources.isResolvable() || dataSources.isAmbiguous()
                 || manifestVerifiers == null || !manifestVerifiers.isResolvable() || manifestVerifiers.isAmbiguous()) {
             throw new IllegalStateException("a unique durable datasource and manifest verifier are required");
         }
@@ -106,7 +106,7 @@ public class ShadowEvaluationService {
 
     public List<ShadowEvaluationReport> history(FeedbackAdaptationGate.Proposal proposal) {
         Objects.requireNonNull(proposal, "proposal");
-        if (dataSources == null || !dataSources.isResolvable()) return List.of();
+        if (dataSources == null || !dataSources.isResolvable() || dataSources.isAmbiguous()) return List.of();
         return new JdbcShadowEvaluationStore(dataSources.get()).findByProposal(proposal);
     }
 }
