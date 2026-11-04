@@ -72,7 +72,7 @@ public class NodeCapabilityCatalogService {
         Map<String, NodeCapabilityProvider> providers = collectProviders();
         List<NodeTypeDescriptor> descriptors = new ArrayList<>();
         for (NodeCapabilityProvider provider : providers.values()) {
-            Collection<NodeTypeDescriptor> contributed = provider.getNodeTypes();
+            Collection<NodeTypeDescriptor> contributed = provider.getNodeTypes(access);
             if (contributed == null) {
                 continue;
             }
