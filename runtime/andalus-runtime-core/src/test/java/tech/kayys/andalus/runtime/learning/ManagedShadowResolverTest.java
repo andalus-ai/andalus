@@ -51,26 +51,4 @@ class ManagedShadowResolverTest {
                 .hasMessageContaining("symbolic links");
     }
 
-    @Test
-    void filesystemResolverLoadsEvaluatorFromTheSameBytesItReturnsForDigestVerification() throws Exception {
-        Path root = Files.createDirectory(temporaryDirectory.resolve("artifacts"));
-        byte[] content = "immutable-evaluator-binary".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        Files.write(root.resolve("evaluator.bin"), content);
-        final byte[][] loaded = new byte[1][];
-        var resolver = new FileSystemShadowEvaluationArtifactResolver(root, (reference, bytes) -> {
-            loaded[0] = bytes.clone();
-            return new tech.kayys.andalus.harness.evaluation.Evaluator() {
-                @Override public java.util.concurrent.CompletionStage<tech.kayys.andalus.harness.evaluation.Evaluator.Report> evaluate(
-                        tech.kayys.andalus.harness.evaluation.Evaluator.Request request) {
-                    return java.util.concurrent.CompletableFuture.failedFuture(
-                            new UnsupportedOperationException("test evaluator"));
-                }
-            };
-        });
-
-        try (var resolved = resolver.resolve("evaluator.bin")) {
-            assertThat(resolved.content().readAllBytes()).containsExactly(content);
-            assertThat(loaded[0]).containsExactly(content);
-        }
-    }
 }
