@@ -16,4 +16,12 @@ public interface NodeCapabilityProvider {
 
     /** Current descriptors contributed by this provider. */
     Collection<NodeTypeDescriptor> getNodeTypes();
+
+    /**
+     * Context-aware discovery hook for providers with tenant- or subject-scoped
+     * catalogs. The default preserves compatibility with static providers.
+     */
+    default Collection<NodeTypeDescriptor> getNodeTypes(CatalogAccessContext access) {
+        return getNodeTypes();
+    }
 }
