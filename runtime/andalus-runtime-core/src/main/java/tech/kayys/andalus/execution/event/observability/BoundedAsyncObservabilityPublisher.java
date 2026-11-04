@@ -5,6 +5,7 @@ import tech.kayys.andalus.observability.ObservabilityPublisher;
 import tech.kayys.andalus.telemetry.Metrics;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -15,7 +16,7 @@ import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Bounded, single-worker, best-effort observation publisher.
- * Enqueue is nonblocking; delivery retries are bounded and in-memory only.
+ * Enqueue is nonblocking; delivery retries and dead-letter retention are bounded and in-memory.
  */
 public final class BoundedAsyncObservabilityPublisher implements ObservabilityPublisher, AutoCloseable {
     public enum OverflowPolicy { DROP_OLDEST, DROP_NEWEST }
@@ -27,11 +28,13 @@ public final class BoundedAsyncObservabilityPublisher implements ObservabilityPu
     private final long shutdownTimeoutMillis;
     private final Metrics metrics;
     private final ObservationDeliveryRetryPolicy retryPolicy;
+    private final BoundedObservationDeadLetterQueue deadLetterQueue;
     private final AtomicBoolean accepting = new AtomicBoolean(true);
     private final Object lifecycleLock = new Object();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final LongAdder accepted = new LongAdder(), delivered = new LongAdder();
     private final LongAdder dropped = new LongAdder(), failures = new LongAdder(), attempts = new LongAdder();
+    private final LongAdder deadLettered = new LongAdder();
     private final Thread worker;
 
     public BoundedAsyncObservabilityPublisher(ObservabilityPublisher delegate, int capacity,
@@ -47,6 +50,14 @@ public final class BoundedAsyncObservabilityPublisher implements ObservabilityPu
     public BoundedAsyncObservabilityPublisher(ObservabilityPublisher delegate, int capacity,
             OverflowPolicy overflowPolicy, Duration shutdownTimeout, Metrics metrics,
             ObservationDeliveryRetryPolicy retryPolicy) {
+        this(delegate, capacity, overflowPolicy, shutdownTimeout, metrics, retryPolicy, null);
+    }
+
+    /** Enables retry-exhaustion/permanent-failure routing to a caller-owned bounded DLQ. */
+    public BoundedAsyncObservabilityPublisher(ObservabilityPublisher delegate, int capacity,
+            OverflowPolicy overflowPolicy, Duration shutdownTimeout, Metrics metrics,
+            ObservationDeliveryRetryPolicy retryPolicy,
+            BoundedObservationDeadLetterQueue deadLetterQueue) {
         this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
         if (capacity < 1) throw new IllegalArgumentException("capacity must be greater than zero");
         this.queue = new ArrayBlockingQueue<>(capacity);
@@ -55,6 +66,7 @@ public final class BoundedAsyncObservabilityPublisher implements ObservabilityPu
         if (shutdownTimeoutMillis < 0) throw new IllegalArgumentException("shutdownTimeout must not be negative");
         this.metrics = metrics;
         this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy must not be null");
+        this.deadLetterQueue = deadLetterQueue;
         this.worker = new Thread(this::runWorker, "andalus-observability-publisher");
         worker.setDaemon(true);
         worker.start();
@@ -87,6 +99,7 @@ public final class BoundedAsyncObservabilityPublisher implements ObservabilityPu
     public long deliveryAttemptCount() { return attempts.sum(); }
     /** Number of observations that exhausted retries or failed terminally. */
     public long failureCount() { return failures.sum(); }
+    public long deadLetteredCount() { return deadLettered.sum(); }
     public boolean isWorkerAlive() { return worker.isAlive(); }
 
     private void runWorker() {
@@ -97,7 +110,6 @@ public final class BoundedAsyncObservabilityPublisher implements ObservabilityPu
                 recordQueueSize();
                 deliver(event);
             } catch (InterruptedException interrupted) {
-                // close() interrupts poll/backoff to make shutdown responsive.
                 if (accepting.get()) {
                     Thread.currentThread().interrupt();
                     return;
@@ -108,20 +120,40 @@ public final class BoundedAsyncObservabilityPublisher implements ObservabilityPu
     }
 
     private void deliver(ObservationEvent event) {
+        RuntimeException terminalFailure = null;
+        int attemptsMade = 0;
         for (int attempt = 1; attempt <= retryPolicy.maxAttempts(); attempt++) {
             if (attempt > 1 && !waitForRetry(retryPolicy.backoffBeforeAttempt(attempt), event)) return;
             attempts.increment();
+            attemptsMade = attempt;
             try {
                 delegate.publish(event);
                 delivered.increment();
                 recordCounter("andalus.observability.publisher.delivered", 1);
                 return;
             } catch (RuntimeException failure) {
-                if (attempt == retryPolicy.maxAttempts()) {
+                terminalFailure = failure;
+                ObservationDeliveryFailure classification = ObservationDeliveryFailure.classify(failure);
+                if (classification == ObservationDeliveryFailure.PERMANENT || attempt == retryPolicy.maxAttempts()) {
                     failures.increment();
                     recordCounter("andalus.observability.publisher.delivery.failures", 1);
+                    routeDeadLetter(event, attemptsMade, classification, failure);
+                    return;
                 }
             }
+        }
+    }
+
+    private void routeDeadLetter(ObservationEvent event, int attemptsMade,
+            ObservationDeliveryFailure classification, RuntimeException failure) {
+        if (deadLetterQueue == null) return;
+        ObservationDeadLetter letter = new ObservationDeadLetter(event, attemptsMade, classification,
+                failure.getClass().getName(), Instant.now());
+        if (deadLetterQueue.offer(letter)) {
+            deadLettered.increment();
+            recordCounter("andalus.observability.publisher.dead-lettered", 1);
+        } else {
+            recordCounter("andalus.observability.publisher.dead-letter.dropped", 1);
         }
     }
 

@@ -21,6 +21,12 @@
     </properties>
 
     <dependencies>
+        <!-- Portable workflow designer catalog descriptors owned by the framework. -->
+        <dependency>
+            <groupId>tech.kayys.andalus</groupId>
+            <artifactId>andalus-schema-core</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
         <!-- Agent SPI: Interfaces and contracts -->
         <dependency>
             <groupId>tech.kayys.andalus</groupId>

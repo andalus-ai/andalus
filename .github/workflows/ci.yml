@@ -25,6 +25,17 @@ jobs:
           java-version: "25"
           cache: maven
 
+      - name: Checkout Andalus Framework schema contracts
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/andalus-framework
+          path: _andalus-framework
+          ref: main
+
+      - name: Publish framework schema contracts to Maven Local
+        working-directory: _andalus-framework
+        run: ./mvnw -B -pl framework/andalus-schema-core -am install -DskipTests -q
+
       # Alkhawarizm is the former name of Aljabr. AQLI still discovers the
       # composite build using the historical repository/path identity.
       - name: Checkout Aljabr foundation (legacy Alkhawarizm repository)
