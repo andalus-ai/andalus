@@ -30,7 +30,7 @@ class ExecutionLeaseMetricsObserverTest {
     }
 
     @Test
-    void heartbeatHealthOnlyAppliesAfterAHeartbeatHasBeenObserved() {
+    void heartbeatHealthOnlyAppliesAfterAHeartbeatHasBeenObserved() throws InterruptedException {
         var observer = new ExecutionLeaseMetricsObserver(null, java.time.Clock.systemUTC());
         observer.onObservation(observation(ExecutionLeaseObservation.Type.ACQUIRED, null));
         assertTrue(observer.heartbeatFresh(Duration.ZERO),
@@ -39,7 +39,7 @@ class ExecutionLeaseMetricsObserverTest {
         observer.onObservation(observation(ExecutionLeaseObservation.Type.RENEWAL_SUCCEEDED, Duration.ofMillis(1)));
         assertTrue(observer.heartbeatFresh(Duration.ofSeconds(1)));
         assertTrue(observer.millisSinceLastHeartbeat() >= 0);
-        assertFalse(observer.heartbeatFresh(Duration.ZERO),
+        Thread.sleep(5);\n        assertFalse(observer.heartbeatFresh(Duration.ZERO),
                 "a heartbeat becomes stale after its freshness window");
     }
 
