@@ -112,13 +112,16 @@ public class NodeCapabilityCatalogService {
         Map<String, NodeCapabilityProvider> providers = new java.util.TreeMap<>();
         providers.putAll(registeredProviders);
         Instance<NodeCapabilityProvider> discovered = discoveredProviders;
-        if (discovered != null && !discovered.isUnsatisfied() && !discovered.isAmbiguous()) {
+        if (discovered != null && !discovered.isUnsatisfied()) {
             for (NodeCapabilityProvider provider : discovered) {
                 if (provider == null) {
                     continue;
                 }
                 String providerId = requireText(provider.getProviderId(), "providerId");
-                providers.putIfAbsent(providerId, provider);
+                NodeCapabilityProvider existing = providers.putIfAbsent(providerId, provider);
+                if (existing != null && existing != provider) {
+                    throw new IllegalStateException("Multiple node capability providers use provider ID: " + providerId);
+                }
             }
         }
         return providers;
