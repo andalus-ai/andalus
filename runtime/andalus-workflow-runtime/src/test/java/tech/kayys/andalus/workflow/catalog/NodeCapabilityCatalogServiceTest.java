@@ -53,6 +53,7 @@ class NodeCapabilityCatalogServiceTest {
     @Test
     void filtersByProviderAndFrameworkCompatibilityRange() {
         NodeTypeDescriptor descriptor = descriptor("agent.reason", "Reason", "agent");
+        descriptor.setProviderId("reasoning");
         descriptor.setMinimumFrameworkVersion("1.2.0");
         descriptor.setMaximumFrameworkVersion("2.0.0");
 
@@ -60,11 +61,11 @@ class NodeCapabilityCatalogServiceTest {
         service.register(provider("reasoning", descriptor));
 
         assertThat(service.discover(
-                new NodeCapabilityCatalogQuery().setProviderId("reasoning").setFrameworkVersion("1.3.0"),
+                new NodeCapabilityCatalogQuery().setProviderId("reasoning"),
                 CatalogAccessContext.publicAccess("1.3.0")).getNodeTypes()).hasSize(1);
 
         assertThat(service.discover(
-                new NodeCapabilityCatalogQuery().setFrameworkVersion("1.1.9"),
+                new NodeCapabilityCatalogQuery(),
                 CatalogAccessContext.publicAccess("1.1.9")).getNodeTypes()).isEmpty();
     }
 
