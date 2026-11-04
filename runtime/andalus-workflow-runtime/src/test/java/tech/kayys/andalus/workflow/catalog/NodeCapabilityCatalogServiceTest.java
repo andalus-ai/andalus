@@ -31,6 +31,7 @@ class NodeCapabilityCatalogServiceTest {
     @Test
     void hidesDescriptorsWhenRequiredPermissionsOrCapabilitiesAreMissing() {
         NodeTypeDescriptor descriptor = descriptor("tool.http", "HTTP Request", "tool");
+        descriptor.setProviderId("http");
         descriptor.setRequiredPermissions(List.of("network.http.invoke"));
         descriptor.setRequiredCapabilities(List.of("network.http"));
 
