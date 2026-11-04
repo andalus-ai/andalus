@@ -27,7 +27,7 @@ public class ShadowEvaluationTrustReadinessCheck implements HealthCheck {
 
     @Override
     public HealthCheckResponse call() {
-        if (dataSources == null || !dataSources.isResolvable())
+        if (dataSources == null || !dataSources.isResolvable() || dataSources.isAmbiguous())
             return down("datasource-not-configured");
         if (verifiers == null || !verifiers.isResolvable() || verifiers.isAmbiguous())
             return down("manifest-verifier-not-configured-or-ambiguous");
