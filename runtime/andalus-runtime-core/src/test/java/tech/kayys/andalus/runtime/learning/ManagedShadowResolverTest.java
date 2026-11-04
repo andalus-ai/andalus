@@ -43,12 +43,11 @@ class ManagedShadowResolverTest {
         try {
             Files.createSymbolicLink(link, outside);
         } catch (UnsupportedOperationException | java.io.IOException | SecurityException unavailable) {
-            return; // Platform does not permit symlink creation in this test environment.
+            return;
         }
         var resolver = new FileSystemShadowEvaluationArtifactResolver(root, (reference, bytes) -> null);
         assertThatThrownBy(() -> resolver.resolve("linked.jar"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("symbolic links");
     }
-
 }
