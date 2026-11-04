@@ -267,3 +267,32 @@ or promotion integration. The service does not create model instances, resolve p
 fetch datasets, or execute arbitrary candidate code. The caller owns those trusted
 provisioning boundaries and must pass an immutable, approved dataset and isolated
 adapters. A PASS remains evidence only and never activates a candidate.
+
+
+### Managed resolver implementations
+
+The runtime includes `KeyStoreShadowEvaluationPublicKeyResolver`, which resolves
+an exact public-key alias from a deployment-loaded Java `KeyStore`. The
+application must load and protect that keystore and expose the resolver as the
+single CDI bean for `ShadowEvaluationPublicKeyResolver`. The registry stores
+only the alias/reference, never key material. Rotate by registering a new
+signer ID and key alias, publishing manifests signed by that key, then
+revoking the old signer ID. Never rebind an existing signer ID.
+
+The runtime also includes `FileSystemShadowEvaluationArtifactResolver`. Its
+root directory must be deployment-controlled and not writable by untrusted
+users. References are relative paths beneath that root; absolute paths,
+traversal, symlinks, non-regular files, and files larger than 512 MiB are
+rejected. A deployment-provided `ShadowEvaluationArtifactLoader` receives
+the exact byte array read from the artifact and must create the evaluator
+from those bytes in an isolated execution boundary. The resolver returns that
+same byte array for digest verification, binding the loaded evaluator to the
+bytes whose SHA-256 is checked. Expose exactly one configured resolver bean
+through CDI.
+
+These implementations do not load keys from manifest-provided URLs, do not
+download artifacts, and do not provide a sandbox by themselves. The deployment
+owns keystore lifecycle, artifact publication/immutability, CDI producer
+configuration, classloader isolation, and process/container isolation for
+untrusted evaluator code. Do not mark readiness UP until those controls are
+configured and tested.
