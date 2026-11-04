@@ -78,14 +78,13 @@ public class NodeCapabilityCatalogService {
                 if (descriptor == null) {
                     continue;
                 }
-                String declaredProvider = descriptor.getProviderId();
-                if (declaredProvider != null && !declaredProvider.isBlank()
-                        && !declaredProvider.equals(provider.getProviderId())) {
+                String declaredProvider = requireText(descriptor.getProviderId(), "node type providerId");
+                if (!declaredProvider.equals(provider.getProviderId())) {
                     throw new IllegalStateException("Node type " + descriptor.getTypeId()
                             + " declares provider " + declaredProvider + " but was contributed by "
                             + provider.getProviderId());
                 }
-                if (isVisibleTo(descriptor, access) && matches(descriptor, effectiveQuery)) {
+                if (isVisibleTo(descriptor, access) && matches(descriptor, effectiveQuery, access)) {
                     descriptors.add(descriptor);
                 }
             }
@@ -132,7 +131,8 @@ public class NodeCapabilityCatalogService {
         return access.availableCapabilities().containsAll(safe(descriptor.getRequiredCapabilities()));
     }
 
-    private boolean matches(NodeTypeDescriptor descriptor, NodeCapabilityCatalogQuery query) {
+    private boolean matches(NodeTypeDescriptor descriptor, NodeCapabilityCatalogQuery query,
+            CatalogAccessContext access) {
         if (hasText(query.getCategory()) && !query.getCategory().equalsIgnoreCase(descriptor.getCategory())) {
             return false;
         }
@@ -140,11 +140,9 @@ public class NodeCapabilityCatalogService {
         if (hasText(query.getProviderId()) && !query.getProviderId().equals(providerId)) {
             return false;
         }
-        if (hasText(query.getFrameworkVersion())) {
-            if (!withinFrameworkRange(query.getFrameworkVersion(),
-                    descriptor.getMinimumFrameworkVersion(), descriptor.getMaximumFrameworkVersion())) {
-                return false;
-            }
+        if (!withinFrameworkRange(access.frameworkVersion(),
+                descriptor.getMinimumFrameworkVersion(), descriptor.getMaximumFrameworkVersion())) {
+            return false;
         }
         if (hasText(query.getText())) {
             String needle = query.getText().trim().toLowerCase(java.util.Locale.ROOT);
@@ -157,6 +155,9 @@ public class NodeCapabilityCatalogService {
     }
 
     private boolean withinFrameworkRange(String actual, String minimum, String maximum) {
+        if ((hasText(minimum) || hasText(maximum)) && !hasText(actual)) {
+            return false;
+        }
         if (hasText(minimum) && compareNumericVersions(actual, minimum) < 0) {
             return false;
         }
