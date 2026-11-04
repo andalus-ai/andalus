@@ -44,7 +44,9 @@ public class NodeCapabilityCatalogService {
         if (existing != null && existing != provider) {
             throw new IllegalStateException("A node capability provider is already registered: " + providerId);
         }
-        catalogRevision.incrementAndGet();
+        if (existing == null) {
+            catalogRevision.incrementAndGet();
+        }
     }
 
     /** Removes an explicitly registered provider. CDI-discovered beans remain available. */
