@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import io.quarkus.arc.DefaultBean;
 import tech.kayys.andalus.coordination.CoordinationContext;
 import tech.kayys.andalus.coordination.CoordinationRequest;
 
@@ -16,6 +17,7 @@ import tech.kayys.andalus.coordination.CoordinationRequest;
  * multi-instance deployments still require durable shared storage and atomic CAS.
  */
 @ApplicationScoped
+@DefaultBean
 public class InMemoryAgentRuntimeStateProvider implements AgentRuntimeStateProvider {
     private final Map<Key, AgentRuntimeStateLease> leases = new ConcurrentHashMap<>();
     private final Clock clock;
