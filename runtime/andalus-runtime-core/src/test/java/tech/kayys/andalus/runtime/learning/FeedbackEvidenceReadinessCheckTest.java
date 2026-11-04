@@ -59,13 +59,16 @@ class FeedbackEvidenceReadinessCheckTest {
     }
 
     private void applyMigration(DataSource dataSource) throws Exception {
-        String resource = "/db/migration/V20261102_01__feedback_evidence_reservations.sql";
-        try (InputStream input = getClass().getResourceAsStream(resource)) {
-            assertThat(input).isNotNull();
-            String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-            try (Connection connection = dataSource.getConnection();
-                 Statement statement = connection.createStatement()) {
-                statement.execute(sql);
+        for (String resource : java.util.List.of(
+                "/db/migration/V20261102_01__feedback_evidence_reservations.sql",
+                "/db/migration/V20261102_02__admitted_feedback_ledger.sql")) {
+            try (InputStream input = getClass().getResourceAsStream(resource)) {
+                assertThat(input).isNotNull();
+                String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+                try (Connection connection = dataSource.getConnection();
+                     Statement statement = connection.createStatement()) {
+                    statement.execute(sql);
+                }
             }
         }
     }

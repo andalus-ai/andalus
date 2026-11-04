@@ -40,7 +40,7 @@ public class AgentRuntimeLifecycleLeaseObserver {
         switch (event.type()) {
             case STARTED, UNHEALTHY -> publish(event, false);
             case HEALTHY -> publish(event, true);
-            case STOPPED -> stateProvider.revoke(
+            case STOPPED -> stateProvider.revokeAtOrBeforeGeneration(
                     event.tenantId(), event.agentId(), event.ownerId(), event.generation());
         }
     }

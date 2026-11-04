@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import io.quarkus.arc.DefaultBean;
 import tech.kayys.andalus.coordination.CoordinationContext;
 import tech.kayys.andalus.coordination.CoordinationRequest;
 
@@ -16,6 +17,7 @@ import tech.kayys.andalus.coordination.CoordinationRequest;
  * multi-instance deployments still require durable shared storage and atomic CAS.
  */
 @ApplicationScoped
+@DefaultBean
 public class InMemoryAgentRuntimeStateProvider implements AgentRuntimeStateProvider {
     private final Map<Key, AgentRuntimeStateLease> leases = new ConcurrentHashMap<>();
     private final Clock clock;
@@ -70,6 +72,27 @@ public class InMemoryAgentRuntimeStateProvider implements AgentRuntimeStateProvi
         final boolean[] removed = {false};
         leases.computeIfPresent(key, (ignored, current) -> {
             if (current.generation() == generation && current.ownerId().equals(owner)) {
+                removed[0] = true;
+                return null;
+            }
+            return current;
+        });
+        return removed[0];
+    }
+
+    /**
+     * Removes the owner's state lease when its generation is not newer than the
+     * STOPPED event. This lets a stop transition use a fresh fencing generation,
+     * while delayed stop events cannot revoke a later transition or new owner.
+     */
+    public boolean revokeAtOrBeforeGeneration(
+            String tenantId, String agentId, String ownerId, long generation) {
+        Key key = new Key(requireText(tenantId, "tenantId"), requireText(agentId, "agentId"));
+        String owner = requireText(ownerId, "ownerId");
+        if (generation < 1) throw new IllegalArgumentException("generation must be positive");
+        final boolean[] removed = {false};
+        leases.computeIfPresent(key, (ignored, current) -> {
+            if (current.generation() <= generation && current.ownerId().equals(owner)) {
                 removed[0] = true;
                 return null;
             }

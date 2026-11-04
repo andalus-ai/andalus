@@ -40,8 +40,8 @@ public class FeedbackEvidenceReadinessCheck implements HealthCheck {
             return unavailable("datasource-not-configured");
         }
         try {
-            new JdbcFeedbackEvidenceStore(dataSource).verifySchema();
-            return HealthCheckResponse.named("feedback-evidence-store")
+            new JdbcAdmittedFeedbackLedger(dataSource).verifySchema();
+            return HealthCheckResponse.named("feedback-admitted-ledger")
                     .up()
                     .withData("backend", "jdbc")
                     .withData("schema", "available")
