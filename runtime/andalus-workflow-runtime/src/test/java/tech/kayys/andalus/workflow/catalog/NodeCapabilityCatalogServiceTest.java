@@ -71,6 +71,39 @@ class NodeCapabilityCatalogServiceTest {
     }
 
     @Test
+    void passesTrustedTenantContextToScopedProviders() {
+        NodeCapabilityCatalogService service = new NodeCapabilityCatalogService();
+        NodeTypeDescriptor tenantNode = descriptor("tenant.private", "Private", "tenant");
+        tenantNode.setProviderId("tenant-provider");
+        service.register(new NodeCapabilityProvider() {
+            @Override
+            public String getProviderId() {
+                return "tenant-provider";
+            }
+
+            @Override
+            public List<NodeTypeDescriptor> getNodeTypes() {
+                return List.of();
+            }
+
+            @Override
+            public List<NodeTypeDescriptor> getNodeTypes(CatalogAccessContext access) {
+                return "tenant-a".equals(access.tenantId()) ? List.of(tenantNode) : List.of();
+            }
+        });
+
+        CatalogAccessContext tenantA = new CatalogAccessContext(
+                "tenant-a", "user-a", Set.of(), Set.of(), "1.2.0");
+        CatalogAccessContext tenantB = new CatalogAccessContext(
+                "tenant-b", "user-b", Set.of(), Set.of(), "1.2.0");
+
+        assertThat(service.discover(null, tenantA).getNodeTypes())
+                .extracting(NodeTypeDescriptor::getTypeId)
+                .containsExactly("tenant.private");
+        assertThat(service.discover(null, tenantB).getNodeTypes()).isEmpty();
+    }
+
+    @Test
     void rejectsDuplicateProviderIdsAndInvalidDescriptors() {
         NodeCapabilityCatalogService service = new NodeCapabilityCatalogService();
         service.register(provider("core", descriptor("agent.first", "First", "agent")));
