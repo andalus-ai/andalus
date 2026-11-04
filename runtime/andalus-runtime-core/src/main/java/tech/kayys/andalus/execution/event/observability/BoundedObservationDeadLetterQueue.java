@@ -54,8 +54,21 @@ public final class BoundedObservationDeadLetterQueue {
         return queue.poll(timeout, Objects.requireNonNull(unit, "unit must not be null"));
     }
 
+    /** Current retained entries; safe to expose as a low-cardinality gauge value. */
     public int size() { return queue.size(); }
+
+    /** Configured maximum number of retained entries. */
     public int capacity() { return queue.size() + queue.remainingCapacity(); }
+
+    /** Remaining free slots. */
+    public int remainingCapacity() { return queue.remainingCapacity(); }
+
+    /** Current occupancy in [0.0, 1.0]. */
+    public double utilization() { return (double) size() / capacity(); }
+
+    /** Total entries successfully retained, including DROP_OLDEST replacements. */
     public long acceptedCount() { return accepted.sum(); }
+
+    /** Total entries discarded by either overflow policy. */
     public long droppedCount() { return dropped.sum(); }
 }
