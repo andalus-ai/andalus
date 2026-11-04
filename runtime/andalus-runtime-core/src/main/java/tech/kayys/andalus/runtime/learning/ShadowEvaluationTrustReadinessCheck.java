@@ -9,7 +9,7 @@ import org.eclipse.microprofile.health.Readiness;
 
 import javax.sql.DataSource;
 
-/** Readiness for the durable shadow trust registry and its mandatory cryptographic verifier. */
+/** Readiness for trust verification AND the mandatory OS-isolated evaluator execution boundary. */
 @Readiness
 @ApplicationScoped
 public class ShadowEvaluationTrustReadinessCheck implements HealthCheck {
@@ -17,6 +17,7 @@ public class ShadowEvaluationTrustReadinessCheck implements HealthCheck {
     @Inject Instance<ShadowEvaluationManifestVerifier> verifiers;
     @Inject Instance<ShadowEvaluationPublicKeyResolver> keyResolvers;
     @Inject Instance<ShadowEvaluationArtifactResolver> artifactResolvers;
+    @Inject Instance<ShadowEvaluationExecutionBoundary> executionBoundaries;
 
     @Override
     public HealthCheckResponse call() {
@@ -24,6 +25,13 @@ public class ShadowEvaluationTrustReadinessCheck implements HealthCheck {
         if (!unique(verifiers)) return down("manifest-verifier-not-configured-or-ambiguous");
         if (!unique(keyResolvers)) return down("public-key-resolver-not-configured-or-ambiguous");
         if (!unique(artifactResolvers)) return down("artifact-resolver-not-configured-or-ambiguous");
+        if (!unique(executionBoundaries)) return down("isolated-execution-boundary-not-configured-or-ambiguous");
+        ShadowEvaluationExecutionBoundary.IsolationLevel isolation =
+                executionBoundaries.get().isolationLevel();
+        if (isolation != ShadowEvaluationExecutionBoundary.IsolationLevel.CONTAINER
+                && isolation != ShadowEvaluationExecutionBoundary.IsolationLevel.MICRO_VM) {
+            return down("os-enforced-evaluator-isolation-required");
+        }
         try {
             new JdbcShadowEvaluationTrustRegistry(dataSources.get()).verifySchema();
             return HealthCheckResponse.named("shadow-evaluation-trust")
@@ -32,6 +40,7 @@ public class ShadowEvaluationTrustReadinessCheck implements HealthCheck {
                     .withData("verifier", "configured")
                     .withData("publicKeyResolver", "configured")
                     .withData("artifactResolver", "configured")
+                    .withData("executionIsolation", isolation.name())
                     .build();
         } catch (RuntimeException exception) {
             return down("schema-or-database-unavailable");
