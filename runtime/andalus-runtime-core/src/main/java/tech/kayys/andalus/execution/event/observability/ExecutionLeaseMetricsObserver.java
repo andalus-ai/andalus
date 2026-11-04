@@ -63,7 +63,7 @@ public class ExecutionLeaseMetricsObserver implements ExecutionLeaseObserver {
             }
             case RENEWAL_REJECTED -> {
                 renewalRejections.incrementAndGet();
-                heartbeatExecutions.computeIfPresent(observation.executionId(), (id, previous) -> now);
+                heartbeatExecutions.put(observation.executionId(), now);
                 recordCounter("renewals", "outcome", "rejected");
                 recordCounter("ownership.loss", "reason", "renewal_rejected");
             }
