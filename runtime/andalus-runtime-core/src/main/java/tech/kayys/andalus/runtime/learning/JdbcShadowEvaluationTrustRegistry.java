@@ -134,11 +134,12 @@ public final class JdbcShadowEvaluationTrustRegistry implements ShadowEvaluation
     public void registerDataset(ShadowEvaluationManifest.DatasetManifest manifest) {
         Objects.requireNonNull(manifest, "manifest"); verifySchema();
         try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
             requireActiveSigner(c, manifest.signerId());
             Optional<ShadowEvaluationManifest.DatasetManifest> existing =
                     findDataset(c, manifest.datasetId(), manifest.datasetVersion());
             if (existing.isPresent()) {
-                if (existing.get().equals(manifest)) return;
+                if (existing.get().equals(manifest)) { c.commit(); return; }
                 throw new IllegalStateException("dataset ID/version is already bound to a different manifest");
             }
             try (PreparedStatement q = c.prepareStatement("""
@@ -153,6 +154,7 @@ public final class JdbcShadowEvaluationTrustRegistry implements ShadowEvaluation
                 q.setString(7, manifest.signerId()); q.setString(8, manifest.signature());
                 q.setLong(9, Instant.now().toEpochMilli()); q.executeUpdate();
             }
+            c.commit();
         } catch (SQLException ex) {
             Optional<ShadowEvaluationManifest.DatasetManifest> concurrent =
                     findDataset(manifest.datasetId(), manifest.datasetVersion());
@@ -169,7 +171,7 @@ public final class JdbcShadowEvaluationTrustRegistry implements ShadowEvaluation
                     manifest.candidateId(), manifest.candidateVersion(), manifest.evaluatorId(),
                     manifest.evaluatorVersion(), manifest.configurationFingerprint());
             if (existing.isPresent()) {
-                if (existing.get().equals(manifest)) return;
+                if (existing.get().equals(manifest)) { c.commit(); return; }
                 throw new IllegalStateException("candidate/evaluator version is already bound to a different manifest");
             }
             try (PreparedStatement q = c.prepareStatement("""
@@ -187,6 +189,7 @@ public final class JdbcShadowEvaluationTrustRegistry implements ShadowEvaluation
                 q.setString(11, manifest.signature()); q.setLong(12, Instant.now().toEpochMilli());
                 q.executeUpdate();
             }
+            c.commit();
         } catch (SQLException ex) {
             Optional<ShadowEvaluationManifest.EvaluatorArtifactManifest> concurrent = findEvaluatorArtifact(
                     manifest.candidateId(), manifest.candidateVersion(), manifest.evaluatorId(),
@@ -258,10 +261,20 @@ public final class JdbcShadowEvaluationTrustRegistry implements ShadowEvaluation
     }
 
     private void requireActiveSigner(Connection c, String signerId) throws SQLException {
-        Signer signer = findSigner(c, signerId)
-                .orElseThrow(() -> new IllegalArgumentException("manifest signer is not registered"));
-        if (signer.status() != SignerStatus.ACTIVE)
-            throw new IllegalArgumentException("manifest signer is revoked");
+        // Hold the signer row lock until the manifest transaction commits. A concurrent revoke
+        // therefore linearizes either before registration (which is rejected) or after it
+        // (which immediately hides the newly registered manifest from lookups).
+        try (PreparedStatement q = c.prepareStatement("""
+                SELECT signer_status FROM andalus_shadow_trusted_signer
+                WHERE signer_id = ? FOR UPDATE
+                """)) {
+            q.setString(1, signerId);
+            try (ResultSet r = q.executeQuery()) {
+                if (!r.next()) throw new IllegalArgumentException("manifest signer is not registered");
+                if (SignerStatus.valueOf(r.getString(1)) != SignerStatus.ACTIVE)
+                    throw new IllegalArgumentException("manifest signer is revoked");
+            }
+        }
     }
 
     private static void required(String value, int max, String field) {
