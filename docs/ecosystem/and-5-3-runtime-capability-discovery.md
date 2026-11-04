@@ -15,7 +15,7 @@ Runtime discovery lives in `andalus-workflow-runtime`.
 
 ## Runtime contracts
 
-- `NodeCapabilityProvider` is the runtime extension point. A provider contributes a stable provider ID and a collection of framework `NodeTypeDescriptor` instances.
+- `NodeCapabilityProvider` is the runtime extension point. A provider contributes a stable provider ID and a collection of framework `NodeTypeDescriptor` instances. Its context-aware discovery hook receives the trusted access context so providers can apply tenant- or subject-specific availability rules.
 - `NodeCapabilityCatalogService` aggregates CDI-discovered providers and explicitly registered providers.
 - `NodeCapabilityCatalogQuery` supports text, category, and provider filters.
 - `CatalogAccessContext` carries tenant/subject identity, trusted permission grants, available runtime capabilities, and the runtime framework version.
