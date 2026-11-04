@@ -37,7 +37,7 @@ public class CoreNodeCapabilityProvider implements NodeCapabilityProvider {
 }
 ```
 
-The runtime service discovers CDI providers automatically. Infrastructure may also register/unregister providers explicitly; duplicate provider IDs are rejected. Catalog output is deterministic by category, display name, and type ID. Invalid or conflicting descriptors fail the catalog request rather than being silently omitted.
+The runtime service discovers CDI providers automatically. Every contributed node descriptor must declare the same non-empty provider ID as its provider. Infrastructure may also register/unregister providers explicitly; duplicate provider IDs are rejected. Catalog output is deterministic by category, display name, and type ID. Invalid or conflicting descriptors fail the catalog request rather than being silently omitted.
 
 ## Authorization boundary
 
