@@ -6,14 +6,18 @@ public enum ObservationDeliveryFailure {
     PERMANENT,
     UNKNOWN;
 
-    public static ObservationDeliveryFailure classify(RuntimeException failure) {
-        if (failure instanceof java.net.SocketTimeoutException
-                || failure instanceof java.io.IOException
-                || failure instanceof java.util.concurrent.TimeoutException) {
-            return TRANSIENT;
-        }
-        if (failure instanceof IllegalArgumentException || failure instanceof SecurityException) {
-            return PERMANENT;
+    /** Classifies the exception and its cause chain without depending on wrapper types. */
+    public static ObservationDeliveryFailure classify(Throwable failure) {
+        if (failure == null) return UNKNOWN;
+        for (Throwable current = failure; current != null && current != current.getCause(); current = current.getCause()) {
+            if (current instanceof java.io.IOException
+                    || current instanceof java.util.concurrent.TimeoutException
+                    || current instanceof java.net.SocketException) {
+                return TRANSIENT;
+            }
+            if (current instanceof IllegalArgumentException || current instanceof SecurityException) {
+                return PERMANENT;
+            }
         }
         return UNKNOWN;
     }
