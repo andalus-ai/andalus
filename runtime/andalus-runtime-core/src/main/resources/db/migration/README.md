@@ -143,8 +143,8 @@ the database cannot be reached, or either required migration is absent.
 The probe performs a read-only zero-row query; it never creates the table and
 does not expose database exception details in health output.
 
-Feedback reservation itself also fails closed: JDBC errors are surfaced as an
-exception and no in-memory fallback is selected. Deployments should require
+Feedback reservation itself also fails closed: JDBC errors are surfaced as
+an exception and no in-memory fallback is selected. Deployments should require
 this readiness check to be UP before routing feedback-admission traffic. The
 health check is an operational signal, not a replacement for deployment
 ordering or caller-side error handling.

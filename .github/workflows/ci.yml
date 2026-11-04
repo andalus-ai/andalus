@@ -25,6 +25,17 @@ jobs:
           java-version: "25"
           cache: maven
 
+      - name: Checkout Andalus Framework schema contracts
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/andalus-framework
+          path: _andalus-framework
+          ref: main
+
+      - name: Publish framework schema contracts to Maven Local
+        working-directory: _andalus-framework
+        run: ./mvnw -B -pl framework/andalus-schema-core -am install -DskipTests -q
+
       # Alkhawarizm is the former name of Aljabr. AQLI still discovers the
       # composite build using the historical repository/path identity.
       - name: Checkout Aljabr foundation (legacy Alkhawarizm repository)
@@ -44,10 +55,12 @@ jobs:
 
       # Keep only Tafkir modules needed to publish the quantizer SNAPSHOTs.
       # Diffusion APIs/OPD are outside this bootstrap and contain unresolved
-      # project dependencies. tafkir-nlp also references tafkir-ml-optimize,
-      # whose declared project directory is absent from the upstream checkout.
-      # These exclusions affect only this ephemeral CI checkout.
-      # Legacy aliases also require their implicit parent directories.
+      # project dependencies. Both Tafkir NLP aliases point to the same
+      # incomplete NLP module; exclude both aliases in this ephemeral checkout.
+      # Tafkir Learn API/trainer, examples, NLP, and diffusion modules are
+      # unrelated to quantizer SNAPSHOT publication and have unresolved
+      # project edges. Exclude their aliases only in this ephemeral checkout.
+      # Legacy quantizer aliases also require their implicit parent directory.
       - name: Isolate Tafkir quantizer projects for bootstrap
         working-directory: tafkir
         run: |
@@ -56,6 +69,13 @@ jobs:
           sed -i '/includeLegacyAlias("training:loop:tafkir-train-diffusion-opd",/d' settings.gradle.kts
           sed -i '/includeLegacyAlias("ml:tafkir-ml-diffusion-opd",/d' settings.gradle.kts
           sed -i '/includeLegacyAlias("nlp:core:tafkir-nlp",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("ml:tafkir-ml-nlp",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("training:api:tafkir-learn-api",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("ml:tafkir-ml-api",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("ecosystem:cli:tafkir-cli",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("ecosystem:examples:tafkir-train-examples",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("training:loop:tafkir-learn-trainer",/d' settings.gradle.kts
+          sed -i '/includeLegacyAlias("training:tafkir-learn-trainer",/d' settings.gradle.kts
           mkdir -p quantizer trainer
 
       # ── AQLI SPI/SDK Bootstrap ────────────────────────────────────────────
