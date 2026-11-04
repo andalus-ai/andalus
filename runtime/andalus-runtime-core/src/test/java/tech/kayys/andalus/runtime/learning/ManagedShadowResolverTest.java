@@ -50,5 +50,4 @@ class ManagedShadowResolverTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("symbolic links");
     }
-
 }

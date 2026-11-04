@@ -12,11 +12,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-/** Runtime boundary for fail-closed, advisory human-feedback admission. */
+/** Runtime boundary for fail-closed, durable, advisory human-feedback admission. */
 @ApplicationScoped
 public class FeedbackAdmissionService {
     private static final String STORE_UNAVAILABLE =
-            "durable feedback evidence store is unavailable";
+            "durable admitted-feedback ledger is unavailable";
 
     @Inject
     Instance<DataSource> dataSources;
@@ -47,13 +47,11 @@ public class FeedbackAdmissionService {
         if (dataSource == null) {
             return rejected();
         }
-        JdbcFeedbackEvidenceStore store = new JdbcFeedbackEvidenceStore(dataSource);
         try {
-            store.verifySchema();
-            return FeedbackAggregation.admitAndReserve(
-                    signal, trustPolicy,
-                    corroboratingSources == null ? Set.of() : Set.copyOf(corroboratingSources),
-                    store);
+            JdbcAdmittedFeedbackLedger ledger = new JdbcAdmittedFeedbackLedger(dataSource);
+            ledger.verifySchema();
+            return ledger.admit(signal, trustPolicy,
+                    corroboratingSources == null ? Set.of() : Set.copyOf(corroboratingSources));
         } catch (IllegalStateException exception) {
             return rejected();
         }
