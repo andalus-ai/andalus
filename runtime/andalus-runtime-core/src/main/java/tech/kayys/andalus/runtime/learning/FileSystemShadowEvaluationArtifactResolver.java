@@ -57,6 +57,8 @@ public final class FileSystemShadowEvaluationArtifactResolver implements ShadowE
             Evaluator evaluator = Objects.requireNonNull(loader.load(immutableReference, bytes),
                     "artifact loader returned no evaluator");
             return new ResolvedArtifact(new ByteArrayInputStream(bytes), evaluator);
+        } catch (RuntimeException ex) {
+            throw ex;
         } catch (IOException ex) {
             throw new IllegalStateException("unable to read immutable evaluator artifact", ex);
         } catch (Exception ex) {
