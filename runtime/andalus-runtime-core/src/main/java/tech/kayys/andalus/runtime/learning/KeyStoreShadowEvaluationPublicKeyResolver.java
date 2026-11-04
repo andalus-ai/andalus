@@ -27,7 +27,8 @@ public final class KeyStoreShadowEvaluationPublicKeyResolver implements ShadowEv
             Certificate certificate = keyStore.getCertificate(publicKeyReference);
             if (certificate == null) return Optional.empty();
             PublicKey key = certificate.getPublicKey();
-            if (!"Ed25519".equalsIgnoreCase(key.getAlgorithm())) return Optional.empty();
+            if (!"Ed25519".equalsIgnoreCase(key.getAlgorithm())
+                    && !"EdDSA".equalsIgnoreCase(key.getAlgorithm())) return Optional.empty();
             return Optional.of(key);
         } catch (Exception unavailable) {
             return Optional.empty();
