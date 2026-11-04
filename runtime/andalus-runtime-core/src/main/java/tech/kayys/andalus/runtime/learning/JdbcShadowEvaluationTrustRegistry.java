@@ -166,6 +166,7 @@ public final class JdbcShadowEvaluationTrustRegistry implements ShadowEvaluation
     public void registerEvaluatorArtifact(ShadowEvaluationManifest.EvaluatorArtifactManifest manifest) {
         Objects.requireNonNull(manifest, "manifest"); verifySchema();
         try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
             requireActiveSigner(c, manifest.signerId());
             Optional<ShadowEvaluationManifest.EvaluatorArtifactManifest> existing = findEvaluatorArtifact(c,
                     manifest.candidateId(), manifest.candidateVersion(), manifest.evaluatorId(),
