@@ -96,7 +96,6 @@ public final class ObservationDeadLetterConsumer {
         // Requeue only after the snapshot is fully processed to prevent tight loops.
         for (RequeuedEntry retry : retried) {
             if (queue.offerWithoutEviction(retry.deadLetter())) {
-                retry.markRequeued();
             } else {
                 retryRejected.add(retry.deadLetter());
             }
@@ -149,7 +148,6 @@ public final class ObservationDeadLetterConsumer {
             Objects.requireNonNull(deadLetter, "deadLetter must not be null");
             reason = reason == null ? "" : reason;
         }
-        private void markRequeued() { /* marker retained in result for source compatibility */ }
     }
 
     public record ParkedEntry(ObservationDeadLetter deadLetter, String reason) {
