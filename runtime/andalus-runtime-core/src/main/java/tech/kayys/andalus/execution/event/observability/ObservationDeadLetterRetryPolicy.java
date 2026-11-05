@@ -17,6 +17,7 @@ public final class ObservationDeadLetterRetryPolicy {
     private final Duration maxDelay;
     private final double multiplier;
     private final boolean retryUnknown;
+    private final ObservationRetryJitter jitter;
 
     public ObservationDeadLetterRetryPolicy(
             int maxRetries,
@@ -24,6 +25,13 @@ public final class ObservationDeadLetterRetryPolicy {
             Duration maxDelay,
             double multiplier,
             boolean retryUnknown) {
+        this(maxRetries, initialDelay, maxDelay, multiplier, retryUnknown, null);
+    }
+
+    /** Opt-in jitter; null preserves deterministic backoff. */
+    public ObservationDeadLetterRetryPolicy(
+            int maxRetries, Duration initialDelay, Duration maxDelay, double multiplier,
+            boolean retryUnknown, ObservationRetryJitter jitter) {
         if (maxRetries < 0) throw new IllegalArgumentException("maxRetries must not be negative");
         this.initialDelay = requirePositive(initialDelay, "initialDelay");
         this.maxDelay = requirePositive(maxDelay, "maxDelay");
@@ -36,6 +44,7 @@ public final class ObservationDeadLetterRetryPolicy {
         this.maxRetries = maxRetries;
         this.multiplier = multiplier;
         this.retryUnknown = retryUnknown;
+        this.jitter = jitter;
     }
 
     public Decision decide(ObservationDeadLetter deadLetter, int retryNumber) {
@@ -44,7 +53,9 @@ public final class ObservationDeadLetterRetryPolicy {
         if (retryNumber > maxRetries || !isRetryable(deadLetter.failureClass())) {
             return new Decision(false, retryNumber, Duration.ZERO);
         }
-        return new Decision(true, retryNumber, delayFor(retryNumber));
+        Duration delay = delayFor(retryNumber);
+        if (jitter != null) delay = jitter.apply(delay, maxDelay);
+        return new Decision(true, retryNumber, delay);
     }
 
     private boolean isRetryable(ObservationDeliveryFailure failureClass) {
