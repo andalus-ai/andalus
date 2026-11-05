@@ -73,7 +73,7 @@ public final class ObservationDeadLetterConsumer {
         requireDispositionHandler();
         List<ObservationDeadLetter> batch = queue.drain(maxItems);
         List<ObservationDeadLetter> acknowledged = new ArrayList<>();
-        List<RequeuedEntry> retried = new ArrayList<>();
+        List<RetryEntry> retried = new ArrayList<>();
         List<ObservationDeadLetter> retryRejected = new ArrayList<>();
         List<ParkedEntry> parked = new ArrayList<>();
         List<FailedEntry> failures = new ArrayList<>();
@@ -85,7 +85,7 @@ public final class ObservationDeadLetterConsumer {
                                 "disposition handler returned null");
                 switch (disposition.action()) {
                     case ACKNOWLEDGE -> acknowledged.add(deadLetter);
-                    case RETRY -> retried.add(new RequeuedEntry(deadLetter, disposition.reason()));
+                    case RETRY -> retried.add(new RetryEntry(deadLetter, disposition.reason()));
                     case PARK -> parked.add(new ParkedEntry(deadLetter, disposition.reason()));
                 }
             } catch (Exception failure) {
@@ -94,9 +94,8 @@ public final class ObservationDeadLetterConsumer {
         }
 
         // Requeue only after the snapshot is fully processed to prevent tight loops.
-        for (RequeuedEntry retry : retried) {
-            if (queue.offerWithoutEviction(retry.deadLetter())) {
-            } else {
+        for (RetryEntry retry : retried) {
+            if (!queue.offerWithoutEviction(retry.deadLetter())) {
                 retryRejected.add(retry.deadLetter());
             }
         }
@@ -143,8 +142,8 @@ public final class ObservationDeadLetterConsumer {
         public boolean successful() { return failures.isEmpty(); }
     }
 
-    public record RequeuedEntry(ObservationDeadLetter deadLetter, String reason) {
-        public RequeuedEntry {
+    public record RetryEntry(ObservationDeadLetter deadLetter, String reason) {
+        public RetryEntry {
             Objects.requireNonNull(deadLetter, "deadLetter must not be null");
             reason = reason == null ? "" : reason;
         }
@@ -160,7 +159,7 @@ public final class ObservationDeadLetterConsumer {
     public record DispositionBatchResult(
             int polled,
             List<ObservationDeadLetter> acknowledged,
-            List<RequeuedEntry> retryRequested,
+            List<RetryEntry> retryRequested,
             List<ObservationDeadLetter> retryRejected,
             List<ParkedEntry> parked,
             List<FailedEntry> failures) {
