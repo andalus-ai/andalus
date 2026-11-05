@@ -56,7 +56,6 @@ public final class BoundedObservationDeadLetterQueue {
         return queue.poll(timeout, Objects.requireNonNull(unit, "unit must not be null"));
     }
 
-    /** Current retained entries; safe to expose as a low-cardinality gauge value. */
     /**
      * Removes up to {@code maxItems} oldest letters without blocking.
      * The returned list is immutable and preserves queue order.
@@ -68,6 +67,7 @@ public final class BoundedObservationDeadLetterQueue {
         return List.copyOf(drained);
     }
 
+    /** Current retained entries; safe to expose as a low-cardinality gauge value. */
     public int size() { return queue.size(); }
 
     /** Configured maximum number of retained entries. */
