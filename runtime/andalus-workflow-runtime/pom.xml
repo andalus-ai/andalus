@@ -69,6 +69,16 @@
             <version>1.0.0-SNAPSHOT</version>
         </dependency>
 
+        <!-- Authenticated HTTP adapter for the workflow capability catalog. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest-jackson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-security</artifactId>
+        </dependency>
+
         <!-- CDI integration surface -->
         <dependency>
             <groupId>io.quarkus</groupId>
