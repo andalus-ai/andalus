@@ -46,6 +46,20 @@ public final class BoundedObservationDeadLetterQueue {
         return false;
     }
 
+    /**
+     * Re-retains an entry only when capacity is available, never evicting an
+     * existing entry. This is intended for consumer retry disposition.
+     */
+    public boolean offerWithoutEviction(ObservationDeadLetter deadLetter) {
+        Objects.requireNonNull(deadLetter, "deadLetter must not be null");
+        if (queue.offer(deadLetter)) {
+            accepted.increment();
+            return true;
+        }
+        dropped.increment();
+        return false;
+    }
+
     /** Retrieves and removes the oldest available dead-letter, or null immediately. */
     public ObservationDeadLetter poll() {
         return queue.poll();
