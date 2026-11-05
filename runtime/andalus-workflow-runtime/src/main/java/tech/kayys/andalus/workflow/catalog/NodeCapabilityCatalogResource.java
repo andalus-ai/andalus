@@ -62,8 +62,10 @@ public class NodeCapabilityCatalogResource {
         }
 
         CatalogAccessContext access = accessContextResolvers.get().resolve(securityIdentity);
-        if (access == null) {
-            throw new jakarta.ws.rs.ForbiddenException("No authorized catalog context is available");
+        if (access == null || access.tenantId() == null || access.tenantId().isBlank()
+                || access.subjectId() == null || access.subjectId().isBlank()) {
+            throw new jakarta.ws.rs.ForbiddenException(
+                    "A tenant-scoped subject context is required for catalog access");
         }
 
         NodeCapabilityCatalogQuery query = new NodeCapabilityCatalogQuery()
@@ -73,7 +75,7 @@ public class NodeCapabilityCatalogResource {
         NodeCapabilityCatalog snapshot = catalogService.discover(query, access);
         List<tech.kayys.andalus.schema.workflow.catalog.NodeTypeDescriptor> all = snapshot.getNodeTypes();
         int from = Math.min(offset, all.size());
-        int to = Math.min(from + limit, all.size());
+        int to = (int) Math.min((long) from + limit, all.size());
 
         return new NodeCapabilityCatalogPage(
                 snapshot.getCatalogVersion(),
