@@ -45,8 +45,7 @@ class ObservationDeadLetterConsumerTest {
         assertEquals(1, result.failed());
         assertSame(first, result.failures().get(0).deadLetter());
         assertInstanceOf(IllegalStateException.class, result.failures().get(0).cause());
-        assertThrows(UnsupportedOperationException.class,
-                () -> result.failures().clear());
+        assertThrows(UnsupportedOperationException.class, () -> result.failures().clear());
         assertEquals(0, queue.size());
     }
 
@@ -55,9 +54,7 @@ class ObservationDeadLetterConsumerTest {
         var queue = new BoundedObservationDeadLetterQueue(2,
                 BoundedObservationDeadLetterQueue.OverflowPolicy.DROP_NEWEST);
         var consumer = new ObservationDeadLetterConsumer(queue, ignored -> fail("no entry expected"));
-
         var result = consumer.consume(1);
-
         assertEquals(0, result.polled());
         assertEquals(0, result.handled());
         assertTrue(result.successful());
@@ -69,6 +66,71 @@ class ObservationDeadLetterConsumerTest {
                 BoundedObservationDeadLetterQueue.OverflowPolicy.DROP_NEWEST);
         var consumer = new ObservationDeadLetterConsumer(queue, ignored -> { });
         assertThrows(IllegalArgumentException.class, () -> consumer.consume(0));
+    }
+
+    @Test
+    void appliesAckRetryAndParkAndRequeuesOnlyAfterBatch() {
+        var ack = letter("ack");
+        var retry = letter("retry");
+        var park = letter("park");
+        var queue = new BoundedObservationDeadLetterQueue(4,
+                BoundedObservationDeadLetterQueue.OverflowPolicy.DROP_NEWEST);
+        queue.offer(ack);
+        queue.offer(retry);
+        queue.offer(park);
+        var consumer = ObservationDeadLetterConsumer.withDispositionHandler(queue, item -> {
+            assertEquals(0, queue.size(), "batch is drained before callbacks");
+            if (item == ack) return ObservationDeadLetterDisposition.acknowledge();
+            if (item == retry) return ObservationDeadLetterDisposition.retry("temporary");
+            return ObservationDeadLetterDisposition.park("manual review");
+        });
+
+        var result = consumer.consumeWithDisposition(3);
+
+        assertEquals(3, result.polled());
+        assertEquals(1, result.acknowledgedCount());
+        assertEquals(1, result.retryCount());
+        assertEquals(1, result.parkedCount());
+        assertEquals("temporary", result.retryRequested().get(0).reason());
+        assertEquals("manual review", result.parked().get(0).reason());
+        assertSame(retry, queue.poll());
+        assertEquals(0, queue.size());
+    }
+
+    @Test
+    void rejectedRetryDoesNotEvictExistingQueueEntry() {
+        var retry = letter("retry");
+        var existing = letter("existing");
+        var queue = new BoundedObservationDeadLetterQueue(1,
+                BoundedObservationDeadLetterQueue.OverflowPolicy.DROP_OLDEST);
+        queue.offer(retry);
+        // Drain the entry and fill the queue during handler execution.
+        var consumer = ObservationDeadLetterConsumer.withDispositionHandler(queue, item -> {
+            queue.offer(existing);
+            return ObservationDeadLetterDisposition.retry("again");
+        });
+
+        var result = consumer.consumeWithDisposition(1);
+
+        assertEquals(1, result.retryRejectedCount());
+        assertSame(existing, queue.poll());
+        assertEquals(1, queue.droppedCount());
+    }
+
+    @Test
+    void handlerFailureIsRequeuedWhenCapacityAllows() {
+        var failed = letter("failed");
+        var queue = new BoundedObservationDeadLetterQueue(2,
+                BoundedObservationDeadLetterQueue.OverflowPolicy.DROP_NEWEST);
+        queue.offer(failed);
+        var consumer = ObservationDeadLetterConsumer.withDispositionHandler(queue, item -> {
+            throw new IllegalStateException("handler failed");
+        });
+
+        var result = consumer.consumeWithDisposition(1);
+
+        assertEquals(1, result.failedCount());
+        assertSame(failed, queue.poll());
     }
 
     private static BoundedObservationDeadLetterQueue queueWith(String... ids) {
