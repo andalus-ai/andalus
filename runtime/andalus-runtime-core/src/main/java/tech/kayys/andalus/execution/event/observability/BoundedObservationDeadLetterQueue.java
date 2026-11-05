@@ -1,5 +1,7 @@
 package tech.kayys.andalus.execution.event.observability;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -55,6 +57,17 @@ public final class BoundedObservationDeadLetterQueue {
     }
 
     /** Current retained entries; safe to expose as a low-cardinality gauge value. */
+    /**
+     * Removes up to {@code maxItems} oldest letters without blocking.
+     * The returned list is immutable and preserves queue order.
+     */
+    public List<ObservationDeadLetter> drain(int maxItems) {
+        if (maxItems < 1) throw new IllegalArgumentException("maxItems must be greater than zero");
+        var drained = new ArrayList<ObservationDeadLetter>(Math.min(maxItems, queue.size()));
+        queue.drainTo(drained, maxItems);
+        return List.copyOf(drained);
+    }
+
     public int size() { return queue.size(); }
 
     /** Configured maximum number of retained entries. */
