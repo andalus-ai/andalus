@@ -7,6 +7,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 
 /**
@@ -28,6 +29,11 @@ public final class ObservationDeadLetterRetryScheduler implements AutoCloseable 
     private final Semaphore capacity;
     private final Consumer<RetryFailure> failureListener;
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final LongAdder scheduled = new LongAdder();
+    private final LongAdder notRetryable = new LongAdder();
+    private final LongAdder capacityRejected = new LongAdder();
+    private final LongAdder closedOutcomes = new LongAdder();
+    private final LongAdder handlerFailures = new LongAdder();
 
     /**
      * Creates a scheduler with a dedicated single-thread executor.
@@ -84,21 +90,26 @@ public final class ObservationDeadLetterRetryScheduler implements AutoCloseable 
 
         ObservationDeadLetterRetryPolicy.Decision decision = policy.decide(deadLetter, retryNumber);
         if (!decision.retry()) {
+            notRetryable.increment();
             return new ScheduleResult(ScheduleStatus.NOT_RETRYABLE, decision);
         }
         if (closed.get()) {
+            closedOutcomes.increment();
             return new ScheduleResult(ScheduleStatus.CLOSED, decision);
         }
         if (!capacity.tryAcquire()) {
+            capacityRejected.increment();
             return new ScheduleResult(ScheduleStatus.CAPACITY_REJECTED, decision);
         }
 
         try {
             executor.schedule(() -> execute(deadLetter, decision, handler),
                     decision.delay().toNanos(), TimeUnit.NANOSECONDS);
+            scheduled.increment();
             return new ScheduleResult(ScheduleStatus.SCHEDULED, decision);
         } catch (RejectedExecutionException rejected) {
             capacity.release();
+            if (closed.get()) closedOutcomes.increment(); else capacityRejected.increment();
             return new ScheduleResult(
                     closed.get() ? ScheduleStatus.CLOSED : ScheduleStatus.CAPACITY_REJECTED,
                     decision);
@@ -115,6 +126,7 @@ public final class ObservationDeadLetterRetryScheduler implements AutoCloseable 
         try {
             handler.handle(deadLetter);
         } catch (Exception failure) {
+            handlerFailures.increment();
             try {
                 failureListener.accept(new RetryFailure(deadLetter, decision.retryNumber(), failure));
             } catch (RuntimeException ignored) {
@@ -128,6 +140,13 @@ public final class ObservationDeadLetterRetryScheduler implements AutoCloseable 
     public int availableCapacity() {
         return capacity.availablePermits();
     }
+
+    /** Snapshot of scheduler outcome counters; values are weakly consistent under concurrency. */
+    public Metrics metrics() {
+        return new Metrics(scheduled.sum(), notRetryable.sum(), capacityRejected.sum(), closedOutcomes.sum(), handlerFailures.sum());
+    }
+
+    public record Metrics(long scheduled, long notRetryable, long capacityRejected, long closed, long handlerFailures) { }
 
     public boolean isClosed() {
         return closed.get();
