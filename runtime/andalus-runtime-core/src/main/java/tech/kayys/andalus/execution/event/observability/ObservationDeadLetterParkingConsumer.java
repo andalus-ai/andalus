@@ -4,19 +4,25 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Adapter that applies PARK dispositions to a parking store while preserving
- * the existing consumer API. Capacity failures are returned explicitly.
- */
+/** Applies PARK dispositions to the parking SPI and reports capacity failures. */
 public final class ObservationDeadLetterParkingConsumer {
     private final ObservationDeadLetterConsumer consumer;
     private final ObservationDeadLetterParkingStore store;
+    private final ObservationDeadLetterParkingMetrics metrics;
 
     public ObservationDeadLetterParkingConsumer(
             ObservationDeadLetterConsumer consumer,
             ObservationDeadLetterParkingStore store) {
+        this(consumer, store, new ObservationDeadLetterParkingMetrics());
+    }
+
+    public ObservationDeadLetterParkingConsumer(
+            ObservationDeadLetterConsumer consumer,
+            ObservationDeadLetterParkingStore store,
+            ObservationDeadLetterParkingMetrics metrics) {
         this.consumer = Objects.requireNonNull(consumer, "consumer must not be null");
         this.store = Objects.requireNonNull(store, "store must not be null");
+        this.metrics = Objects.requireNonNull(metrics, "metrics must not be null");
     }
 
     public ParkingBatchResult consume(int maxItems) {
@@ -25,10 +31,19 @@ public final class ObservationDeadLetterParkingConsumer {
         var rejected = new ArrayList<RejectedEntry>();
         for (var entry : batch.parked()) {
             var result = store.park(entry.deadLetter(), entry.reason());
-            if (result.stored()) stored.add(result.entry());
-            else rejected.add(new RejectedEntry(entry, result.status()));
+            if (result.stored()) {
+                stored.add(result.entry());
+                metrics.recordParkStored();
+            } else {
+                rejected.add(new RejectedEntry(entry, result.status()));
+                metrics.recordParkRejected();
+            }
         }
         return new ParkingBatchResult(batch, stored, rejected);
+    }
+
+    public ObservationDeadLetterParkingMetrics.Snapshot metrics() {
+        return metrics.snapshot(store.metrics());
     }
 
     public record RejectedEntry(
