@@ -1,40 +1,52 @@
 package tech.kayys.andalus.execution.event.observability;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 
 /**
- * Explicit, bounded recovery from parked observation dead-letters to the active
- * queue. The queue is populated before the parking record is removed; this
- * avoids losing an entry when the queue is full, at the cost of a brief
- * duplicate window. Callers should make downstream handling idempotent.
+ * Explicit recovery from parked dead-letters to the active queue. Queue-first
+ * transfer avoids loss on queue-capacity failure but can briefly duplicate.
  */
 public final class ObservationDeadLetterParkingRecovery {
     private final ObservationDeadLetterParkingStore store;
     private final BoundedObservationDeadLetterQueue queue;
+    private final ObservationDeadLetterParkingMetrics metrics;
 
     public ObservationDeadLetterParkingRecovery(
             ObservationDeadLetterParkingStore store,
             BoundedObservationDeadLetterQueue queue) {
+        this(store, queue, new ObservationDeadLetterParkingMetrics());
+    }
+
+    public ObservationDeadLetterParkingRecovery(
+            ObservationDeadLetterParkingStore store,
+            BoundedObservationDeadLetterQueue queue,
+            ObservationDeadLetterParkingMetrics metrics) {
         this.store = Objects.requireNonNull(store, "store must not be null");
         this.queue = Objects.requireNonNull(queue, "queue must not be null");
+        this.metrics = Objects.requireNonNull(metrics, "metrics must not be null");
     }
 
     public synchronized RecoveryResult recover(String parkingId) {
         var parked = store.find(requireId(parkingId));
-        if (parked.isEmpty()) return new RecoveryResult(Status.NOT_FOUND, null);
+        if (parked.isEmpty()) return record(new RecoveryResult(Status.NOT_FOUND, null));
         var entry = parked.get();
         if (!queue.offerWithoutEviction(entry.deadLetter())) {
-            return new RecoveryResult(Status.QUEUE_CAPACITY_REACHED, entry);
+            return record(new RecoveryResult(Status.QUEUE_CAPACITY_REACHED, entry));
         }
         var removed = store.remove(entry.parkingId());
         if (removed.isEmpty()) {
-            // Queue retention succeeded but another owner removed the park record.
-            // Report possible duplicate instead of claiming an atomic transfer.
-            return new RecoveryResult(Status.DUPLICATE_POSSIBLE, entry);
+            return record(new RecoveryResult(Status.DUPLICATE_POSSIBLE, entry));
         }
-        return new RecoveryResult(Status.REACTIVATED, removed.get());
+        return record(new RecoveryResult(Status.REACTIVATED, removed.get()));
+    }
+
+    public ObservationDeadLetterParkingMetrics.Snapshot metrics() {
+        return metrics.snapshot(store.metrics());
+    }
+
+    private RecoveryResult record(RecoveryResult result) {
+        metrics.recordRecovery(result.status());
+        return result;
     }
 
     private static String requireId(String id) {
