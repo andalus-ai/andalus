@@ -55,7 +55,9 @@ public final class ObservationDeadLetterParkingMetrics {
                     || recoveryDuplicatePossible < 0) {
                 throw new IllegalArgumentException("parking counters must not be negative");
             }
-            if (rejected != rejectedRequeued + rejectedUnretained) {\n                throw new IllegalArgumentException("rejected parks must be accounted as requeued or unretained");\n            }\n            if (store == null) throw new NullPointerException("store metrics must not be null");
+            if (rejected != rejectedRequeued + rejectedUnretained) {
+                throw new IllegalArgumentException("rejected parks must be accounted as requeued or unretained");
+            }\n            if (store == null) throw new NullPointerException("store metrics must not be null");
         }
     }
 }
