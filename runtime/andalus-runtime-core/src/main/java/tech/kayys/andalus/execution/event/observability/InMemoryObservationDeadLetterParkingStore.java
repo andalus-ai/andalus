@@ -104,6 +104,25 @@ public final class InMemoryObservationDeadLetterParkingStore
     }
 
     @Override
+    public synchronized Optional<RecoveryClaim> renew(RecoveryClaim claim, java.time.Duration leaseDuration) {
+        Objects.requireNonNull(claim, "claim must not be null");
+        Objects.requireNonNull(leaseDuration, "leaseDuration must not be null");
+        if (leaseDuration.isZero() || leaseDuration.isNegative())
+            throw new IllegalArgumentException("leaseDuration must be positive");
+        String id = requireId(claim.parkingId());
+        RecoveryClaim current = claims.get(id);
+        Instant now = Instant.now(clock);
+        if (current == null || !current.token().equals(claim.token())
+                || !current.leaseUntil().isAfter(now) || !entries.containsKey(id)) {
+            return Optional.empty();
+        }
+        RecoveryClaim renewed = new RecoveryClaim(id, current.token(), current.owner(),
+                now.plus(leaseDuration), current.entry());
+        claims.put(id, renewed);
+        return Optional.of(renewed);
+    }
+
+    @Override
     public synchronized Optional<ParkedObservationDeadLetter> complete(RecoveryClaim claim) {
         Objects.requireNonNull(claim, "claim must not be null");
         RecoveryClaim current = claims.get(requireId(claim.parkingId()));
