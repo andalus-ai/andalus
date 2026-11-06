@@ -3,6 +3,8 @@ package tech.kayys.andalus.execution.event.observability;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
@@ -18,7 +20,7 @@ import java.util.UUID;
  * provide persistence, cross-process coordination, or crash recovery.</p>
  */
 public final class InMemoryObservationDeadLetterParkingStore
-        implements ObservationDeadLetterParkingStore {
+        implements LeasedObservationDeadLetterParkingStore {
 
     private final int capacity;
     private final Clock clock;
@@ -26,6 +28,7 @@ public final class InMemoryObservationDeadLetterParkingStore
     private long parkedCount;
     private long rejectedCount;
     private long removedCount;
+    private final Map<String, RecoveryClaim> claims = new HashMap<>();
 
     public InMemoryObservationDeadLetterParkingStore(int capacity) {
         this(capacity, Clock.systemUTC());
@@ -77,6 +80,45 @@ public final class InMemoryObservationDeadLetterParkingStore
         ParkedObservationDeadLetter removed = entries.remove(requireId(parkingId));
         if (removed != null) removedCount++;
         return Optional.ofNullable(removed);
+    }
+
+    @Override
+    public synchronized ClaimResult claim(String parkingId, String owner, java.time.Duration leaseDuration) {
+        String id = requireId(parkingId);
+        if (owner == null || owner.isBlank()) throw new IllegalArgumentException("owner must not be blank");
+        Objects.requireNonNull(leaseDuration, "leaseDuration must not be null");
+        if (leaseDuration.isZero() || leaseDuration.isNegative())
+            throw new IllegalArgumentException("leaseDuration must be positive");
+        ParkedObservationDeadLetter entry = entries.get(id);
+        if (entry == null) return new ClaimResult(ClaimStatus.NOT_FOUND, null);
+        Instant now = Instant.now(clock);
+        RecoveryClaim existing = claims.get(id);
+        if (existing != null && existing.leaseUntil().isAfter(now)) {
+            return new ClaimResult(ClaimStatus.ALREADY_CLAIMED, existing);
+        }
+        RecoveryClaim claim = new RecoveryClaim(id, UUID.randomUUID().toString(), owner, now.plus(leaseDuration), entry);
+        claims.put(id, claim);
+        return new ClaimResult(ClaimStatus.CLAIMED, claim);
+    }
+
+    @Override
+    public synchronized Optional<ParkedObservationDeadLetter> complete(RecoveryClaim claim) {
+        Objects.requireNonNull(claim, "claim must not be null");
+        RecoveryClaim current = claims.get(requireId(claim.parkingId()));
+        if (current == null || !current.token().equals(claim.token())) return Optional.empty();
+        ParkedObservationDeadLetter removed = entries.remove(claim.parkingId());
+        claims.remove(claim.parkingId());
+        if (removed != null) removedCount++;
+        return Optional.ofNullable(removed);
+    }
+
+    @Override
+    public synchronized boolean release(RecoveryClaim claim) {
+        Objects.requireNonNull(claim, "claim must not be null");
+        RecoveryClaim current = claims.get(requireId(claim.parkingId()));
+        if (current == null || !current.token().equals(claim.token())) return false;
+        claims.remove(claim.parkingId());
+        return true;
     }
 
     @Override
