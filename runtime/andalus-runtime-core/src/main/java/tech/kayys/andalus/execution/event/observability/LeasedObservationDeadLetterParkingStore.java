@@ -24,8 +24,10 @@ public interface LeasedObservationDeadLetterParkingStore extends ObservationDead
     record ClaimResult(ClaimStatus status, RecoveryClaim claim) {
         public ClaimResult {
             Objects.requireNonNull(status, "status must not be null");
-            if ((status == ClaimStatus.CLAIMED || status == ClaimStatus.ALREADY_CLAIMED) && claim == null)
-                throw new IllegalArgumentException("claim status requires claim details");
+            if (status == ClaimStatus.CLAIMED && claim == null)
+                throw new IllegalArgumentException("claimed result requires claim details");
+            if (status != ClaimStatus.CLAIMED && claim != null)
+                throw new IllegalArgumentException("non-claimed result must not expose a claim token");
             if (status == ClaimStatus.NOT_FOUND && claim != null)
                 throw new IllegalArgumentException("not-found result must not contain a claim");
         }
