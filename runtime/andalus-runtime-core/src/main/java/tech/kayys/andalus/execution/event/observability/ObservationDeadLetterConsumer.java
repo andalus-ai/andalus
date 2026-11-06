@@ -44,6 +44,11 @@ public final class ObservationDeadLetterConsumer {
         return new ObservationDeadLetterConsumer(queue, handler);
     }
 
+    /** Retains an entry only if active queue capacity is available; never evicts. */
+    public boolean requeueWithoutEviction(ObservationDeadLetter deadLetter) {
+        return queue.offerWithoutEviction(deadLetter);
+    }
+
     /**
      * Legacy consumption contract: successful return counts as handled, while
      * exceptions are returned to the caller without automatic requeue.
@@ -93,7 +98,6 @@ public final class ObservationDeadLetterConsumer {
             }
         }
 
-        // Requeue only after the snapshot is fully processed to prevent tight loops.
         for (RetryEntry retry : retried) {
             if (!queue.offerWithoutEviction(retry.deadLetter())) {
                 retryRejected.add(retry.deadLetter());
