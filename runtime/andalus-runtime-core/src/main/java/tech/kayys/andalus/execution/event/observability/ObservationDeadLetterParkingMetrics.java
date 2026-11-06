@@ -10,6 +10,8 @@ import java.util.concurrent.atomic.LongAdder;
 public final class ObservationDeadLetterParkingMetrics {
     private final LongAdder stored = new LongAdder();
     private final LongAdder rejected = new LongAdder();
+    private final LongAdder rejectedRequeued = new LongAdder();
+    private final LongAdder rejectedUnretained = new LongAdder();
     private final LongAdder recoverySucceeded = new LongAdder();
     private final LongAdder recoveryNotFound = new LongAdder();
     private final LongAdder recoveryQueueFull = new LongAdder();
@@ -17,6 +19,8 @@ public final class ObservationDeadLetterParkingMetrics {
 
     void recordParkStored() { stored.increment(); }
     void recordParkRejected() { rejected.increment(); }
+    void recordParkRejectedRequeued() { rejectedRequeued.increment(); }
+    void recordParkRejectedUnretained() { rejectedUnretained.increment(); }
 
     void recordRecovery(ObservationDeadLetterParkingRecovery.Status status) {
         switch (status) {
@@ -28,7 +32,8 @@ public final class ObservationDeadLetterParkingMetrics {
     }
 
     public Snapshot snapshot(ObservationDeadLetterParkingStore.ParkingMetrics storeMetrics) {
-        return new Snapshot(stored.sum(), rejected.sum(), recoverySucceeded.sum(),
+        return new Snapshot(stored.sum(), rejected.sum(), rejectedRequeued.sum(),
+                rejectedUnretained.sum(), recoverySucceeded.sum(),
                 recoveryNotFound.sum(), recoveryQueueFull.sum(),
                 recoveryDuplicatePossible.sum(), storeMetrics);
     }
@@ -36,13 +41,16 @@ public final class ObservationDeadLetterParkingMetrics {
     public record Snapshot(
             long stored,
             long rejected,
+            long rejectedRequeued,
+            long rejectedUnretained,
             long recoverySucceeded,
             long recoveryNotFound,
             long recoveryQueueFull,
             long recoveryDuplicatePossible,
             ObservationDeadLetterParkingStore.ParkingMetrics store) {
         public Snapshot {
-            if (stored < 0 || rejected < 0 || recoverySucceeded < 0
+            if (stored < 0 || rejected < 0 || rejectedRequeued < 0
+                    || rejectedUnretained < 0 || recoverySucceeded < 0
                     || recoveryNotFound < 0 || recoveryQueueFull < 0
                     || recoveryDuplicatePossible < 0) {
                 throw new IllegalArgumentException("parking counters must not be negative");
