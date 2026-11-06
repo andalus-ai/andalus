@@ -1,6 +1,6 @@
 package tech.kayys.andalus.execution.event.observability;
 
-import java.util.Objects;
+import java.util.HashMap;\nimport java.util.Map;\nimport java.util.Objects;
 
 /**
  * Explicit recovery from parked dead-letters to the active queue. Queue-first
@@ -9,7 +9,7 @@ import java.util.Objects;
 public final class ObservationDeadLetterParkingRecovery {
     private final ObservationDeadLetterParkingStore store;
     private final BoundedObservationDeadLetterQueue queue;
-    private final ObservationDeadLetterParkingMetrics metrics;
+    private final ObservationDeadLetterParkingMetrics metrics;\n    // Prevent a second enqueue after this instance has observed an ambiguous removal.\n    private final Map<String, ParkedObservationDeadLetter> ambiguousRecoveries = new HashMap<>();
 
     public ObservationDeadLetterParkingRecovery(
             ObservationDeadLetterParkingStore store,
