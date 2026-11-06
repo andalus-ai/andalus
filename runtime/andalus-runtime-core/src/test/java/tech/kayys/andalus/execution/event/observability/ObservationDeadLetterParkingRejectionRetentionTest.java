@@ -13,15 +13,15 @@ class ObservationDeadLetterParkingRejectionRetentionTest {
     void parkingCapacityRejectionRequeuesWithoutEvictingExistingLetters() {
         var queue = new BoundedObservationDeadLetterQueue(2,
                 BoundedObservationDeadLetterQueue.OverflowPolicy.DROP_NEWEST);
-        var existing = letter("existing");
         var rejectedPark = letter("rejected-park");
-        queue.offer(existing);
+        var existing = letter("existing");
         queue.offer(rejectedPark);
+        queue.offer(existing);
 
         var store = new InMemoryObservationDeadLetterParkingStore(1);
         store.park(letter("already-parked"), "manual");
         var consumer = ObservationDeadLetterConsumer.withDispositionHandler(queue,
-                ignored -> ObservationDeadLetterDisposition.park("triage"));
+                ignored -> { queue.offer(letter("arrived-during-handler")); return ObservationDeadLetterDisposition.park("triage"); });
         var parking = new ObservationDeadLetterParkingConsumer(consumer, store);
 
         var result = parking.consume(1);
@@ -30,7 +30,7 @@ class ObservationDeadLetterParkingRejectionRetentionTest {
         assertEquals(1, result.requeuedCount());
         assertEquals(0, result.unretainedCount());
         assertSame(rejectedPark, result.requeued().get(0).deadLetter());
-        assertEquals(1, queue.size());
+        assertEquals(2, queue.size());
         assertSame(existing, queue.poll());
         assertSame(rejectedPark, queue.poll());
     }
@@ -39,9 +39,7 @@ class ObservationDeadLetterParkingRejectionRetentionTest {
     void reportsUnretainedWhenActiveQueueIsAlsoFull() {
         var queue = new BoundedObservationDeadLetterQueue(1,
                 BoundedObservationDeadLetterQueue.OverflowPolicy.DROP_NEWEST);
-        var existing = letter("existing");
         var rejectedPark = letter("rejected-park");
-        queue.offer(existing);
         queue.offer(rejectedPark);
 
         var store = new InMemoryObservationDeadLetterParkingStore(1);
