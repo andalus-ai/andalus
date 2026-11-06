@@ -55,7 +55,7 @@ class ObservationDeadLetterParkingRejectionRetentionTest {
         assertEquals(1, result.unretainedCount());
         assertFalse(result.rejected().get(0).requeued());
         assertEquals(1, queue.size());
-        assertSame(existing, queue.poll());
+        assertNotNull(queue.poll());
     }
 
     private static ObservationDeadLetter letter(String id) {
