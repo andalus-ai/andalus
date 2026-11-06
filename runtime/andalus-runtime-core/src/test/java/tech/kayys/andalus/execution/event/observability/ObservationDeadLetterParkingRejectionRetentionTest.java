@@ -45,7 +45,7 @@ class ObservationDeadLetterParkingRejectionRetentionTest {
         var store = new InMemoryObservationDeadLetterParkingStore(1);
         store.park(letter("already-parked"), "manual");
         var consumer = ObservationDeadLetterConsumer.withDispositionHandler(queue,
-                ignored -> ObservationDeadLetterDisposition.park("triage"));
+                ignored -> { queue.offer(letter("arrived-during-handler")); return ObservationDeadLetterDisposition.park("triage"); });
         var parking = new ObservationDeadLetterParkingConsumer(consumer, store);
 
         var result = parking.consume(1);
