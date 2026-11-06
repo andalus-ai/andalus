@@ -96,7 +96,7 @@ public final class InMemoryObservationDeadLetterParkingStore
         Instant now = Instant.now(clock);
         RecoveryClaim existing = claims.get(id);
         if (existing != null && existing.leaseUntil().isAfter(now)) {
-            return new ClaimResult(ClaimStatus.ALREADY_CLAIMED, existing);
+            return new ClaimResult(ClaimStatus.ALREADY_CLAIMED, null);
         }
         RecoveryClaim claim = new RecoveryClaim(id, UUID.randomUUID().toString(), owner, now.plus(leaseDuration), entry);
         claims.put(id, claim);
