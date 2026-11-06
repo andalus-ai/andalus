@@ -85,6 +85,28 @@ public final class ObservationDeadLetterParkingConsumer {
             if (requeued.size() + unretained.size() != rejected.size()) {
                 throw new IllegalArgumentException("each rejected park must be requeued or reported unretained");
             }
+            var requeuedSet = new java.util.HashSet<>(requeued);
+            var unretainedSet = new java.util.HashSet<>(unretained);
+            if (requeuedSet.size() != requeued.size() || unretainedSet.size() != unretained.size()) {
+                throw new IllegalArgumentException("requeue and unretained outcomes must not contain duplicates");
+            }
+            for (var entry : rejected) {
+                boolean wasRequeued = requeuedSet.contains(entry.entry());
+                boolean wasUnretained = unretainedSet.contains(entry.entry());
+                if (wasRequeued == wasUnretained || entry.requeued() != wasRequeued) {
+                    throw new IllegalArgumentException("each rejected entry must match exactly one reported outcome");
+                }
+            }
+            for (var entry : requeued) {
+                if (rejected.stream().noneMatch(rejection -> rejection.entry().equals(entry))) {
+                    throw new IllegalArgumentException("requeued entries must be present in rejected outcomes");
+                }
+            }
+            for (var entry : unretained) {
+                if (rejected.stream().noneMatch(rejection -> rejection.entry().equals(entry))) {
+                    throw new IllegalArgumentException("unretained entries must be present in rejected outcomes");
+                }
+            }
         }
         public int storedCount() { return stored.size(); }
         public int rejectedCount() { return rejected.size(); }
