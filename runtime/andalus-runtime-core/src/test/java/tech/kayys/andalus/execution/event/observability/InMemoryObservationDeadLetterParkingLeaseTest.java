@@ -23,7 +23,7 @@ class InMemoryObservationDeadLetterParkingLeaseTest {
 
         assertEquals(LeasedObservationDeadLetterParkingStore.ClaimStatus.CLAIMED, first.status());
         assertEquals(LeasedObservationDeadLetterParkingStore.ClaimStatus.ALREADY_CLAIMED, second.status());
-        assertEquals(first.claim().token(), second.claim().token());
+        assertNull(second.claim(), "a competing worker must not receive the active fencing token");
     }
 
     @Test
