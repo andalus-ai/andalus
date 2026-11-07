@@ -16,6 +16,8 @@ public final class ObservationDeadLetterParkingMetrics {
     private final LongAdder recoveryNotFound = new LongAdder();
     private final LongAdder recoveryQueueFull = new LongAdder();
     private final LongAdder recoveryDuplicatePossible = new LongAdder();
+    private final LongAdder recoveryInProgress = new LongAdder();
+    private final LongAdder recoveryLeaseLost = new LongAdder();
 
     void recordParkStored() { stored.increment(); }
     void recordParkRejected() { rejected.increment(); }
@@ -28,6 +30,8 @@ public final class ObservationDeadLetterParkingMetrics {
             case NOT_FOUND -> recoveryNotFound.increment();
             case QUEUE_CAPACITY_REACHED -> recoveryQueueFull.increment();
             case DUPLICATE_POSSIBLE -> recoveryDuplicatePossible.increment();
+            case RECOVERY_IN_PROGRESS -> recoveryInProgress.increment();
+            case LEASE_LOST -> recoveryLeaseLost.increment();
         }
     }
 
@@ -35,7 +39,8 @@ public final class ObservationDeadLetterParkingMetrics {
         return new Snapshot(stored.sum(), rejected.sum(), rejectedRequeued.sum(),
                 rejectedUnretained.sum(), recoverySucceeded.sum(),
                 recoveryNotFound.sum(), recoveryQueueFull.sum(),
-                recoveryDuplicatePossible.sum(), storeMetrics);
+                recoveryDuplicatePossible.sum(), recoveryInProgress.sum(),
+                recoveryLeaseLost.sum(), storeMetrics);
     }
 
     public record Snapshot(
@@ -47,17 +52,21 @@ public final class ObservationDeadLetterParkingMetrics {
             long recoveryNotFound,
             long recoveryQueueFull,
             long recoveryDuplicatePossible,
+            long recoveryInProgress,
+            long recoveryLeaseLost,
             ObservationDeadLetterParkingStore.ParkingMetrics store) {
         public Snapshot {
             if (stored < 0 || rejected < 0 || rejectedRequeued < 0
                     || rejectedUnretained < 0 || recoverySucceeded < 0
                     || recoveryNotFound < 0 || recoveryQueueFull < 0
-                    || recoveryDuplicatePossible < 0) {
+                    || recoveryDuplicatePossible < 0 || recoveryInProgress < 0
+                    || recoveryLeaseLost < 0) {
                 throw new IllegalArgumentException("parking counters must not be negative");
             }
             if (rejected != rejectedRequeued + rejectedUnretained) {
                 throw new IllegalArgumentException("rejected parks must be accounted as requeued or unretained");
-            }\n            if (store == null) throw new NullPointerException("store metrics must not be null");
+            }
+            if (store == null) throw new NullPointerException("store metrics must not be null");
         }
     }
 }

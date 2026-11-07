@@ -2,7 +2,9 @@ package tech.kayys.andalus.execution.event.observability;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.time.Duration;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Explicit recovery from parked dead-letters to the active queue. Queue-first
@@ -14,10 +16,14 @@ import java.util.Objects;
  * coordination in the parking-store implementation.</p>
  */
 public final class ObservationDeadLetterParkingRecovery {
+    private static final Duration DEFAULT_LEASE_DURATION = Duration.ofSeconds(30);
+
     private final ObservationDeadLetterParkingStore store;
     private final BoundedObservationDeadLetterQueue queue;
     private final ObservationDeadLetterParkingMetrics metrics;
     private final Map<String, ParkedObservationDeadLetter> ambiguousRecoveries = new HashMap<>();
+    private final String ownerId;
+    private final Duration leaseDuration;
 
     public ObservationDeadLetterParkingRecovery(
             ObservationDeadLetterParkingStore store,
@@ -29,9 +35,26 @@ public final class ObservationDeadLetterParkingRecovery {
             ObservationDeadLetterParkingStore store,
             BoundedObservationDeadLetterQueue queue,
             ObservationDeadLetterParkingMetrics metrics) {
+        this(store, queue, metrics, UUID.randomUUID().toString(), DEFAULT_LEASE_DURATION);
+    }
+
+    public ObservationDeadLetterParkingRecovery(
+            ObservationDeadLetterParkingStore store,
+            BoundedObservationDeadLetterQueue queue,
+            ObservationDeadLetterParkingMetrics metrics,
+            String ownerId,
+            Duration leaseDuration) {
         this.store = Objects.requireNonNull(store, "store must not be null");
         this.queue = Objects.requireNonNull(queue, "queue must not be null");
         this.metrics = Objects.requireNonNull(metrics, "metrics must not be null");
+        if (ownerId == null || ownerId.isBlank()) {
+            throw new IllegalArgumentException("ownerId must not be blank");
+        }
+        this.ownerId = ownerId;
+        this.leaseDuration = Objects.requireNonNull(leaseDuration, "leaseDuration must not be null");
+        if (leaseDuration.isZero() || leaseDuration.isNegative()) {
+            throw new IllegalArgumentException("leaseDuration must be positive");
+        }
     }
 
     public synchronized RecoveryResult recover(String parkingId) {
@@ -68,14 +91,28 @@ public final class ObservationDeadLetterParkingRecovery {
         return id;
     }
 
-    public enum Status { REACTIVATED, NOT_FOUND, QUEUE_CAPACITY_REACHED, DUPLICATE_POSSIBLE }
+    public enum Status {
+        REACTIVATED,
+        NOT_FOUND,
+        QUEUE_CAPACITY_REACHED,
+        DUPLICATE_POSSIBLE,
+        RECOVERY_IN_PROGRESS,
+        LEASE_LOST
+    }
 
     public record RecoveryResult(Status status, ParkedObservationDeadLetter entry) {
         public RecoveryResult {
             Objects.requireNonNull(status, "status must not be null");
-            if (status == Status.REACTIVATED && entry == null)
-                throw new IllegalArgumentException("reactivated result requires entry");
+            if ((status == Status.REACTIVATED || status == Status.QUEUE_CAPACITY_REACHED
+                    || status == Status.DUPLICATE_POSSIBLE || status == Status.LEASE_LOST)
+                    && entry == null) {
+                throw new IllegalArgumentException(status + " result requires entry");
+            }
+            if ((status == Status.NOT_FOUND || status == Status.RECOVERY_IN_PROGRESS) && entry != null) {
+                throw new IllegalArgumentException(status + " result must not expose an entry");
+            }
         }
+
         public boolean reactivated() { return status == Status.REACTIVATED; }
     }
 }
