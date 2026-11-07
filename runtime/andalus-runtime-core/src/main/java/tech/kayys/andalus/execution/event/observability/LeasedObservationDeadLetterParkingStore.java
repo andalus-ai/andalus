@@ -8,14 +8,15 @@ import java.util.Optional;
 /**
  * Optional parking-store capability for coordinating recovery across workers.
  *
- * <p>Implementations must make claim acquisition and completion atomic with
- * respect to other operations on the same parking ID. A claim token is a
- * fencing value: stale owners cannot complete or release a newer claim.
+ * <p>Implementations must make claim acquisition, renewal, completion, and
+ * release atomic with respect to other operations on the same parking ID.
+ * Claim tokens are fencing values: stale owners cannot mutate newer claims.
  * Durable implementations should persist claims and enforce token comparison
  * transactionally.</p>
  */
 public interface LeasedObservationDeadLetterParkingStore extends ObservationDeadLetterParkingStore {
     ClaimResult claim(String parkingId, String owner, Duration leaseDuration);
+    Optional<RecoveryClaim> renew(RecoveryClaim claim, Duration leaseDuration);
     Optional<ParkedObservationDeadLetter> complete(RecoveryClaim claim);
     boolean release(RecoveryClaim claim);
 
@@ -28,14 +29,12 @@ public interface LeasedObservationDeadLetterParkingStore extends ObservationDead
                 throw new IllegalArgumentException("claimed result requires claim details");
             if (status != ClaimStatus.CLAIMED && claim != null)
                 throw new IllegalArgumentException("non-claimed result must not expose a claim token");
-            if (status == ClaimStatus.NOT_FOUND && claim != null)
-                throw new IllegalArgumentException("not-found result must not contain a claim");
         }
         public boolean claimed() { return status == ClaimStatus.CLAIMED; }
     }
 
     record RecoveryClaim(String parkingId, String token, String owner, Instant leaseUntil,
-                         ParkedObservationDeadLetter entry) {
+                        ParkedObservationDeadLetter entry) {
         public RecoveryClaim {
             if (parkingId == null || parkingId.isBlank()) throw new IllegalArgumentException("parkingId must not be blank");
             if (token == null || token.isBlank()) throw new IllegalArgumentException("token must not be blank");
