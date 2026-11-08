@@ -63,7 +63,50 @@ public final class ObservationDeadLetterParkingRecovery {
         if (ambiguous != null) {
             return record(new RecoveryResult(Status.DUPLICATE_POSSIBLE, ambiguous));
         }
-        var parked = store.find(id);
+        return recoverLegacy(id);
+    }
+
+    private RecoveryResult recoverWithLease(
+            String parkingId,
+            LeasedObservationDeadLetterParkingStore leasedStore) {
+        var claimResult = leasedStore.claim(parkingId, ownerId, leaseDuration);
+        if (claimResult.status() == LeasedObservationDeadLetterParkingStore.ClaimStatus.NOT_FOUND) {
+            return record(new RecoveryResult(Status.NOT_FOUND, null));
+        }
+        if (claimResult.status() == LeasedObservationDeadLetterParkingStore.ClaimStatus.ALREADY_CLAIMED) {
+            return record(new RecoveryResult(Status.RECOVERY_IN_PROGRESS, null));
+        }
+
+        var claim = claimResult.claim();
+        var entry = claim.entry();
+
+        // Renew immediately before handing work to the queue. This is a
+        // bounded hand-off renewal, not a background lease heartbeat: long
+        // running processing belongs to the consumer after queue acceptance.
+        var renewedClaim = leasedStore.renew(claim, leaseDuration);
+        if (renewedClaim.isEmpty()) {
+            return record(new RecoveryResult(Status.LEASE_LOST, entry));
+        }
+        claim = renewedClaim.get();
+
+        if (!queue.offerWithoutEviction(entry.deadLetter())) {
+            if (!leasedStore.release(claim)) {
+                return record(new RecoveryResult(Status.LEASE_LOST, entry));
+            }
+            return record(new RecoveryResult(Status.QUEUE_CAPACITY_REACHED, entry));
+        }
+
+        var completed = leasedStore.complete(claim);
+        if (completed.isEmpty()) {
+            // The queue has accepted the entry, but ownership expired or was
+            // replaced before the store could atomically remove the parked copy.
+            return record(new RecoveryResult(Status.DUPLICATE_POSSIBLE, entry));
+        }
+        return record(new RecoveryResult(Status.REACTIVATED, completed.get()));
+    }
+
+    private RecoveryResult recoverLegacy(String parkingId) {
+        var parked = store.find(parkingId);
         if (parked.isEmpty()) return record(new RecoveryResult(Status.NOT_FOUND, null));
         var entry = parked.get();
         if (!queue.offerWithoutEviction(entry.deadLetter())) {
