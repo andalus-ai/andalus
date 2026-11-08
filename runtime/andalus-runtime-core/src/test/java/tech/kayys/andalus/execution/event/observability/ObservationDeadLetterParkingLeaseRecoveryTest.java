@@ -6,6 +6,8 @@ import tech.kayys.andalus.observability.ObservationEvent;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
+import java.lang.reflect.Proxy;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -67,6 +69,38 @@ class ObservationDeadLetterParkingLeaseRecoveryTest {
         assertTrue(store.claim(parked.parkingId(), "worker-b", Duration.ofSeconds(30)).claimed(),
                 "queue-capacity failure must release the recovery lease");
         assertEquals(1, recovery.metrics().recoveryQueueFull());
+    }
+
+    @Test
+    void stopsBeforeQueueHandoffWhenLeaseRenewalIsRejected() {
+        var delegate = new InMemoryObservationDeadLetterParkingStore(4);
+        var parked = delegate.park(letter("renewal-rejected"), "test").entry();
+        LeasedObservationDeadLetterParkingStore rejectingRenewal =
+                (LeasedObservationDeadLetterParkingStore) Proxy.newProxyInstance(
+                        LeasedObservationDeadLetterParkingStore.class.getClassLoader(),
+                        new Class<?>[]{LeasedObservationDeadLetterParkingStore.class},
+                        (proxy, method, args) -> {
+                            if (method.getName().equals("renew")) return Optional.empty();
+                            try {
+                                return method.invoke(delegate, args);
+                            } catch (java.lang.reflect.InvocationTargetException exception) {
+                                throw exception.getCause();
+                            }
+                        });
+        var queue = new BoundedObservationDeadLetterQueue(2,
+                BoundedObservationDeadLetterQueue.OverflowPolicy.DROP_NEWEST);
+        var recovery = new ObservationDeadLetterParkingRecovery(
+                rejectingRenewal, queue, new ObservationDeadLetterParkingMetrics(),
+                "worker-a", Duration.ofSeconds(30));
+
+        var result = recovery.recover(parked.parkingId());
+
+        assertEquals(ObservationDeadLetterParkingRecovery.Status.LEASE_LOST, result.status());
+        assertEquals(parked, result.entry());
+        assertEquals(0, queue.size(), "must not enqueue after losing the lease");
+        assertTrue(delegate.find(parked.parkingId()).isPresent(),
+                "failed renewal must leave the parked entry available for later recovery");
+        assertEquals(1, recovery.metrics().recoveryLeaseLost());
     }
 
     @Test
