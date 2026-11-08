@@ -3,10 +3,13 @@ package tech.kayys.andalus.execution.event.observability;
 import org.junit.jupiter.api.Test;
 import tech.kayys.andalus.observability.ObservationEvent;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.lang.reflect.Proxy;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -104,6 +107,52 @@ class ObservationDeadLetterParkingLeaseRecoveryTest {
     }
 
     @Test
+    void reportsDuplicateRiskWhenLeaseIsTakenOverBeforeCompletion() {
+        var clock = new MutableClock(Instant.parse("2026-11-08T10:00:00Z"));
+        var delegate = new InMemoryObservationDeadLetterParkingStore(4, clock);
+        var parked = delegate.park(letter("takeover-race"), "test").entry();
+        var successorClaim = new AtomicReference<LeasedObservationDeadLetterParkingStore.RecoveryClaim>();
+        LeasedObservationDeadLetterParkingStore takeoverDuringCompletion =
+                (LeasedObservationDeadLetterParkingStore) Proxy.newProxyInstance(
+                        LeasedObservationDeadLetterParkingStore.class.getClassLoader(),
+                        new Class<?>[]{LeasedObservationDeadLetterParkingStore.class},
+                        (proxy, method, args) -> {
+                            if (method.getName().equals("complete")) {
+                                // Simulate a stalled hand-off: the renewed lease expires,
+                                // another worker takes ownership, then the stale worker completes.
+                                clock.advance(Duration.ofSeconds(31));
+                                var takeover = delegate.claim(
+                                        parked.parkingId(), "worker-b", Duration.ofSeconds(30));
+                                assertTrue(takeover.claimed());
+                                successorClaim.set(takeover.claim());
+                            }
+                            try {
+                                return method.invoke(delegate, args);
+                            } catch (java.lang.reflect.InvocationTargetException exception) {
+                                throw exception.getCause();
+                            }
+                        });
+        var queue = new BoundedObservationDeadLetterQueue(2,
+                BoundedObservationDeadLetterQueue.OverflowPolicy.DROP_NEWEST);
+        var recovery = new ObservationDeadLetterParkingRecovery(
+                takeoverDuringCompletion, queue, new ObservationDeadLetterParkingMetrics(),
+                "worker-a", Duration.ofSeconds(30));
+
+        var result = recovery.recover(parked.parkingId());
+
+        assertEquals(ObservationDeadLetterParkingRecovery.Status.DUPLICATE_POSSIBLE, result.status());
+        assertEquals(parked, result.entry());
+        assertEquals(1, queue.size(), "the first worker already handed the item to the queue");
+        assertTrue(delegate.find(parked.parkingId()).isPresent(),
+                "the stale worker must not remove the parked copy owned by the successor");
+        assertEquals(1, recovery.metrics().recoveryDuplicatePossible());
+
+        assertEquals(parked, delegate.complete(successorClaim.get()).orElseThrow(),
+                "the current owner must still be able to complete the parked entry");
+        assertTrue(delegate.find(parked.parkingId()).isEmpty());
+    }
+
+    @Test
     void validatesExplicitLeaseConfiguration() {
         var store = new InMemoryObservationDeadLetterParkingStore(1);
         var queue = new BoundedObservationDeadLetterQueue(1,
@@ -123,3 +172,30 @@ class ObservationDeadLetterParkingLeaseRecoveryTest {
                 IllegalStateException.class.getName(), Instant.parse("2026-11-06T10:00:01Z"));
     }
 }
+
+    private static final class MutableClock extends Clock {
+        private Instant instant;
+
+        private MutableClock(Instant instant) {
+            this.instant = instant;
+        }
+
+        void advance(Duration duration) {
+            instant = instant.plus(duration);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneId.of("UTC");
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
+    }
