@@ -73,6 +73,16 @@ public final class ObservationDeadLetterParkingRecovery {
 
         var claim = claimResult.claim();
         var entry = claim.entry();
+
+        // Renew immediately before handing work to the queue. This is a
+        // bounded hand-off renewal, not a background lease heartbeat: long
+        // running processing belongs to the consumer after queue acceptance.
+        var renewedClaim = leasedStore.renew(claim, leaseDuration);
+        if (renewedClaim.isEmpty()) {
+            return record(new RecoveryResult(Status.LEASE_LOST, entry));
+        }
+        claim = renewedClaim.get();
+
         if (!queue.offerWithoutEviction(entry.deadLetter())) {
             if (!leasedStore.release(claim)) {
                 return record(new RecoveryResult(Status.LEASE_LOST, entry));
