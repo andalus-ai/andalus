@@ -8,11 +8,19 @@ import java.util.Optional;
 /**
  * Optional parking-store capability for coordinating recovery across workers.
  *
- * <p>Implementations must make claim acquisition, renewal, completion, and
- * release atomic with respect to other operations on the same parking ID.
- * Claim tokens are fencing values: stale owners cannot mutate newer claims.
- * Durable implementations should persist claims and enforce token comparison
- * transactionally.</p>
+ * <p>Implementations must make claim acquisition, renewal, completion, release,
+ * and ordinary removal atomic with respect to other operations on the same
+ * parking ID. A successful claim grants one owner a lease until its absolute
+ * {@code leaseUntil} instant. A claim whose lease has expired is eligible for
+ * takeover; a live claim is not.</p>
+ *
+ * <p>The opaque claim token is a fencing value. Renewal preserves the token but
+ * returns the current lease value; callers must use that returned claim for
+ * subsequent mutations. Completion and release must reject expired claims and
+ * claims whose token is no longer current. Removing an entry must invalidate
+ * any outstanding claim. Durable adapters must enforce these rules atomically
+ * (typically with a transaction or conditional update), not with a read-then-write
+ * sequence.</p>
  */
 public interface LeasedObservationDeadLetterParkingStore extends ObservationDeadLetterParkingStore {
     ClaimResult claim(String parkingId, String owner, Duration leaseDuration);

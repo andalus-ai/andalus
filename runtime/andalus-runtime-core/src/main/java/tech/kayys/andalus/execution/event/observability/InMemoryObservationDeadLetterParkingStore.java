@@ -113,6 +113,7 @@ public final class InMemoryObservationDeadLetterParkingStore
         RecoveryClaim current = claims.get(id);
         Instant now = Instant.now(clock);
         if (current == null || !current.token().equals(claim.token())
+                || !current.leaseUntil().equals(claim.leaseUntil())
                 || !current.leaseUntil().isAfter(now) || !entries.containsKey(id)) {
             return Optional.empty();
         }
@@ -126,7 +127,9 @@ public final class InMemoryObservationDeadLetterParkingStore
     public synchronized Optional<ParkedObservationDeadLetter> complete(RecoveryClaim claim) {
         Objects.requireNonNull(claim, "claim must not be null");
         RecoveryClaim current = claims.get(requireId(claim.parkingId()));
-        if (current == null || !current.token().equals(claim.token()) || !current.leaseUntil().isAfter(Instant.now(clock))) return Optional.empty();
+        if (current == null || !current.token().equals(claim.token())
+                || !current.leaseUntil().equals(claim.leaseUntil())
+                || !current.leaseUntil().isAfter(Instant.now(clock))) return Optional.empty();
         ParkedObservationDeadLetter removed = entries.remove(claim.parkingId());
         claims.remove(claim.parkingId());
         if (removed != null) removedCount++;
@@ -137,7 +140,9 @@ public final class InMemoryObservationDeadLetterParkingStore
     public synchronized boolean release(RecoveryClaim claim) {
         Objects.requireNonNull(claim, "claim must not be null");
         RecoveryClaim current = claims.get(requireId(claim.parkingId()));
-        if (current == null || !current.token().equals(claim.token()) || !current.leaseUntil().isAfter(Instant.now(clock))) return false;
+        if (current == null || !current.token().equals(claim.token())
+                || !current.leaseUntil().equals(claim.leaseUntil())
+                || !current.leaseUntil().isAfter(Instant.now(clock))) return false;
         claims.remove(claim.parkingId());
         return true;
     }
