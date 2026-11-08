@@ -1,15 +1,19 @@
 package tech.kayys.andalus.execution.event.observability;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Explicit recovery from parked dead-letters to the active queue.
+ * Explicit recovery from parked dead-letters to the active queue. Queue-first
+ * transfer avoids loss on queue-capacity failure but can briefly duplicate.
  *
- * <p>When the parking store supports leases, recovery claims the entry before
- * queue insertion and completes the claim only after insertion succeeds.
- * Legacy stores retain the original queue-first/remove behavior.</p>
+ * <p>When removal cannot be confirmed, this instance remembers the ambiguous
+ * result and suppresses repeat enqueue attempts for that parking ID. This is
+ * process-local protection only; durable or cross-instance idempotency requires
+ * coordination in the parking-store implementation.</p>
  */
 public final class ObservationDeadLetterParkingRecovery {
     private static final Duration DEFAULT_LEASE_DURATION = Duration.ofSeconds(30);
@@ -17,6 +21,7 @@ public final class ObservationDeadLetterParkingRecovery {
     private final ObservationDeadLetterParkingStore store;
     private final BoundedObservationDeadLetterQueue queue;
     private final ObservationDeadLetterParkingMetrics metrics;
+    private final Map<String, ParkedObservationDeadLetter> ambiguousRecoveries = new HashMap<>();
     private final String ownerId;
     private final Duration leaseDuration;
 
@@ -53,9 +58,10 @@ public final class ObservationDeadLetterParkingRecovery {
     }
 
     public synchronized RecoveryResult recover(String parkingId) {
-        String id = requireId(parkingId);
-        if (store instanceof LeasedObservationDeadLetterParkingStore leasedStore) {
-            return recoverWithLease(id, leasedStore);
+        var id = requireId(parkingId);
+        var ambiguous = ambiguousRecoveries.get(id);
+        if (ambiguous != null) {
+            return record(new RecoveryResult(Status.DUPLICATE_POSSIBLE, ambiguous));
         }
         return recoverLegacy(id);
     }
@@ -108,6 +114,7 @@ public final class ObservationDeadLetterParkingRecovery {
         }
         var removed = store.remove(entry.parkingId());
         if (removed.isEmpty()) {
+            ambiguousRecoveries.put(entry.parkingId(), entry);
             return record(new RecoveryResult(Status.DUPLICATE_POSSIBLE, entry));
         }
         return record(new RecoveryResult(Status.REACTIVATED, removed.get()));
