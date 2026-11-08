@@ -171,7 +171,6 @@ class ObservationDeadLetterParkingLeaseRecoveryTest {
         return new ObservationDeadLetter(event, 1, ObservationDeliveryFailure.UNKNOWN,
                 IllegalStateException.class.getName(), Instant.parse("2026-11-06T10:00:01Z"));
     }
-}
 
     private static final class MutableClock extends Clock {
         private Instant instant;
@@ -199,3 +198,4 @@ class ObservationDeadLetterParkingLeaseRecoveryTest {
             return instant;
         }
     }
+}
