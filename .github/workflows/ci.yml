@@ -92,6 +92,11 @@ jobs:
         working-directory: _aqli
         run: mkdir -p framework/tokenizer
 
+      - name: Setup Gradle 9.4.0
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.4.0"
+
       - name: Cache Gradle packages (aqli)
         uses: actions/cache@v4
         with:
@@ -119,7 +124,37 @@ jobs:
             :sdk:aqli-sdk:publishToMavenLocal
             :sdk:aqli-sdk-local:publishToMavenLocal
           )
-          ./gradlew "${TASKS[@]}" --no-daemon --configure-on-demand -x test --parallel
+          gradle "${TASKS[@]}" --no-daemon --configure-on-demand -x test --parallel
+
+
+      - name: Checkout gamelan (OpenAI provider embedding dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/gamelan
+          path: gamelan
+          ref: main
+
+      - name: Publish Gamelan SPI and executor SDK to Maven Local
+        working-directory: gamelan
+        env:
+          GRADLE_OPTS: "-Xmx2G -Dorg.gradle.daemon=false"
+        run: |
+          gradle \
+            :gamelan-engine-spi:publishToMavenLocal \
+            :gamelan-plugin-spi:publishToMavenLocal \
+            :gamelan-sdk-executor-core:publishToMavenLocal \
+            --no-daemon -x test --parallel \
+            -Pgamelan.publish.enabled=true \
+            -Pgamelan.version=1.0.0-SNAPSHOT
+
+      - name: Publish Andalus Framework provider dependencies to Maven Local
+        working-directory: _andalus-framework
+        run: >-
+          ./mvnw -B -ntp
+          -f framework/pom.xml
+          -pl andalus-embedding,andalus-provider
+          -am install
+          -Dmaven.test.skip=true
 
       - name: Build and Test (all modules)
         run: ./mvnw clean verify -DskipTests=false -Pci -q
