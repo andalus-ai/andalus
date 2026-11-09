@@ -242,31 +242,45 @@ public class OpenAiCloudProvider implements InferenceProvider {
     OpenAIRequest convertToOpenAiRequest(CompletionRequest request, boolean streaming) {
         OpenAIRequest openAiRequest = new OpenAIRequest();
         openAiRequest.setModel(request.model());
-        
+
         if (request.messages() != null) {
             List<OpenAIMessage> messages = request.messages().stream()
                     .map(this::convertToOpenAiMessage)
                     .collect(Collectors.toList());
             openAiRequest.setMessages(messages);
         }
-        
+
+        boolean reasoningModel = isReasoningModel(request.model());
         Map<String, Object> params = request.parameters();
+        int outputTokenLimit = request.maxTokens();
+
         if (params != null) {
-            if (params.containsKey("temperature")) {
+            if (!reasoningModel && params.containsKey("temperature")) {
                 openAiRequest.setTemperature(((Number) params.get("temperature")).doubleValue());
             }
-            if (params.containsKey("max_tokens")) {
-                openAiRequest.setMaxTokens(((Number) params.get("max_tokens")).intValue());
-            }
-            if (params.containsKey("top_p")) {
+            if (!reasoningModel && params.containsKey("top_p")) {
                 openAiRequest.setTopP(((Number) params.get("top_p")).doubleValue());
             }
-        } else {
+            if (params.containsKey("max_completion_tokens")) {
+                openAiRequest.setMaxCompletionTokens(((Number) params.get("max_completion_tokens")).intValue());
+            } else if (params.containsKey("max_tokens")) {
+                outputTokenLimit = ((Number) params.get("max_tokens")).intValue();
+            }
+        } else if (!reasoningModel) {
             openAiRequest.setTemperature(request.temperature());
-            openAiRequest.setMaxTokens(request.maxTokens());
             openAiRequest.setTopP(request.topP());
         }
-        
+
+        if (reasoningModel) {
+            if (openAiRequest.getMaxCompletionTokens() == null) {
+                int reasoningBudget = metadataInteger(
+                        request.metadata(), "andalus.reasoningTokenBudget");
+                openAiRequest.setMaxCompletionTokens(saturatingTokenSum(outputTokenLimit, reasoningBudget));
+            }
+        } else if (openAiRequest.getMaxTokens() == null) {
+            openAiRequest.setMaxTokens(outputTokenLimit);
+        }
+
         if ("json_object".equalsIgnoreCase(request.responseFormat())) {
             openAiRequest.setResponseFormat(new OpenAIResponseFormat("json_object"));
         }
@@ -274,9 +288,39 @@ public class OpenAiCloudProvider implements InferenceProvider {
         if (request.stopSequences() != null && !request.stopSequences().isEmpty()) {
             openAiRequest.setStop(request.stopSequences());
         }
-        
+
         openAiRequest.setStream(streaming);
         return openAiRequest;
+    }
+
+    private boolean isReasoningModel(String modelId) {
+        if (modelId == null) {
+            return false;
+        }
+        String normalized = modelId.toLowerCase(Locale.ROOT);
+        int separator = normalized.lastIndexOf('/');
+        if (separator >= 0) {
+            normalized = normalized.substring(separator + 1);
+        }
+        return normalized.startsWith("o1")
+                || normalized.startsWith("o3")
+                || normalized.startsWith("o4");
+    }
+
+    private int metadataInteger(Map<String, Object> metadata, String key) {
+        if (metadata == null) {
+            return 0;
+        }
+        Object value = metadata.get(key);
+        if (!(value instanceof Number number)) {
+            return 0;
+        }
+        return Math.max(0, Math.min(number.intValue(), Integer.MAX_VALUE));
+    }
+
+    private int saturatingTokenSum(int outputTokens, int reasoningTokens) {
+        long total = Math.max(0L, (long) outputTokens) + Math.max(0L, (long) reasoningTokens);
+        return (int) Math.min(total, Integer.MAX_VALUE);
     }
 
     private OpenAIMessage convertToOpenAiMessage(Message message) {
