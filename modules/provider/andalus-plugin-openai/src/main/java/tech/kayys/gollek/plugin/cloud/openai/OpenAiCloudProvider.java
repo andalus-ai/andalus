@@ -304,7 +304,8 @@ public class OpenAiCloudProvider implements InferenceProvider {
         }
         return normalized.startsWith("o1")
                 || normalized.startsWith("o3")
-                || normalized.startsWith("o4");
+                || normalized.startsWith("o4")
+                || normalized.startsWith("gpt-5");
     }
 
     private int metadataInteger(Map<String, Object> metadata, String key) {
@@ -315,7 +316,7 @@ public class OpenAiCloudProvider implements InferenceProvider {
         if (!(value instanceof Number number)) {
             return 0;
         }
-        return Math.max(0, Math.min(number.intValue(), Integer.MAX_VALUE));
+        return (int) Math.min(Math.max(0L, number.longValue()), Integer.MAX_VALUE);
     }
 
     private int saturatingTokenSum(int outputTokens, int reasoningTokens) {
