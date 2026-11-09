@@ -36,78 +36,38 @@ jobs:
         working-directory: _andalus-framework
         run: ./mvnw -B -pl framework/andalus-schema-core -am install -DskipTests -q
 
-      # Alkhawarizm is the former name of Aljabr. AQLI still discovers the
-      # composite build using the historical repository/path identity.
-      - name: Checkout Aljabr foundation (legacy Alkhawarizm repository)
+      # AQLI consumes the canonical Aljabr source as a Gradle composite build.
+      # Keep the sibling checkout path exactly as expected by _aqli/settings.gradle.kts.
+      - name: Checkout Aljabr (AQLI source dependency)
         uses: actions/checkout@v4
         with:
-          repository: bhangun/alkhawarizm
-          path: alkhawarizm
+          repository: andalus-ai/aljabr
+          path: aljabr
           ref: main
 
-      # Aljabr's composite build detects Tafkir for quantizer SNAPSHOTs.
-      - name: Checkout Tafkir quantizer dependency
+      - name: Checkout AQLI (SPI/SDK bootstrap)
         uses: actions/checkout@v4
         with:
-          repository: bhangun/tafkir
-          path: tafkir
-          ref: main
-
-      # Keep only Tafkir modules needed to publish the quantizer SNAPSHOTs.
-      # Diffusion APIs/OPD are outside this bootstrap and contain unresolved
-      # project dependencies. Both Tafkir NLP aliases point to the same
-      # incomplete NLP module; exclude both aliases in this ephemeral checkout.
-      # Tafkir Learn API/trainer, examples, NLP, and diffusion modules are
-      # unrelated to quantizer SNAPSHOT publication and have unresolved
-      # project edges. Exclude their aliases only in this ephemeral checkout.
-      # Legacy quantizer aliases also require their implicit parent directory.
-      - name: Isolate Tafkir quantizer projects for bootstrap
-        working-directory: tafkir
-        run: |
-          sed -i '/includeLegacyAlias("training:api:tafkir-train-diffusion-api",/d' settings.gradle.kts
-          sed -i '/includeLegacyAlias("ml:tafkir-ml-diffusion-api",/d' settings.gradle.kts
-          sed -i '/includeLegacyAlias("training:loop:tafkir-train-diffusion-opd",/d' settings.gradle.kts
-          sed -i '/includeLegacyAlias("ml:tafkir-ml-diffusion-opd",/d' settings.gradle.kts
-          sed -i '/includeLegacyAlias("nlp:core:tafkir-nlp",/d' settings.gradle.kts
-          sed -i '/includeLegacyAlias("ml:tafkir-ml-nlp",/d' settings.gradle.kts
-          sed -i '/includeLegacyAlias("training:api:tafkir-learn-api",/d' settings.gradle.kts
-          sed -i '/includeLegacyAlias("ml:tafkir-ml-api",/d' settings.gradle.kts
-          sed -i '/includeLegacyAlias("ecosystem:cli:tafkir-cli",/d' settings.gradle.kts
-          sed -i '/includeLegacyAlias("ecosystem:examples:tafkir-train-examples",/d' settings.gradle.kts
-          sed -i '/includeLegacyAlias("training:loop:tafkir-learn-trainer",/d' settings.gradle.kts
-          sed -i '/includeLegacyAlias("training:tafkir-learn-trainer",/d' settings.gradle.kts
-          mkdir -p quantizer trainer
-
-      # ── AQLI SPI/SDK Bootstrap ────────────────────────────────────────────
-      - name: Checkout aqli (SPI/SDK bootstrap)
-        uses: actions/checkout@v4
-        with:
-          repository: bhangun/aqli
+          repository: andalus-ai/aqli
           path: _aqli
           ref: main
-
-      # AQLI maps the optional :tokenizer parent project to framework/tokenizer,
-      # while the actual tokenizer module lives under framework/core.
-      - name: Prepare AQLI tokenizer parent directory
-        working-directory: _aqli
-        run: mkdir -p framework/tokenizer
 
       - name: Setup Gradle 9.4.0
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.4.0"
 
-      - name: Cache Gradle packages (aqli)
+      - name: Cache Gradle packages (AQLI and Aljabr)
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: aqli-gradle-${{ hashFiles('_aqli/gradle/wrapper/gradle-wrapper.properties', '_aqli/build.gradle.kts') }}
+          key: inference-gradle-${{ hashFiles('_aqli/gradle/wrapper/gradle-wrapper.properties', '_aqli/build.gradle.kts', 'aljabr/gradle/wrapper/gradle-wrapper.properties', 'aljabr/build.gradle.kts') }}
           restore-keys: |
-            aqli-gradle-
+            inference-gradle-
 
-      - name: Publish aqli SPI & SDK to Maven Local
+      - name: Publish AQLI SPI & SDK to Maven Local
         working-directory: _aqli
         env:
           GRADLE_OPTS: "-Xmx2G -Dorg.gradle.daemon=false"
@@ -120,12 +80,15 @@ jobs:
             :spi:aqli-spi-multimodal:publishToMavenLocal
             :spi:aqli-spi-plugin:publishToMavenLocal
             :spi:aqli-spi-runtime:publishToMavenLocal
+            :sdk:aqli-sdk-api:publishToMavenLocal
+            :sdk:aqli-sdk-protobuf:publishToMavenLocal
             :sdk:aqli-sdk-core:publishToMavenLocal
             :sdk:aqli-sdk:publishToMavenLocal
             :sdk:aqli-sdk-local:publishToMavenLocal
+            :core:aqli-core:publishToMavenLocal
+            :plugin:aqli-plugin-kernel-core:publishToMavenLocal
           )
-          gradle "${TASKS[@]}" --no-daemon --configure-on-demand -x test --parallel
-
+          gradle "${TASKS[@]}" --no-daemon -x test --parallel
 
       - name: Checkout gamelan (OpenAI provider embedding dependency)
         uses: actions/checkout@v4
