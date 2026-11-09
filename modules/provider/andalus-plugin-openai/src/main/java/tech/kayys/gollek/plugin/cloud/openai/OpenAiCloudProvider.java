@@ -277,7 +277,7 @@ public class OpenAiCloudProvider implements InferenceProvider {
                         request.metadata(), "andalus.reasoningTokenBudget");
                 openAiRequest.setMaxCompletionTokens(saturatingTokenSum(outputTokenLimit, reasoningBudget));
             }
-        } else if (openAiRequest.getMaxTokens() == null) {
+        } else if (openAiRequest.getMaxTokens() == null && openAiRequest.getMaxCompletionTokens() == null) {
             openAiRequest.setMaxTokens(outputTokenLimit);
         }
 
