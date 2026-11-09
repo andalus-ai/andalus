@@ -28,6 +28,26 @@ class OpenAiCloudProviderTest {
         assertFalse(Boolean.TRUE.equals(mapped.getStream()));
     }
 
+
+    @Test
+    void mapsReasoningModelBudgetToTotalCompletionCapAndOmitsUnsupportedSamplingControls() {
+        CompletionRequest request = CompletionRequest.builder()
+                .model("o3-mini")
+                .message(Message.user("Return a JSON object."))
+                .parameter("max_tokens", 4096)
+                .parameter("temperature", 0.2)
+                .parameter("top_p", 1.0)
+                .metadata("andalus.reasoningTokenBudget", 75)
+                .build();
+
+        OpenAIRequest mapped = new OpenAiCloudProvider().convertToOpenAiRequest(request, false);
+
+        assertNull(mapped.getMaxTokens());
+        assertEquals(4171, mapped.getMaxCompletionTokens());
+        assertNull(mapped.getTemperature());
+        assertNull(mapped.getTopP());
+    }
+
     @Test
     void mapsProviderReportedReasoningTokensToStandardMetadata() throws Exception {
         String responseJson = """
