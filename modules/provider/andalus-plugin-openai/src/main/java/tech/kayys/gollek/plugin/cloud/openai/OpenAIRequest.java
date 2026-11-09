@@ -39,6 +39,9 @@ public class OpenAIRequest {
     @JsonProperty("max_tokens")
     private Integer maxTokens;
 
+    @JsonProperty("max_completion_tokens")
+    private Integer maxCompletionTokens;
+
     @JsonProperty("top_p")
     private Double topP;
 
@@ -96,6 +99,14 @@ public class OpenAIRequest {
 
     public void setMaxTokens(Integer maxTokens) {
         this.maxTokens = maxTokens;
+    }
+
+    public Integer getMaxCompletionTokens() {
+        return maxCompletionTokens;
+    }
+
+    public void setMaxCompletionTokens(Integer maxCompletionTokens) {
+        this.maxCompletionTokens = maxCompletionTokens;
     }
 
     public Double getTopP() {
