@@ -24,6 +24,7 @@ import tech.kayys.andalus.embedding.EmbeddingRequest;
 import tech.kayys.andalus.embedding.EmbeddingResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.enterprise.context.ApplicationScoped;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import org.jboss.logging.Logger;
@@ -33,6 +34,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+@ApplicationScoped
 public class OpenAiCloudProvider implements InferenceProvider {
     private static final Logger LOG = Logger.getLogger(OpenAiCloudProvider.class);
     public static final String ID = "openai-cloud-provider";
