@@ -32,6 +32,9 @@ public class OpenAIUsage {
     @JsonProperty("total_tokens")
     private Integer totalTokens;
 
+    @JsonProperty("completion_tokens_details")
+    private CompletionTokensDetails completionTokensDetails;
+
     public OpenAIUsage() {
     }
 
@@ -57,5 +60,27 @@ public class OpenAIUsage {
 
     public void setTotalTokens(Integer totalTokens) {
         this.totalTokens = totalTokens;
+    }
+
+    public CompletionTokensDetails getCompletionTokensDetails() {
+        return completionTokensDetails;
+    }
+
+    public void setCompletionTokensDetails(CompletionTokensDetails completionTokensDetails) {
+        this.completionTokensDetails = completionTokensDetails;
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class CompletionTokensDetails {
+        @JsonProperty("reasoning_tokens")
+        private Integer reasoningTokens;
+
+        public Integer getReasoningTokens() {
+            return reasoningTokens;
+        }
+
+        public void setReasoningTokens(Integer reasoningTokens) {
+            this.reasoningTokens = reasoningTokens;
+        }
     }
 }
