@@ -265,6 +265,10 @@ public class OpenAiCloudProvider implements InferenceProvider {
             openAiRequest.setTopP(request.topP());
         }
         
+        if ("json_object".equalsIgnoreCase(request.responseFormat())) {
+            openAiRequest.setResponseFormat(new OpenAIResponseFormat("json_object"));
+        }
+
         if (request.stopSequences() != null && !request.stopSequences().isEmpty()) {
             openAiRequest.setStop(request.stopSequences());
         }
@@ -307,12 +311,21 @@ public class OpenAiCloudProvider implements InferenceProvider {
             );
         }
         
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("provider", ID);
+        if (response.getUsage() != null
+                && response.getUsage().getCompletionTokensDetails() != null
+                && response.getUsage().getCompletionTokensDetails().getReasoningTokens() != null) {
+            metadata.put("andalus.usage.reasoningTokens",
+                    response.getUsage().getCompletionTokensDetails().getReasoningTokens());
+        }
+
         return new CompletionResult(
             request.id() != null ? request.id() : UUID.randomUUID().toString(),
             response.getModel() != null ? response.getModel() : request.model(),
             resultChoices,
             usage,
-            Map.of("provider", ID),
+            metadata,
             0
         );
     }
