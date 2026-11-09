@@ -237,7 +237,7 @@ public class OpenAiCloudProvider implements InferenceProvider {
         };
     }
 
-    private OpenAIRequest convertToOpenAiRequest(CompletionRequest request, boolean streaming) {
+    OpenAIRequest convertToOpenAiRequest(CompletionRequest request, boolean streaming) {
         OpenAIRequest openAiRequest = new OpenAIRequest();
         openAiRequest.setModel(request.model());
         
@@ -284,7 +284,7 @@ public class OpenAiCloudProvider implements InferenceProvider {
         return openAiMessage;
     }
 
-    private CompletionResult convertToCompletionResult(OpenAIResponse response, CompletionRequest request) {
+    CompletionResult convertToCompletionResult(OpenAIResponse response, CompletionRequest request) {
         List<Choice> resultChoices = new ArrayList<>();
         
         if (response.getChoices() != null) {
