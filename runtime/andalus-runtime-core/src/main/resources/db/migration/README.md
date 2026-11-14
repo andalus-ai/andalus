@@ -305,3 +305,25 @@ The earlier paired-evaluator and managed-resolver descriptions above are superse
 `ShadowEvaluationExecutionBoundary` is the deployment SPI for an isolated worker. It accepts signed evaluator-artifact manifests and immutable dataset/evaluation metadata, never an `Evaluator` instance. Implementations must load the artifact inside an OS-enforced container or microVM, independently verify the artifact digest in the worker, enforce CPU/memory/time/output limits, avoid inheriting application credentials, restrict network access, and terminate the complete worker process tree on timeout. A classloader, thread, or ordinary subprocess alone is not a security boundary.
 
 The `shadow-evaluation-trust` readiness check now requires exactly one execution boundary declaring `CONTAINER` or `MICRO_VM` isolation. Missing, ambiguous, `NONE`, or `PROCESS_ONLY` implementations keep readiness DOWN. The legacy `ShadowEvaluationService.evaluateAndRecord(RunRequest, ...)` entry point is deliberately fail-closed because its request contains host-loaded evaluator instances. It will not execute them. The new SPI is a contract only at this stage; no built-in container runtime or production worker adapter is bundled. Consequently shadow evaluator execution remains disabled until a deployment provides and tests a conforming worker and the manifest verification path is refactored to verify bytes without host-side evaluator construction.
+
+
+### Byte-only artifact verification (security correction)
+
+The host-side manifest verifier now uses `ShadowEvaluationArtifactContentResolver`
+and `FileSystemShadowEvaluationArtifactContentResolver`. These APIs return
+artifact bytes only; they do not instantiate evaluators or load candidate
+classes. The Ed25519 verifier checks the signed manifest and computes SHA-256
+over the resolved bytes before any worker is asked to execute them.
+
+The older `ShadowEvaluationArtifactResolver` / `ShadowEvaluationArtifactLoader`
+API returns a host-loaded `Evaluator` and is not part of the active trust
+readiness path. Do not wire it into production. The legacy verifier overload
+that accepts an `Evaluator` now fails closed. Deployments must provide exactly
+one byte-only content resolver and an OS-isolated execution boundary
+(`CONTAINER` or `MICRO_VM`) before shadow-evaluation readiness can be UP.
+
+The byte-only resolver is still not a complete immutable artifact store:
+the configured root must be deployment-controlled and immutable during
+verification. A production worker must independently verify the digest of
+the bytes it receives inside its isolation boundary; host verification alone
+does not attest what a worker eventually executes.
