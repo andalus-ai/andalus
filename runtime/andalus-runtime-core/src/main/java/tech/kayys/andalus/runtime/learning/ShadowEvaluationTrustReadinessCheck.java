@@ -16,7 +16,7 @@ public class ShadowEvaluationTrustReadinessCheck implements HealthCheck {
     @Inject Instance<DataSource> dataSources;
     @Inject Instance<ShadowEvaluationManifestVerifier> verifiers;
     @Inject Instance<ShadowEvaluationPublicKeyResolver> keyResolvers;
-    @Inject Instance<ShadowEvaluationArtifactResolver> artifactResolvers;
+    @Inject Instance<ShadowEvaluationArtifactContentResolver> artifactContentResolvers;
     @Inject Instance<ShadowEvaluationExecutionBoundary> executionBoundaries;
 
     @Override
@@ -24,7 +24,7 @@ public class ShadowEvaluationTrustReadinessCheck implements HealthCheck {
         if (!unique(dataSources)) return down("datasource-not-configured-or-ambiguous");
         if (!unique(verifiers)) return down("manifest-verifier-not-configured-or-ambiguous");
         if (!unique(keyResolvers)) return down("public-key-resolver-not-configured-or-ambiguous");
-        if (!unique(artifactResolvers)) return down("artifact-resolver-not-configured-or-ambiguous");
+        if (!unique(artifactContentResolvers)) return down("byte-only-artifact-resolver-not-configured-or-ambiguous");
         if (!unique(executionBoundaries)) return down("isolated-execution-boundary-not-configured-or-ambiguous");
         ShadowEvaluationExecutionBoundary.IsolationLevel isolation =
                 executionBoundaries.get().isolationLevel();
@@ -39,7 +39,7 @@ public class ShadowEvaluationTrustReadinessCheck implements HealthCheck {
                     .withData("registry", "jdbc")
                     .withData("verifier", "configured")
                     .withData("publicKeyResolver", "configured")
-                    .withData("artifactResolver", "configured")
+                    .withData("artifactContentResolver", "configured")
                     .withData("executionIsolation", isolation.name())
                     .build();
         } catch (RuntimeException exception) {
