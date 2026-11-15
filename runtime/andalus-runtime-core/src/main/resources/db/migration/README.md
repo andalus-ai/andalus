@@ -347,3 +347,31 @@ loading. Do not treat a plain stdin/stdout pipe or this frame digest as a
 security boundary. `DockerShadowEvaluationWorkerTransport` now provides a concrete, digest-pinned Docker CLI transport primitive. It starts one container per request with no network, a read-only root filesystem, a non-root UID, all Linux capabilities dropped, `no-new-privileges`, bounded memory/CPU/PIDs/tmpfs, no host mounts, no inherited application environment, bounded request/response streams, and a wall-clock timeout that forcibly terminates the Docker client process tree. The configured Docker executable must be an absolute deployment-controlled path and the worker image must use an immutable `@sha256:` digest. The Docker daemon and its socket remain trusted deployment infrastructure.
 
 This class is deliberately **not** registered as `ShadowEvaluationExecutionBoundary`: the versioned frame still carries opaque payload bytes, and there is not yet a reviewed typed request/response codec, worker implementation, worker-side artifact verification, or complete end-to-end attestation. The stdin/stdout channel is protected by the local Docker daemon boundary, not by the frame digest. Readiness therefore remains DOWN until a deployment supplies and tests a complete OS-isolated execution boundary.
+
+
+### Typed worker payload contract
+
+`ShadowEvaluationWorkerCodec` defines explicit version-1 binary DTOs for worker requests,
+responses, and bounded failure messages. It uses length-prefixed UTF-8 strings, explicit
+enum ordinals, bounded collection counts, and no Java object serialization or
+polymorphic deserialization. Request payloads include the signed dataset manifest,
+dataset cases, evaluator descriptors and signed artifact manifests, metric rules,
+and the exact artifact bytes. Each artifact is capped at 7 MiB so the complete payload
+can fit within the outer 16 MiB frame limit. Datasets are capped at 10,000 cases;
+metadata/configuration maps at 256 entries; metric rules at 256.
+
+The codec verifies dataset identity, revision, case count, and recomputed content
+fingerprint against the manifest. It verifies evaluator candidate identity, version,
+descriptor identity/version/configuration fingerprint, and SHA-256 artifact bytes
+against each evaluator manifest before encoding and again after decoding. The
+worker must additionally verify manifest signatures against its own trusted signer
+registry before loading either artifact; digest verification alone does not establish
+publisher authenticity. The worker must load only the exact byte arrays whose digests
+were verified and must not resolve artifact references itself.
+
+Response DTOs contain only report provenance, metrics, evidence references, and
+timestamp. Failure DTOs contain a bounded code and safe message, never stack traces.
+Frame helper methods correlate response/failure UUIDs with the initiating request.
+These codecs are transport contracts, not a worker implementation: the execution
+service remains fail-closed until a trusted worker image implements this exact
+protocol and is independently tested.
