@@ -15,10 +15,10 @@ class DockerShadowEvaluationWorkerTransportTest {
     void requiresDigestPinnedImageAndValidResourceLimits() {
         var limits = DockerShadowEvaluationWorkerTransport.Limits.conservativeDefaults();
         assertThatThrownBy(() -> new DockerShadowEvaluationWorkerTransport(
-                "docker", "registry.example.test/andalus/shadow-worker:latest", limits))
+                "/usr/bin/docker", "registry.example.test/andalus/shadow-worker:latest", limits))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("sha256");
         assertThatThrownBy(() -> new DockerShadowEvaluationWorkerTransport(
-                "docker", PINNED_IMAGE,
+                "/usr/bin/docker", PINNED_IMAGE,
                 new DockerShadowEvaluationWorkerTransport.Limits(
                         1, 1.0, 128, 64, Duration.ofMinutes(1), 1024)))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -41,7 +41,7 @@ class DockerShadowEvaluationWorkerTransportTest {
     @Test
     void refusesNonRequestFramesBeforeStartingDocker() {
         var transport = new DockerShadowEvaluationWorkerTransport(
-                "docker", PINNED_IMAGE,
+                "/usr/bin/docker", PINNED_IMAGE,
                 DockerShadowEvaluationWorkerTransport.Limits.conservativeDefaults());
         byte[] response = ShadowEvaluationWorkerProtocol.encode(new ShadowEvaluationWorkerProtocol.Frame(
                 java.util.UUID.randomUUID(),
