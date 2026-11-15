@@ -248,6 +248,28 @@ class DurableAgentLifecycleTest {
     // -------------------------------------------------------------------------
 
     @Test
+    void testCancelReconcilesWhenCompletionAlreadyWon() {
+        String execId = "exec-cancel-after-complete";
+        DefaultAgentExecution execution = new DefaultAgentExecution(
+                execId,
+                null,
+                AgentContext.builder().build(),
+                ExecutionBudget.fast(),
+                new InMemoryCheckpointStore(),
+                null
+        );
+
+        execution.stateStore().transitionStatus(
+                execId, ExecutionStatus.PENDING, ExecutionStatus.RUNNING);
+        execution.stateStore().transitionStatus(
+                execId, ExecutionStatus.RUNNING, ExecutionStatus.COMPLETED);
+
+        assertDoesNotThrow(execution::cancel);
+        assertEquals(ExecutionStatus.COMPLETED, execution.status());
+        assertEquals(ExecutionStatus.COMPLETED, execution.stateStore().get(execId).status());
+    }
+
+    @Test
     void testDefaultAgentExecutionLifecycleControls() {
         String execId = "exec-agent-1";
         AgentContext context = AgentContext.builder().build();
