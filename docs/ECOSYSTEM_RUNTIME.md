@@ -124,3 +124,53 @@ Expose versioned APIs for catalog search, artifact inspection, installation stat
 - Existing plugin and skill lifecycle APIs are reused.
 - Every state-changing operation is authorized and audited.
 - Runtime does not require a public marketplace to operate.
+
+
+## Optional integration models for domain products
+
+Andalus remains a **domain-neutral agent runtime and orchestration foundation**. It provides reusable execution, model/provider routing, tools, context, memory, delegation, lifecycle, policy hooks and observability. It does not own the business workflows, domain state, data authority or product experience of applications that use it.
+
+Products such as coding systems, analytics platforms, research applications and future domain products have several ways to use or integrate with Andalus. They are options, not mandatory layers, and a product does not need to adopt every option.
+
+### 1. Use the framework libraries directly (embedded)
+
+A product can depend on selected Andalus Framework contracts/modules and compose the runtime in-process through Java APIs/SPIs. This is appropriate when the product wants low overhead, local execution, a desktop application or a single-process deployment.
+
+- Select only the framework capabilities required; do not import the entire framework by default.
+- Keep product-owned domain services and state outside Andalus.
+- Verify JDK, BOM, dependency graph, lifecycle and security compatibility before embedding.
+- A product may use framework contracts without adopting the full Andalus Runtime application.
+
+### 2. Run Andalus as a local sidecar
+
+A product can run Andalus Runtime as a separate process on the same host and communicate through a versioned local protocol (for example stdio/IPC, local gRPC or HTTP). This is useful for process isolation, native dependencies, independent restart/lifecycle or local desktop applications.
+
+### 3. Integrate with a remote Andalus Runtime service
+
+A product can call a separately deployed Andalus Runtime over versioned HTTP/gRPC APIs. This supports shared orchestration, centralized model/provider operations, multi-user deployments and independently scaled execution services.
+
+Remote contracts should include authenticated identity propagation, tenant and capability context, correlation IDs, deadlines, budgets, streaming events, cancellation, idempotency and recoverable task status.
+
+### 4. Expose selected capabilities as tools
+
+A product can register narrow tools with Andalus so a general-purpose agent can invoke approved domain operations. Tools should call the product's application/use-case layer, not bypass its domain authorization or access raw infrastructure directly.
+
+### 5. Register a specialist domain agent
+
+A product can expose a specialist agent that Andalus can delegate a bounded task to. The specialist product owns its internal domain loop, state and validation. Andalus coordinates the delegation and consumes progress, artifacts and the final outcome; it should not micromanage every domain operation.
+
+### 6. Use interoperability adapters
+
+MCP, A2A and other protocols can connect Andalus or a domain product to external tools and agent ecosystems. Treat these as boundary adapters. They are not mandatory internal communication mechanisms and must not define the product's canonical domain model.
+
+### One contract, multiple deployment choices
+
+Where practical, preserve the same domain-facing extension contract across embedded, sidecar and remote deployments. The transport adapter changes; domain semantics and ownership do not. Do not introduce a distributed control plane, message broker or Kubernetes requirement before product and operational needs justify it.
+
+### Ownership and trust boundaries
+
+Andalus owns generic agent execution, orchestration, delegation records and runtime observability. Each integrating product remains authoritative for its domain data, workflows, domain authorization and canonical artifacts. Shared identity/tenancy services may be reused where compatible, but trusted actor and tenant context must be validated at every boundary.
+
+A capability descriptor advertises what an extension can do; it does not grant permission. Enforce authentication, authorization, least privilege, policy, resource limits, audit and cancellation in embedded and remote modes alike.
+
+Cifr and Farabi are examples of independent domain products that may integrate with Andalus through these options. They are not special cases hard-coded into the generic Andalus runtime, and Andalus must not acquire coding-specific or analytics-specific dependencies.
