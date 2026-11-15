@@ -124,7 +124,7 @@ class ShadowEvaluationWorkerCodecTest {
 
     private static Evaluator.Dataset dataset() {
         return new Evaluator.Dataset("dataset-1", "revision-7", List.of(
-                new Evaluator.EvaluationCase("case-1", "", null, Map.of("locale", ""))));
+                new Evaluator.EvaluationCase("case-1", "input", "expected", Map.of("locale", "en"))));
     }
 
     private static ShadowEvaluationManifest.DatasetManifest datasetManifest(Evaluator.Dataset dataset) {
