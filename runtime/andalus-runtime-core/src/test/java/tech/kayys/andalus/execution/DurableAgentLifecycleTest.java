@@ -88,6 +88,35 @@ class DurableAgentLifecycleTest {
     }
 
     @Test
+    void testFailureUsesLifecycleTransitionRulesAndPreservesTerminalOutcomes() {
+        String pendingId = "exec-fail-pending";
+        stateStore.get(pendingId);
+        assertThrows(InvalidExecutionTransitionException.class,
+                () -> stateStore.fail(pendingId, new RuntimeException("too early")));
+        assertEquals(ExecutionStatus.PENDING, stateStore.get(pendingId).status());
+
+        String runningId = "exec-fail-running";
+        stateStore.transitionStatus(runningId, ExecutionStatus.PENDING, ExecutionStatus.RUNNING);
+        stateStore.fail(runningId, new RuntimeException("provider failed"));
+        assertEquals(ExecutionStatus.FAILED, stateStore.get(runningId).status());
+
+        // Duplicate failure callbacks are idempotent.
+        stateStore.fail(runningId, new RuntimeException("duplicate callback"));
+        assertEquals(ExecutionStatus.FAILED, stateStore.get(runningId).status());
+
+        String cancelledId = "exec-fail-cancelled";
+        stateStore.transitionStatus(cancelledId, ExecutionStatus.PENDING, ExecutionStatus.CANCELLED);
+        stateStore.fail(cancelledId, new RuntimeException("late callback"));
+        assertEquals(ExecutionStatus.CANCELLED, stateStore.get(cancelledId).status());
+
+        String completedId = "exec-fail-completed";
+        stateStore.transitionStatus(completedId, ExecutionStatus.PENDING, ExecutionStatus.RUNNING);
+        stateStore.transitionStatus(completedId, ExecutionStatus.RUNNING, ExecutionStatus.COMPLETED);
+        stateStore.fail(completedId, new RuntimeException("late callback"));
+        assertEquals(ExecutionStatus.COMPLETED, stateStore.get(completedId).status());
+    }
+
+    @Test
     void testChangeStatusAndAttempt() {
         String execId = "exec-attempt-1";
         stateStore.get(execId);
