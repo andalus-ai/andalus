@@ -3,8 +3,8 @@ plugins {
     `maven-publish`
 }
 
-group = "tech.kayys.aqli"
-version = "0.1.0-SNAPSHOT"
+group = "tech.kayys.andalus"
+version = "0.0.1"
 
 java {
     toolchain {
@@ -13,27 +13,25 @@ java {
 }
 
 repositories {
-    mavenCentral()
     mavenLocal()
+    mavenCentral()
 }
 
 dependencies {
-    implementation(project(":spi:aqli-spi-plugin"))
-    implementation(project(":spi:aqli-spi"))
-    implementation(project(":spi:aqli-spi-inference"))
-    implementation("tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.andalus:andalus-provider:1.0.0-SNAPSHOT")
-    implementation("tech.kayys.andalus:andalus-core:1.0.0-SNAPSHOT")
-    implementation("tech.kayys.andalus:andalus-spi:1.0.0-SNAPSHOT")
-    implementation("tech.kayys.andalus:andalus-client-schemas:1.0.0-SNAPSHOT")
-    implementation("tech.kayys.andalus:andalus-embedding:1.0.0-SNAPSHOT")
-    implementation(group = "io.quarkus", name = "quarkus-arc")
-    implementation(group = "io.smallrye.config", name = "smallrye-config", version = "3.8.0")
-    compileOnly(group = "io.smallrye.reactive", name = "mutiny")
-    compileOnly(group = "org.jboss.logging", name = "jboss-logging")
-    compileOnly(group = "com.fasterxml.jackson.core", name = "jackson-databind")
-    testImplementation(group = "org.junit.jupiter", name = "junit-jupiter")
-    testImplementation(group = "org.mockito", name = "mockito-core")
+    // This plugin now uses the same published framework coordinates as the Maven reactor.
+    implementation("tech.kayys.andalus:andalus-provider:0.0.1")
+    implementation("tech.kayys.andalus:andalus-core:0.0.1")
+    implementation("tech.kayys.andalus:andalus-spi:0.0.1")
+    implementation("tech.kayys.andalus:andalus-client-schemas:0.0.1")
+    implementation("tech.kayys.andalus:andalus-embedding:0.0.1")
+
+    implementation("io.quarkus:quarkus-arc:3.32.2")
+    implementation("io.smallrye.reactive:mutiny:2.9.0")
+    compileOnly("org.jboss.logging:jboss-logging:3.6.1.Final")
+    compileOnly("com.fasterxml.jackson.core:jackson-databind:2.18.2")
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
+    testImplementation("org.mockito:mockito-core:5.14.2")
 }
 
 publishing {
@@ -53,16 +51,10 @@ tasks.jar {
             mapOf(
                 "Plugin-Class" to "tech.kayys.aqli.plugin.cloud.openai.OpenAiCloudProvider",
                 "Plugin-Id" to "openai-cloud-provider",
-                "Plugin-Version" to "0.1.0-SNAPSHOT"
+                "Plugin-Version" to project.version.toString()
             )
         )
     }
-}
-
-val installPluginJar by tasks.registering(Copy::class) {
-    dependsOn(tasks.jar)
-    from(tasks.jar)
-    into(file("${System.getProperty("user.home")}/.andalus/plugins"))
 }
 
 tasks.withType<Test>().configureEach {
