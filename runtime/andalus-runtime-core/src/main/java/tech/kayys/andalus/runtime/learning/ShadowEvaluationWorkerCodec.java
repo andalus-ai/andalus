@@ -146,6 +146,37 @@ public final class ShadowEvaluationWorkerCodec {
         }
     }
 
+    /** Encodes a typed request inside the outer transport envelope. */
+    public static byte[] encodeRequestFrame(java.util.UUID requestId,
+            ShadowEvaluationExecutionBoundary.ExecutionRequest request,
+            ShadowEvaluationManifest.DatasetManifest datasetManifest,
+            byte[] baselineArtifact, byte[] candidateArtifact) throws IOException {
+        byte[] payload = encodeRequest(request, datasetManifest, baselineArtifact, candidateArtifact);
+        return ShadowEvaluationWorkerProtocol.encode(new ShadowEvaluationWorkerProtocol.Frame(
+                requestId, ShadowEvaluationWorkerProtocol.MessageType.EXECUTE_REQUEST, payload));
+    }
+
+    /** Decodes only a correlated successful response frame. Failure frames use decodeFailureFrame. */
+    public static ShadowEvaluationReport decodeResponseFrame(byte[] frame, java.util.UUID expectedRequestId)
+            throws IOException {
+        var decoded = ShadowEvaluationWorkerProtocol.decode(frame);
+        if (!decoded.requestId().equals(expectedRequestId)
+                || decoded.type() != ShadowEvaluationWorkerProtocol.MessageType.EXECUTE_RESPONSE) {
+            throw new IOException("unexpected or uncorrelated shadow worker response frame");
+        }
+        return decodeResponse(decoded.payload());
+    }
+
+    public static WorkerFailure decodeFailureFrame(byte[] frame, java.util.UUID expectedRequestId)
+            throws IOException {
+        var decoded = ShadowEvaluationWorkerProtocol.decode(frame);
+        if (!decoded.requestId().equals(expectedRequestId)
+                || decoded.type() != ShadowEvaluationWorkerProtocol.MessageType.EXECUTE_FAILURE) {
+            throw new IOException("unexpected or uncorrelated shadow worker failure frame");
+        }
+        return decodeFailure(decoded.payload());
+    }
+
     public static byte[] encodeResponse(ShadowEvaluationReport report) throws IOException {
         Objects.requireNonNull(report, "report");
         return write(out -> {
