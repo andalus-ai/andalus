@@ -82,6 +82,13 @@ public class DefaultAgentExecution implements AgentExecution {
 
     private volatile ExecutionStatus status;
 
+    /** One cooperative cancellation signal shared with the ReAct loop and tool executor. */
+    private final tech.kayys.andalus.tool.CancellationToken cancellationToken =
+            tech.kayys.andalus.tool.CancellationToken.create();
+
+    /** Caller-facing future, completed exceptionally as soon as cancellation wins. */
+    private volatile CompletableFuture<AgentResponse> activeFuture;
+
     public DefaultAgentExecution(
         String id,
         AgentDefinition agent,
@@ -218,6 +225,11 @@ public class DefaultAgentExecution implements AgentExecution {
         }
 
         CompletableFuture<AgentResponse> future = new CompletableFuture<>();
+        this.activeFuture = future;
+        if (cancellationToken.isCancellationRequested()) {
+            completeCancelled(future);
+            return future;
+        }
 
         AGENT_POOL.execute(() -> {
             try {
@@ -240,6 +252,8 @@ public class DefaultAgentExecution implements AgentExecution {
     }
 
     private void runAgentLoop(CompletableFuture<AgentResponse> future) {
+        throwIfCancellationRequested();
+
         // Derive the prompt from AgentRequest or fall back to empty string.
         AgentRequest request = agentContext.request();
         String prompt = (request != null && request.content() != null)
@@ -252,6 +266,7 @@ public class DefaultAgentExecution implements AgentExecution {
         }
 
         // --- Phase 3: Memory Manager ---
+        throwIfCancellationRequested();
         stateStore.transition(id, ExecutionPhase.MEMORY, java.util.Map.of());
         if (memoryManager != null) {
             try {
@@ -265,6 +280,8 @@ public class DefaultAgentExecution implements AgentExecution {
                 LOGGER.log(Level.WARNING, "Memory recall failed", e);
             }
         }
+
+        throwIfCancellationRequested();
 
         // --- Phase 3: Model Router & Inference Planning ---
         stateStore.transition(id, ExecutionPhase.INFERENCE, java.util.Map.of());
@@ -303,6 +320,8 @@ public class DefaultAgentExecution implements AgentExecution {
         }
         final InferencePlan activePlan = inferencePlan;
 
+        throwIfCancellationRequested();
+
         // --- Phase 4: Runtime Context Planner ---
         stateStore.transition(id, ExecutionPhase.CONTEXT, java.util.Map.of());
         if (contextPlanner != null) {
@@ -336,6 +355,8 @@ public class DefaultAgentExecution implements AgentExecution {
             }
         }
 
+        throwIfCancellationRequested();
+
         // Resolve tools from the tool executor if available.
         List<Tool> tools = new ArrayList<>();
         if (toolExecutor instanceof AgentToolExecutor.ToolAware ta) {
@@ -351,7 +372,7 @@ public class DefaultAgentExecution implements AgentExecution {
         tech.kayys.andalus.agent.react.BaseReActAgent.ToolExecutorBridge policyBridge =
             (toolExecutor != null)
             ? (invocation, directFallback) -> {
-                AgentDecision decision = toolExecutor.execute(invocation)
+                AgentDecision decision = toolExecutor.execute(invocation, cancellationToken)
                     .toCompletableFuture().get();
                 return switch (decision) {
                     case AgentDecision.ToolCompleted tc -> tc.result();
@@ -386,6 +407,7 @@ public class DefaultAgentExecution implements AgentExecution {
             .withTools(tools)
             .withAutoApproveTools(true)
             .withToolExecutor(policyBridge)
+            .withCancellationToken(cancellationToken)
             .withCheckpointBridge(cpBridge, id)
             .build();
 
@@ -532,6 +554,20 @@ public class DefaultAgentExecution implements AgentExecution {
         future.complete(response);
     }
 
+    private void throwIfCancellationRequested() {
+        if (cancellationToken.isCancellationRequested()) {
+            throw new CancellationException("Execution cancelled: " + id);
+        }
+    }
+
+    private void signalCancellation() {
+        cancellationToken.cancel();
+        CompletableFuture<AgentResponse> future = activeFuture;
+        if (future != null) {
+            completeCancelled(future);
+        }
+    }
+
     private void completeCancelled(CompletableFuture<AgentResponse> future) {
         future.completeExceptionally(new CancellationException("Execution cancelled: " + id));
     }
@@ -603,19 +639,28 @@ public class DefaultAgentExecution implements AgentExecution {
     public void cancel() {
         ExecutionStatus current = stateStore.get(id).status();
         this.status = current;
-        if (current == ExecutionStatus.CANCELLED || current == ExecutionStatus.COMPLETED) {
+        if (current == ExecutionStatus.COMPLETED) {
+            return;
+        }
+        if (current == ExecutionStatus.CANCELLED) {
+            signalCancellation();
             return;
         }
 
         try {
             stateStore.transitionStatus(id, current, ExecutionStatus.CANCELLED);
             this.status = ExecutionStatus.CANCELLED;
+            signalCancellation();
         } catch (InvalidExecutionTransitionException race) {
             // A completion/failure callback may have won the state-store CAS.
             // Reconcile the local view rather than reporting a stale cancellation.
             ExecutionStatus actual = stateStore.get(id).status();
             this.status = actual;
-            if (actual != ExecutionStatus.CANCELLED && actual != ExecutionStatus.COMPLETED
+            if (actual == ExecutionStatus.CANCELLED) {
+                signalCancellation();
+                return;
+            }
+            if (actual != ExecutionStatus.COMPLETED
                     && actual != ExecutionStatus.FAILED && actual != ExecutionStatus.ERROR
                     && actual != ExecutionStatus.TIMEOUT) {
                 throw race;
