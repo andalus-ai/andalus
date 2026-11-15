@@ -365,13 +365,14 @@ public final class ShadowEvaluationWorkerCodec {
         if (in.read() != -1) throw new IOException("trailing bytes in typed worker payload");
     }
     private static void string(DataOutputStream out, String value) throws IOException {
-        byte[] bytes = required(value, MAX_STRING_BYTES, "string").getBytes(StandardCharsets.UTF_8);
+        if (value == null || value.length() > MAX_STRING_BYTES) throw new IOException("invalid worker string");
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
         if (bytes.length > MAX_STRING_BYTES) throw new IOException("worker UTF-8 string exceeds byte limit");
         out.writeInt(bytes.length); out.write(bytes);
     }
     private static String string(DataInputStream in) throws IOException {
         int length = in.readInt();
-        if (length < 1 || length > MAX_STRING_BYTES) throw new IOException("invalid worker string length");
+        if (length < 0 || length > MAX_STRING_BYTES) throw new IOException("invalid worker string length");
         byte[] bytes = in.readNBytes(length);
         if (bytes.length != length) throw new IOException("truncated worker string");
         String value = new String(bytes, StandardCharsets.UTF_8);
