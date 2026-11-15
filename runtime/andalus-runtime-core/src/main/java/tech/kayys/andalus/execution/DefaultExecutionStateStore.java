@@ -273,11 +273,25 @@ public class DefaultExecutionStateStore implements ExecutionStateStore {
 
     @Override
     public void fail(String executionId, Throwable error) {
+        final boolean[] transitioned = new boolean[1];
+
         states.compute(executionId, (id, current) -> {
             AgentExecutionState actual = current != null ? current : newInitialState(id);
-            if (actual.status() == ExecutionStatus.CANCELLED || actual.status() == ExecutionStatus.COMPLETED) {
+
+            // A terminal outcome wins. Late provider/tool callbacks must not
+            // replace cancellation or successful completion with failure.
+            if (actual.status() == ExecutionStatus.CANCELLED
+                    || actual.status() == ExecutionStatus.COMPLETED) {
                 return actual;
             }
+
+            // Failure is a live lifecycle transition, not an unconditional
+            // state assignment. This keeps it consistent with transitionStatus.
+            if (actual.status() == ExecutionStatus.FAILED) {
+                return actual; // idempotent duplicate failure callback
+            }
+            ExecutionLifecycleRules.requireTransition(id, actual.status(), ExecutionStatus.FAILED);
+            transitioned[0] = true;
 
             return new AgentExecutionState(
                     id,
@@ -299,7 +313,7 @@ public class DefaultExecutionStateStore implements ExecutionStateStore {
             );
         });
 
-        if (eventLedger != null) {
+        if (transitioned[0] && eventLedger != null) {
             eventLedger.record(ExecutionEvent.of(
                     executionId,
                     eventSeq.getAndIncrement(),
