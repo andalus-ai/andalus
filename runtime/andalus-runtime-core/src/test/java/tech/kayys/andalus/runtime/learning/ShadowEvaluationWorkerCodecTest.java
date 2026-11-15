@@ -81,6 +81,34 @@ class ShadowEvaluationWorkerCodecTest {
     }
 
     @Test
+    void correlatesTypedResponseAndFailureWithOuterFrameRequestId() throws Exception {
+        var requestId = java.util.UUID.randomUUID();
+        var report = new ShadowEvaluationReport("run-1", "proposal-1", proposal().subject(),
+                "snapshot-1", "approval-1", "policy-fingerprint",
+                "baseline-eval", "1", "baseline-config", "candidate-eval", "2", "candidate-config",
+                "baseline", "1", "candidate", "2", "dataset-1", "revision-7", "a".repeat(64),
+                ShadowEvaluationReport.Status.PASS,
+                List.of(new ShadowEvaluationReport.Metric("accuracy", 0.8, 0.9,
+                        ShadowEvaluationReport.Direction.HIGHER_IS_BETTER, 0.05)),
+                List.of("evidence:one"), Instant.parse("2026-11-15T00:00:00Z"));
+        byte[] responseFrame = ShadowEvaluationWorkerProtocol.encode(
+                new ShadowEvaluationWorkerProtocol.Frame(requestId,
+                        ShadowEvaluationWorkerProtocol.MessageType.EXECUTE_RESPONSE,
+                        ShadowEvaluationWorkerCodec.encodeResponse(report)));
+        assertThat(ShadowEvaluationWorkerCodec.decodeResponseFrame(responseFrame, requestId)).isEqualTo(report);
+        assertThatThrownBy(() -> ShadowEvaluationWorkerCodec.decodeResponseFrame(
+                responseFrame, java.util.UUID.randomUUID()))
+                .isInstanceOf(java.io.IOException.class).hasMessageContaining("uncorrelated");
+
+        var failure = new ShadowEvaluationWorkerCodec.WorkerFailure("FAILED", "safe message");
+        byte[] failureFrame = ShadowEvaluationWorkerProtocol.encode(
+                new ShadowEvaluationWorkerProtocol.Frame(requestId,
+                        ShadowEvaluationWorkerProtocol.MessageType.EXECUTE_FAILURE,
+                        ShadowEvaluationWorkerCodec.encodeFailure(failure)));
+        assertThat(ShadowEvaluationWorkerCodec.decodeFailureFrame(failureFrame, requestId)).isEqualTo(failure);
+    }
+
+    @Test
     void rejectsTrailingBytesAndInvalidArtifactBytes() throws Exception {
         byte[] failure = ShadowEvaluationWorkerCodec.encodeFailure(
                 new ShadowEvaluationWorkerCodec.WorkerFailure("FAILED", "safe message"));
