@@ -6,25 +6,20 @@ import jakarta.inject.Inject;
 import tech.kayys.andalus.harness.evaluation.Evaluator;
 
 import javax.sql.DataSource;
-import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.util.Base64;
 import java.util.HexFormat;
-import java.util.Objects;
 
-/**
- * Fail-closed Ed25519 verifier backed by the durable signer registry and deployment-managed
- * public-key/artifact resolvers. No URL fetching, key auto-discovery, or evaluator substitution.
- */
+/** Fail-closed Ed25519 verifier over signed metadata and byte-only immutable artifact content. */
 @ApplicationScoped
 public class Ed25519ShadowEvaluationManifestVerifier implements ShadowEvaluationManifestVerifier {
     private static final long MAX_ARTIFACT_BYTES = 512L * 1024 * 1024;
 
     @Inject Instance<DataSource> dataSources;
     @Inject Instance<ShadowEvaluationPublicKeyResolver> keyResolvers;
-    @Inject Instance<ShadowEvaluationArtifactResolver> artifactResolvers;
+    @Inject Instance<ShadowEvaluationArtifactContentResolver> artifactContentResolvers;
 
     @Override
     public boolean verifyDataset(ShadowEvaluationManifest.DatasetManifest manifest, Evaluator.Dataset dataset) {
@@ -36,32 +31,33 @@ public class Ed25519ShadowEvaluationManifestVerifier implements ShadowEvaluation
                     || !manifest.contentFingerprint().equals(ShadowEvaluationRunner.fingerprint(dataset))) return false;
             return verifySignature(manifest.signerId(), manifest.signature(),
                     ShadowEvaluationSigning.datasetPayload(manifest));
-        } catch (RuntimeException ex) { return false; }
+        } catch (RuntimeException ex) {
+            return false;
+        }
     }
 
     @Override
-    public boolean verifyEvaluatorArtifact(
-            ShadowEvaluationManifest.EvaluatorArtifactManifest manifest, Evaluator evaluator) {
-        if (manifest == null || evaluator == null || !unique(dataSources)
-                || !unique(keyResolvers) || !unique(artifactResolvers)) return false;
+    public boolean verifyEvaluatorArtifact(ShadowEvaluationManifest.EvaluatorArtifactManifest manifest) {
+        if (manifest == null || !unique(artifactContentResolvers)) return false;
         try {
             if (!verifySignature(manifest.signerId(), manifest.signature(),
                     ShadowEvaluationSigning.evaluatorPayload(manifest))) return false;
-            try (ShadowEvaluationArtifactResolver.ResolvedArtifact artifact =
-                         artifactResolvers.get().resolve(manifest.artifactReference())) {
-                if (artifact.evaluator() != evaluator) return false;
-                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            long total = 0;
+            try (ShadowEvaluationArtifactContentResolver.ResolvedContent artifact =
+                         artifactContentResolvers.get().resolve(manifest.artifactReference())) {
                 byte[] buffer = new byte[8192];
-                long total = 0;
                 int read;
                 while ((read = artifact.content().read(buffer)) != -1) {
                     total += read;
                     if (total > MAX_ARTIFACT_BYTES) return false;
                     digest.update(buffer, 0, read);
                 }
-                return HexFormat.of().formatHex(digest.digest()).equals(manifest.artifactDigest());
             }
-        } catch (Exception ex) { return false; }
+            return total > 0 && HexFormat.of().formatHex(digest.digest()).equals(manifest.artifactDigest());
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     private boolean verifySignature(String signerId, String encodedSignature, byte[] payload) {
@@ -77,8 +73,12 @@ public class Ed25519ShadowEvaluationManifestVerifier implements ShadowEvaluation
             if (key == null || !"Ed25519".equalsIgnoreCase(key.getAlgorithm())) return false;
             byte[] signatureBytes = Base64.getDecoder().decode(encodedSignature);
             Signature verifier = Signature.getInstance("Ed25519");
-            verifier.initVerify(key); verifier.update(payload); return verifier.verify(signatureBytes);
-        } catch (Exception ex) { return false; }
+            verifier.initVerify(key);
+            verifier.update(payload);
+            return verifier.verify(signatureBytes);
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     private static boolean unique(Instance<?> instance) {

@@ -305,3 +305,45 @@ The earlier paired-evaluator and managed-resolver descriptions above are superse
 `ShadowEvaluationExecutionBoundary` is the deployment SPI for an isolated worker. It accepts signed evaluator-artifact manifests and immutable dataset/evaluation metadata, never an `Evaluator` instance. Implementations must load the artifact inside an OS-enforced container or microVM, independently verify the artifact digest in the worker, enforce CPU/memory/time/output limits, avoid inheriting application credentials, restrict network access, and terminate the complete worker process tree on timeout. A classloader, thread, or ordinary subprocess alone is not a security boundary.
 
 The `shadow-evaluation-trust` readiness check now requires exactly one execution boundary declaring `CONTAINER` or `MICRO_VM` isolation. Missing, ambiguous, `NONE`, or `PROCESS_ONLY` implementations keep readiness DOWN. The legacy `ShadowEvaluationService.evaluateAndRecord(RunRequest, ...)` entry point is deliberately fail-closed because its request contains host-loaded evaluator instances. It will not execute them. The new SPI is a contract only at this stage; no built-in container runtime or production worker adapter is bundled. Consequently shadow evaluator execution remains disabled until a deployment provides and tests a conforming worker and the manifest verification path is refactored to verify bytes without host-side evaluator construction.
+
+
+### Byte-only artifact verification (security correction)
+
+The host-side manifest verifier now uses `ShadowEvaluationArtifactContentResolver`
+and `FileSystemShadowEvaluationArtifactContentResolver`. These APIs return
+artifact bytes only; they do not instantiate evaluators or load candidate
+classes. The Ed25519 verifier checks the signed manifest and computes SHA-256
+over the resolved bytes before any worker is asked to execute them.
+
+The older `ShadowEvaluationArtifactResolver` / `ShadowEvaluationArtifactLoader`
+API returns a host-loaded `Evaluator` and is not part of the active trust
+readiness path. Do not wire it into production. The legacy verifier overload
+that accepts an `Evaluator` now fails closed. Deployments must provide exactly
+one byte-only content resolver and an OS-isolated execution boundary
+(`CONTAINER` or `MICRO_VM`) before shadow-evaluation readiness can be UP.
+
+The byte-only resolver is still not a complete immutable artifact store:
+the configured root must be deployment-controlled and immutable during
+verification. A production worker must independently verify the digest of
+the bytes it receives inside its isolation boundary; host verification alone
+does not attest what a worker eventually executes.
+
+
+### Isolated worker wire protocol
+
+`ShadowEvaluationWorkerProtocol` defines the version-1 binary envelope used by
+the forthcoming container worker adapter. Each frame carries a magic value,
+protocol version, message type, request UUID, bounded payload length, SHA-256
+payload digest, and opaque payload bytes. Payloads are capped at 16 MiB;
+unknown versions/types, truncation, digest mismatch, and trailing bytes are
+rejected. The envelope intentionally does not deserialize application objects.
+
+The SHA-256 field is an integrity check, **not authentication**. A production
+worker transport must authenticate the endpoint (prefer mutually authenticated
+local RPC or an equivalently protected container channel), correlate responses
+to the request UUID, enforce independent wall-clock/resource/output limits,
+and independently verify each artifact digest inside the worker before class
+loading. Do not treat a plain stdin/stdout pipe or this frame digest as a
+security boundary. `DockerShadowEvaluationWorkerTransport` now provides a concrete, digest-pinned Docker CLI transport primitive. It starts one container per request with no network, a read-only root filesystem, a non-root UID, all Linux capabilities dropped, `no-new-privileges`, bounded memory/CPU/PIDs/tmpfs, no host mounts, no inherited application environment, bounded request/response streams, and a wall-clock timeout that forcibly terminates the Docker client process tree. The configured Docker executable must be an absolute deployment-controlled path and the worker image must use an immutable `@sha256:` digest. The Docker daemon and its socket remain trusted deployment infrastructure.
+
+This class is deliberately **not** registered as `ShadowEvaluationExecutionBoundary`: the versioned frame still carries opaque payload bytes, and there is not yet a reviewed typed request/response codec, worker implementation, worker-side artifact verification, or complete end-to-end attestation. The stdin/stdout channel is protected by the local Docker daemon boundary, not by the frame digest. Readiness therefore remains DOWN until a deployment supplies and tests a complete OS-isolated execution boundary.
