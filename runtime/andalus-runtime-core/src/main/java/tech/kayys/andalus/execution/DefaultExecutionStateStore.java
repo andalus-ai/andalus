@@ -236,9 +236,20 @@ public class DefaultExecutionStateStore implements ExecutionStateStore {
 
     @Override
     public void complete(String executionId, AgentResponse response) {
+        final boolean[] transitioned = new boolean[1];
+
         states.compute(executionId, (id, current) -> {
             AgentExecutionState actual = current != null ? current : newInitialState(id);
+
+            // Cancellation or an already committed completion wins over a late
+            // asynchronous success callback. Do not emit a second completion event.
+            if (actual.status() == ExecutionStatus.CANCELLED
+                    || actual.status() == ExecutionStatus.COMPLETED) {
+                return actual;
+            }
+
             ExecutionLifecycleRules.requireTransition(id, actual.status(), ExecutionStatus.COMPLETED);
+            transitioned[0] = true;
 
             return new AgentExecutionState(
                     id,
@@ -260,7 +271,7 @@ public class DefaultExecutionStateStore implements ExecutionStateStore {
             );
         });
 
-        if (eventLedger != null) {
+        if (transitioned[0] && eventLedger != null) {
             eventLedger.record(ExecutionEvent.of(
                     executionId,
                     eventSeq.getAndIncrement(),
