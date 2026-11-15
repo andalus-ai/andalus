@@ -375,3 +375,30 @@ Frame helper methods correlate response/failure UUIDs with the initiating reques
 These codecs are transport contracts, not a worker implementation: the execution
 service remains fail-closed until a trusted worker image implements this exact
 protocol and is independently tested.
+
+
+### Worker-side manifest signature verification
+
+`ShadowEvaluationWorkerManifestVerifier` is the worker-local cryptographic gate
+for the typed request DTO. It verifies the dataset manifest and both evaluator
+artifact manifests using Ed25519 signatures and a deployment-pinned
+`ShadowEvaluationWorkerManifestVerifier.TrustStore`. The trust store is
+resolved independently of request data; signer IDs, public keys, and active
+trust status supplied by a request are never accepted as authority.
+
+Before returning a verified result, the gate checks the dataset identity,
+version, case count and recomputed content fingerprint; checks each evaluator
+manifest against the exact candidate identity/version and descriptor
+configuration fingerprint; and checks the SHA-256 digest of the exact artifact
+bytes carried in the request. Unknown/revoked signers, malformed signatures,
+mismatched descriptors, and changed bytes fail closed with bounded reason
+codes. The verifier does not load classes or instantiate evaluators.
+
+A worker implementation must call this verifier and stop on any rejected
+result **before** invoking an artifact loader. It must then load only the
+same in-memory artifact byte arrays that were verified. The trust-store
+implementation and its update/revocation lifecycle remain deployment-owned;
+mount trust material read-only and bind it to the immutable worker image or
+another authenticated deployment control. Unit tests cover valid signatures,
+unknown signers, and artifact tampering. This is a verification primitive,
+not yet a complete worker or an execution-boundary implementation.
