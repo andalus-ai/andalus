@@ -140,12 +140,17 @@ public final class DockerShadowEvaluationWorkerTransport {
         try (input; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[8192];
             int total = 0;
+            boolean exceeded = false;
             int count;
             while ((count = input.read(buffer)) != -1) {
-                total += count;
-                if (total > maximum) throw new IOException("worker stream exceeded configured limit");
-                output.write(buffer, 0, count);
+                if (total < maximum) {
+                    int retained = Math.min(count, maximum - total);
+                    output.write(buffer, 0, retained);
+                }
+                total = Math.min(maximum + 1, total + count);
+                if (total > maximum) exceeded = true;
             }
+            if (exceeded) throw new IOException("worker stream exceeded configured limit");
             return output.toByteArray();
         } catch (IOException e) {
             throw new java.util.concurrent.CompletionException(e);
