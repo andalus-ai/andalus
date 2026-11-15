@@ -130,8 +130,11 @@ public final class ShadowEvaluationWorkerCodec {
             int ruleCount = count(in, MAX_METRICS);
             if (ruleCount == 0) throw new IOException("worker request has no metric rules");
             List<ShadowEvaluationRunner.MetricRule> rules = new ArrayList<>(ruleCount);
+            java.util.Set<String> metricNames = new java.util.HashSet<>();
             for (int i = 0; i < ruleCount; i++) {
-                rules.add(new ShadowEvaluationRunner.MetricRule(string(in),
+                String metricName = string(in);
+                if (!metricNames.add(metricName)) throw new IOException("duplicate worker metric rule");
+                rules.add(new ShadowEvaluationRunner.MetricRule(metricName,
                         enumValue(ShadowEvaluationReport.Direction.values(), in.readUnsignedByte(), "metric direction"),
                         in.readDouble()));
             }
@@ -298,6 +301,10 @@ public final class ShadowEvaluationWorkerCodec {
                 || !ShadowEvaluationRunner.fingerprint(r.dataset()).equals(dm.contentFingerprint())) {
             throw new IOException("dataset does not match its signed manifest");
         }
+        if (r.metricRules().stream().map(ShadowEvaluationRunner.MetricRule::name).distinct().count()
+                != r.metricRules().size() || r.metricRules().isEmpty()) {
+            throw new IOException("metric rules must be non-empty and uniquely named");
+        }
         bindEvaluator(r.baselineCandidateId(), r.baselineCandidateVersion(), r.baselineDescriptor(),
                 r.baselineArtifact(), baseline);
         bindEvaluator(r.candidateId(), r.candidateVersion(), r.candidateDescriptor(),
@@ -359,6 +366,7 @@ public final class ShadowEvaluationWorkerCodec {
     }
     private static void string(DataOutputStream out, String value) throws IOException {
         byte[] bytes = required(value, MAX_STRING_BYTES, "string").getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > MAX_STRING_BYTES) throw new IOException("worker UTF-8 string exceeds byte limit");
         out.writeInt(bytes.length); out.write(bytes);
     }
     private static String string(DataInputStream in) throws IOException {
