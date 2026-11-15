@@ -11,7 +11,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
 /**
@@ -48,7 +47,7 @@ public final class DockerShadowEvaluationWorkerTransport {
     private final Limits limits;
 
     public DockerShadowEvaluationWorkerTransport(String dockerExecutable, String workerImage, Limits limits) {
-        if (dockerExecutable == null || dockerExecutable.isBlank() || dockerExecutable.startsWith("-")) {
+        if (dockerExecutable == null || !java.nio.file.Path.of(dockerExecutable).isAbsolute()) {
             throw new IllegalArgumentException("a fixed Docker executable is required");
         }
         if (workerImage == null || !IMAGE_DIGEST.matcher(workerImage).matches()) {
