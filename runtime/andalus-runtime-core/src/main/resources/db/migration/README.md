@@ -327,3 +327,23 @@ the configured root must be deployment-controlled and immutable during
 verification. A production worker must independently verify the digest of
 the bytes it receives inside its isolation boundary; host verification alone
 does not attest what a worker eventually executes.
+
+
+### Isolated worker wire protocol
+
+`ShadowEvaluationWorkerProtocol` defines the version-1 binary envelope used by
+the forthcoming container worker adapter. Each frame carries a magic value,
+protocol version, message type, request UUID, bounded payload length, SHA-256
+payload digest, and opaque payload bytes. Payloads are capped at 16 MiB;
+unknown versions/types, truncation, digest mismatch, and trailing bytes are
+rejected. The envelope intentionally does not deserialize application objects.
+
+The SHA-256 field is an integrity check, **not authentication**. A production
+worker transport must authenticate the endpoint (prefer mutually authenticated
+local RPC or an equivalently protected container channel), correlate responses
+to the request UUID, enforce independent wall-clock/resource/output limits,
+and independently verify each artifact digest inside the worker before class
+loading. Do not treat a plain stdin/stdout pipe or this frame digest as a
+security boundary. No concrete container launcher is enabled by this protocol
+change; readiness remains DOWN until a deployment supplies the OS-isolated
+execution boundary.
