@@ -117,6 +117,29 @@ class DurableAgentLifecycleTest {
     }
 
     @Test
+    void testLateAndDuplicateCompletionPreserveTerminalOutcomes() {
+        String cancelledId = "exec-complete-cancelled";
+        stateStore.transitionStatus(cancelledId, ExecutionStatus.PENDING, ExecutionStatus.CANCELLED);
+
+        // A late success callback after cancellation must not throw or replace CANCELLED.
+        assertDoesNotThrow(() -> stateStore.complete(cancelledId,
+                AgentResponse.builder().id(cancelledId).success(true).content("late").build()));
+        assertEquals(ExecutionStatus.CANCELLED, stateStore.get(cancelledId).status());
+
+        String completedId = "exec-complete-duplicate";
+        stateStore.transitionStatus(completedId, ExecutionStatus.PENDING, ExecutionStatus.RUNNING);
+        AgentResponse response = AgentResponse.builder()
+                .id(completedId).success(true).content("done").build();
+
+        stateStore.complete(completedId, response);
+        assertEquals(ExecutionStatus.COMPLETED, stateStore.get(completedId).status());
+
+        // Repeated completion callbacks are idempotent.
+        assertDoesNotThrow(() -> stateStore.complete(completedId, response));
+        assertEquals(ExecutionStatus.COMPLETED, stateStore.get(completedId).status());
+    }
+
+    @Test
     void testChangeStatusAndAttempt() {
         String execId = "exec-attempt-1";
         stateStore.get(execId);
