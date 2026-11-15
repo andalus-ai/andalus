@@ -344,6 +344,6 @@ local RPC or an equivalently protected container channel), correlate responses
 to the request UUID, enforce independent wall-clock/resource/output limits,
 and independently verify each artifact digest inside the worker before class
 loading. Do not treat a plain stdin/stdout pipe or this frame digest as a
-security boundary. No concrete container launcher is enabled by this protocol
-change; readiness remains DOWN until a deployment supplies the OS-isolated
-execution boundary.
+security boundary. `DockerShadowEvaluationWorkerTransport` now provides a concrete, digest-pinned Docker CLI transport primitive. It starts one container per request with no network, a read-only root filesystem, a non-root UID, all Linux capabilities dropped, `no-new-privileges`, bounded memory/CPU/PIDs/tmpfs, no host mounts, no inherited application environment, bounded request/response streams, and a wall-clock timeout that forcibly terminates the Docker client process tree. The configured Docker executable must be an absolute deployment-controlled path and the worker image must use an immutable `@sha256:` digest. The Docker daemon and its socket remain trusted deployment infrastructure.
+
+This class is deliberately **not** registered as `ShadowEvaluationExecutionBoundary`: the versioned frame still carries opaque payload bytes, and there is not yet a reviewed typed request/response codec, worker implementation, worker-side artifact verification, or complete end-to-end attestation. The stdin/stdout channel is protected by the local Docker daemon boundary, not by the frame digest. Readiness therefore remains DOWN until a deployment supplies and tests a complete OS-isolated execution boundary.
