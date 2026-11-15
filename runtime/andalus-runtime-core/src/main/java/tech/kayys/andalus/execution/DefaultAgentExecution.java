@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -222,9 +223,16 @@ public class DefaultAgentExecution implements AgentExecution {
             try {
                 runAgentLoop(future);
             } catch (Throwable t) {
-                this.status = ExecutionStatus.FAILED;
                 stateStore.fail(id, t);
-                future.completeExceptionally(t);
+                AgentExecutionState outcome = stateStore.get(id);
+                this.status = outcome.status();
+                if (outcome.status() == ExecutionStatus.CANCELLED) {
+                    completeCancelled(future);
+                } else if (outcome.status() == ExecutionStatus.FAILED
+                        || outcome.status() == ExecutionStatus.ERROR
+                        || outcome.status() == ExecutionStatus.TIMEOUT) {
+                    future.completeExceptionally(t);
+                }
             }
         });
 
@@ -428,6 +436,24 @@ public class DefaultAgentExecution implements AgentExecution {
 
             @Override
             public void onDone(String stopReason) {
+                AgentResponse response = AgentResponse.builder()
+                    .id(id)
+                    .success(true)
+                    .content(contentBuffer.toString())
+                    .metadata("stopReason", stopReason)
+                    .build();
+
+                stateStore.complete(id, response);
+                AgentExecutionState outcome = stateStore.get(id);
+                DefaultAgentExecution.this.status = outcome.status();
+                if (outcome.status() == ExecutionStatus.CANCELLED) {
+                    completeCancelled(future);
+                    return;
+                }
+                if (outcome.status() != ExecutionStatus.COMPLETED) {
+                    return;
+                }
+
                 if (stateStore != null) {
                     stateStore.checkpoint(id, agentContext);
                 }
@@ -435,9 +461,7 @@ public class DefaultAgentExecution implements AgentExecution {
                     checkpointStore.save(id, agentContext);
                 }
 
-                DefaultAgentExecution.this.status = ExecutionStatus.COMPLETED;
-
-                // Collect cache entry IDs for this execution (traceability)
+                // Collect cache entry IDs for this execution (traceability).
                 java.util.List<String> cacheEntryIds = java.util.List.of();
                 if (executionCache != null) {
                     cacheEntryIds = executionCache.listByExecution(id)
@@ -445,8 +469,7 @@ public class DefaultAgentExecution implements AgentExecution {
                             .map(ExecutionCacheEntry::cacheId)
                             .collect(java.util.stream.Collectors.toList());
                 }
-
-                AgentResponse response = AgentResponse.builder()
+                response = AgentResponse.builder()
                     .id(id)
                     .success(true)
                     .content(contentBuffer.toString())
@@ -457,22 +480,29 @@ public class DefaultAgentExecution implements AgentExecution {
                 if (memoryManager != null && request != null && request.content() != null) {
                     memoryManager.storeInteraction(request.content(), response.content());
                 }
-
-                stateStore.complete(id, response);
                 future.complete(response);
             }
 
             @Override
             public void onError(String message) {
-                DefaultAgentExecution.this.status = ExecutionStatus.FAILED;
+                stateStore.fail(id, new RuntimeException(message));
+                AgentExecutionState outcome = stateStore.get(id);
+                DefaultAgentExecution.this.status = outcome.status();
+                if (outcome.status() == ExecutionStatus.CANCELLED) {
+                    completeCancelled(future);
+                    return;
+                }
+                if (outcome.status() != ExecutionStatus.FAILED
+                        && outcome.status() != ExecutionStatus.ERROR
+                        && outcome.status() != ExecutionStatus.TIMEOUT) {
+                    return;
+                }
 
                 AgentResponse response = AgentResponse.builder()
                     .id(id)
                     .success(false)
                     .error(message)
                     .build();
-
-                stateStore.fail(id, new RuntimeException(message));
                 future.complete(response);
             }
         });
@@ -480,20 +510,30 @@ public class DefaultAgentExecution implements AgentExecution {
 
     /** Returns a completed stub response — used when a real execution cannot be performed. */
     private void stubComplete(CompletableFuture<AgentResponse> future, String reason) {
-        if (stateStore != null) {
-            stateStore.checkpoint(id, agentContext);
-        }
-        if (checkpointStore != null) {
-            checkpointStore.save(id, agentContext);
-        }
-        this.status = ExecutionStatus.COMPLETED;
-        AgentResponse resp = AgentResponse.builder()
+        AgentResponse response = AgentResponse.builder()
             .id(id)
             .success(true)
             .content(reason)
             .build();
-        stateStore.complete(id, resp);
-        future.complete(resp);
+        stateStore.complete(id, response);
+        AgentExecutionState outcome = stateStore.get(id);
+        this.status = outcome.status();
+        if (outcome.status() == ExecutionStatus.CANCELLED) {
+            completeCancelled(future);
+            return;
+        }
+        if (outcome.status() != ExecutionStatus.COMPLETED) {
+            return;
+        }
+        stateStore.checkpoint(id, agentContext);
+        if (checkpointStore != null) {
+            checkpointStore.save(id, agentContext);
+        }
+        future.complete(response);
+    }
+
+    private void completeCancelled(CompletableFuture<AgentResponse> future) {
+        future.completeExceptionally(new CancellationException("Execution cancelled: " + id));
     }
 
     // -------------------------------------------------------------------------
@@ -561,13 +601,26 @@ public class DefaultAgentExecution implements AgentExecution {
 
     @Override
     public void cancel() {
-        ExecutionStatus current = this.status;
+        ExecutionStatus current = stateStore.get(id).status();
+        this.status = current;
         if (current == ExecutionStatus.CANCELLED || current == ExecutionStatus.COMPLETED) {
             return;
         }
 
-        stateStore.transitionStatus(id, current, ExecutionStatus.CANCELLED);
-        this.status = ExecutionStatus.CANCELLED;
+        try {
+            stateStore.transitionStatus(id, current, ExecutionStatus.CANCELLED);
+            this.status = ExecutionStatus.CANCELLED;
+        } catch (InvalidExecutionTransitionException race) {
+            // A completion/failure callback may have won the state-store CAS.
+            // Reconcile the local view rather than reporting a stale cancellation.
+            ExecutionStatus actual = stateStore.get(id).status();
+            this.status = actual;
+            if (actual != ExecutionStatus.CANCELLED && actual != ExecutionStatus.COMPLETED
+                    && actual != ExecutionStatus.FAILED && actual != ExecutionStatus.ERROR
+                    && actual != ExecutionStatus.TIMEOUT) {
+                throw race;
+            }
+        }
     }
 
     private InferencePolicy mapBudgetToPolicy(ExecutionBudget budget) {
