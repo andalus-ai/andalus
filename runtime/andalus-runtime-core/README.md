@@ -54,3 +54,44 @@ operations. Production deployments must provide a shared transactional JDBC
 DataSource. The included H2 tests exercise lifecycle, tenant isolation, expiry,
 fencing, and concurrent acquisition; PostgreSQL integration coverage remains
 required before claiming cross-database production readiness.
+
+## Shared runtime registration-backed discovery
+
+`RegisteredAgentCapabilitySource` is the distributed-discovery path for deployments
+using `AgentRuntimeRegistrationStore`. It first applies
+`AgentDirectory.findVisibleToTenant(tenantId)`, then includes a logical agent
+only when the shared registration store reports at least one live
+`AVAILABLE` runtime instance for that same tenant and agent. Multiple ready
+instances collapse to one logical candidate; STARTING, UNAVAILABLE, REVOKED,
+expired, and missing registrations are excluded.
+
+This source deliberately fails closed when the tenant is absent or the
+registration store is missing/ambiguous. It does not fall back to process-local
+runtime state. Registration is liveness/readiness metadata only: the dispatch
+boundary must still enforce invocation authorization and policy.
+
+The legacy `DirectoryAgentCapabilitySource` remains available for deployments
+that explicitly use the older runtime-state-provider path. Do not enable both
+sources for the same agent population, because the aggregation directory
+rejects duplicate logical agent IDs.
+
+## Registration lifecycle integration
+
+`AgentRuntimeRegistrationLifecycle` is the host-facing lifecycle facade for
+the shared registration SPI. Runtime startup calls `start(...)` and retains
+the returned registration token; readiness calls `markAvailable(token)`;
+degradation calls `markUnavailable(token)`; a host-managed heartbeat calls
+`heartbeat(token)`; graceful shutdown calls `shutdown(token)`.
+
+The facade intentionally does not create a scheduler, executor, or background
+thread. The embedding host owns heartbeat cadence, cancellation, and shutdown
+ordering. A heartbeat should be scheduled comfortably inside the configured
+lease duration and treated as failed when the store returns an empty result;
+the host must then stop advertising the instance and must not continue using
+the stale token. The registration store's clock is authoritative.
+
+These registration tokens are not `FencedLeaseManager` execution/task tokens.
+The older `AgentRuntimeLifecycleCoordinator` and
+`AgentRuntimeLifecycleLeaseObserver` remain the legacy lifecycle projection
+path; they must not be used as a source of registration ownership or as a
+bridge that copies execution-lease generations into registration records.
