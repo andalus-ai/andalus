@@ -108,6 +108,7 @@ public class DockerShadowEvaluationExecutionBoundary implements ShadowEvaluation
 
     private boolean configured() {
         return nonBlank(dockerExecutable) && java.nio.file.Path.of(dockerExecutable).isAbsolute()
+                && java.nio.file.Files.isExecutable(java.nio.file.Path.of(dockerExecutable))
                 && workerImage != null && workerImage.matches("[a-zA-Z0-9][a-zA-Z0-9._/:@-]*@sha256:[a-f0-9]{64}")
                 && unique(manifestVerifiers) && unique(trustRegistries) && unique(artifactResolvers)
                 && validLimits();
