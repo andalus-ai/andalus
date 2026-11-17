@@ -74,3 +74,24 @@ The legacy `DirectoryAgentCapabilitySource` remains available for deployments
 that explicitly use the older runtime-state-provider path. Do not enable both
 sources for the same agent population, because the aggregation directory
 rejects duplicate logical agent IDs.
+
+## Registration lifecycle integration
+
+`AgentRuntimeRegistrationLifecycle` is the host-facing lifecycle facade for
+the shared registration SPI. Runtime startup calls `start(...)` and retains
+the returned registration token; readiness calls `markAvailable(token)`;
+degradation calls `markUnavailable(token)`; a host-managed heartbeat calls
+`heartbeat(token)`; graceful shutdown calls `shutdown(token)`.
+
+The facade intentionally does not create a scheduler, executor, or background
+thread. The embedding host owns heartbeat cadence, cancellation, and shutdown
+ordering. A heartbeat should be scheduled comfortably inside the configured
+lease duration and treated as failed when the store returns an empty result;
+the host must then stop advertising the instance and must not continue using
+the stale token. The registration store's clock is authoritative.
+
+These registration tokens are not `FencedLeaseManager` execution/task tokens.
+The older `AgentRuntimeLifecycleCoordinator` and
+`AgentRuntimeLifecycleLeaseObserver` remain the legacy lifecycle projection
+path; they must not be used as a source of registration ownership or as a
+bridge that copies execution-lease generations into registration records.
