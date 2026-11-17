@@ -81,13 +81,17 @@ public final class AgentRuntimeRegistrationSession implements AutoCloseable {
         if (closed || ownershipLost) {
             return false;
         }
-        boolean published = lifecycle.markAvailable(token).isPresent();
-        routable = published;
-        if (!published) {
-            ownershipLost = true;
-            heartbeat.cancel(false);
+        try {
+            boolean published = lifecycle.markAvailable(token).isPresent();
+            routable = published;
+            if (!published) {
+                loseOwnership();
+            }
+            return published;
+        } catch (RuntimeException failure) {
+            loseOwnership();
+            throw failure;
         }
-        return published;
     }
 
     /** Removes the instance from routing without relinquishing its registration. */
@@ -96,13 +100,18 @@ public final class AgentRuntimeRegistrationSession implements AutoCloseable {
             routable = false;
             return false;
         }
-        boolean published = lifecycle.markUnavailable(token).isPresent();
-        routable = false;
-        if (!published) {
-            ownershipLost = true;
-            heartbeat.cancel(false);
+        try {
+            boolean published = lifecycle.markUnavailable(token).isPresent();
+            routable = false;
+            if (!published) {
+                loseOwnership();
+            }
+            return published;
+        } catch (RuntimeException failure) {
+            routable = false;
+            loseOwnership();
+            throw failure;
         }
-        return published;
     }
 
     /** Local routing/readiness view; false immediately after a failed renewal. */
@@ -118,10 +127,22 @@ public final class AgentRuntimeRegistrationSession implements AutoCloseable {
         if (closed || ownershipLost) {
             return;
         }
-        if (lifecycle.heartbeat(token).isEmpty()) {
+        try {
+            if (lifecycle.heartbeat(token).isEmpty()) {
+                routable = false;
+                loseOwnership();
+            }
+        } catch (RuntimeException failure) {
             routable = false;
-            ownershipLost = true;
-            heartbeat.cancel(false);
+            loseOwnership();
+        }
+    }
+
+    private void loseOwnership() {
+        ownershipLost = true;
+        ScheduledFuture<?> task = heartbeat;
+        if (task != null) {
+            task.cancel(false);
         }
     }
 
