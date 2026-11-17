@@ -54,3 +54,23 @@ operations. Production deployments must provide a shared transactional JDBC
 DataSource. The included H2 tests exercise lifecycle, tenant isolation, expiry,
 fencing, and concurrent acquisition; PostgreSQL integration coverage remains
 required before claiming cross-database production readiness.
+
+## Shared runtime registration-backed discovery
+
+`RegisteredAgentCapabilitySource` is the distributed-discovery path for deployments
+using `AgentRuntimeRegistrationStore`. It first applies
+`AgentDirectory.findVisibleToTenant(tenantId)`, then includes a logical agent
+only when the shared registration store reports at least one live
+`AVAILABLE` runtime instance for that same tenant and agent. Multiple ready
+instances collapse to one logical candidate; STARTING, UNAVAILABLE, REVOKED,
+expired, and missing registrations are excluded.
+
+This source deliberately fails closed when the tenant is absent or the
+registration store is missing/ambiguous. It does not fall back to process-local
+runtime state. Registration is liveness/readiness metadata only: the dispatch
+boundary must still enforce invocation authorization and policy.
+
+The legacy `DirectoryAgentCapabilitySource` remains available for deployments
+that explicitly use the older runtime-state-provider path. Do not enable both
+sources for the same agent population, because the aggregation directory
+rejects duplicate logical agent IDs.
