@@ -370,20 +370,7 @@ public class DefaultAgentExecution implements AgentExecution {
 
         // Policy bridge: routes tool calls through the executor pipeline
         tech.kayys.andalus.agent.react.BaseReActAgent.ToolExecutorBridge policyBridge =
-            (toolExecutor != null)
-            ? (invocation, directFallback) -> {
-                AgentDecision decision = toolExecutor.execute(invocation, cancellationToken)
-                    .toCompletableFuture().get();
-                return switch (decision) {
-                    case AgentDecision.ToolCompleted tc -> tc.result();
-                    case AgentDecision.ExecuteTool et   -> directFallback.get();
-                    case AgentDecision.Fail f           -> {
-                        throw new RuntimeException(f.error());
-                    }
-                    default -> directFallback.get();
-                };
-              }
-            : null;
+            ToolPolicyBridge.of(toolExecutor, cancellationToken);
 
         // Checkpoint bridge: persists agent context before/after each model step.
         tech.kayys.andalus.agent.react.BaseReActAgent.CheckpointBridge cpBridge =

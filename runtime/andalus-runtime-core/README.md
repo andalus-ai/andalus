@@ -34,3 +34,18 @@ execution budgets, and dispatch rules before sending work to a candidate.
 
 Validation is structural only. It does not grant permissions, establish tenant visibility,
 reserve execution budget, or dispatch work; those checks remain mandatory at the execution boundary.
+
+## Tool decisions in the ReAct loop (`ToolPolicyBridge`)
+
+A tool call of the loop goes through `AgentToolExecutor`. What each decision means:
+
+| Decision | Effect |
+|---|---|
+| `ToolCompleted` | the executor already ran the tool; its result is used |
+| `ExecuteTool` | the executor defers: the tool is run directly, once |
+| `Fail` | the call fails with the executor's error; the tool is not run |
+| `WaitForApproval` | the tool is **not run**; the call fails with a `ToolExecutionDeniedException` naming the tool (never its arguments) |
+| anything else | not run; fails the same way |
+
+Behaviour change: before this bridge existed as its own class, `WaitForApproval` (and any unlisted decision) fell through to the direct execution path, so a policy
+that required approval did not stop the tool. A durable park-and-resume of the call is not part of this path; until it is, approval-gated tools fail closed here.
