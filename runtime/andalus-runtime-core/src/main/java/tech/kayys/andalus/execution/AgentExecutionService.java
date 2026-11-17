@@ -177,7 +177,7 @@ public class AgentExecutionService {
         }
     }
 
-    private AgentToolExecutionContext createToolExecutionContext(
+    AgentToolExecutionContext createToolExecutionContext(
             ExecutionIdentity identity, AgentDefinition agent, String tenantId,
             String userId, ExecutionBudget executionBudget) {
         String agentId = agent != null ? agent.id().value().asString() : "unknown-agent";
