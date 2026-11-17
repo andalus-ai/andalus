@@ -69,7 +69,7 @@ public final class ShadowEvaluationWorkerEntrypoint {
         return provider;
     }
 
-    private static byte[] readBounded(InputStream input, int maximum) throws IOException {
+    static byte[] readBounded(InputStream input, int maximum) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         byte[] buffer = new byte[8192];
         int count;
