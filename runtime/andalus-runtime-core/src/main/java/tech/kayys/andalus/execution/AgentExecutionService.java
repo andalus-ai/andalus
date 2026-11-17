@@ -180,13 +180,17 @@ public class AgentExecutionService {
         // metadata remain usable only through the legacy anonymous overload.
         boolean authenticatedResume = (tenantId != null && !tenantId.isBlank())
                 || (userId != null && !userId.isBlank());
-        if (authenticatedResume) {
-            if (checkpointMetadata.isEmpty()) {
+        if (checkpointMetadata.isEmpty()) {
+            if (authenticatedResume) {
                 throw new SecurityException("Execution checkpoint has no ownership metadata");
             }
-            if (!java.util.Objects.equals(tenantId, checkpointMetadata.get("tenantId"))
-                    || !java.util.Objects.equals(userId, checkpointMetadata.get("userId"))
-                    || !"USER".equals(checkpointMetadata.get("principalType"))) {
+        } else if (!java.util.Objects.equals(tenantId, checkpointMetadata.get("tenantId"))
+                || !java.util.Objects.equals(userId, checkpointMetadata.get("userId"))
+                || !java.util.Objects.equals(
+                        userId != null && !userId.isBlank() ? "USER" : "ANONYMOUS",
+                        checkpointMetadata.get("principalType"))) {
+            // Also reject an anonymous legacy resume of a user-owned execution.
+            if (authenticatedResume || "USER".equals(checkpointMetadata.get("principalType"))) {
                 throw new SecurityException("Execution belongs to a different caller or tenant");
             }
         }
