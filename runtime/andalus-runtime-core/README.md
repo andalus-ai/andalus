@@ -83,6 +83,17 @@ the returned registration token; readiness calls `markAvailable(token)`;
 degradation calls `markUnavailable(token)`; a host-managed heartbeat calls
 `heartbeat(token)`; graceful shutdown calls `shutdown(token)`.
 
+For hosts that want a reusable lifecycle boundary, `AgentRuntimeRegistrationSession.open(...)`
+acquires the registration and schedules heartbeats on a caller-supplied
+`ScheduledExecutorService`. The supplied scheduler remains host-owned: the
+session neither creates nor shuts it down. The session retains the exact token,
+exposes a local `isRoutable()` readiness view, and marks itself non-routable
+immediately when renewal is rejected. It cancels the heartbeat before fenced
+revocation on close. A failed/lost registration cannot be made available again
+through that session; the host must create a new session and acquire a new
+generation. Heartbeat intervals must be positive, at least one millisecond,
+and shorter than the registration lease duration.
+
 The facade intentionally does not create a scheduler, executor, or background
 thread. The embedding host owns heartbeat cadence, cancellation, and shutdown
 ordering. A heartbeat should be scheduled comfortably inside the configured
