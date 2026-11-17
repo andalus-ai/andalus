@@ -179,6 +179,12 @@ public class DefaultExecutionStateStore implements ExecutionStateStore {
 
     @Override
     public ExecutionCheckpoint checkpoint(String executionId, AgentContext context) {
+        return checkpoint(executionId, context, Map.of());
+    }
+
+    @Override
+    public ExecutionCheckpoint checkpoint(
+            String executionId, AgentContext context, Map<String, Object> metadata) {
         AgentExecutionState state = get(executionId);
 
         ExecutionCheckpoint checkpoint = ExecutionCheckpoint.of(
@@ -187,7 +193,8 @@ public class DefaultExecutionStateStore implements ExecutionStateStore {
                 state.phase(),
                 state.attempt(),
                 state.iteration(),
-                context
+                context,
+                metadata
         );
 
         if (executionCheckpointStore != null) {
