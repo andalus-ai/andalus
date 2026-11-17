@@ -579,6 +579,19 @@ public class DefaultAgentExecution implements AgentExecution {
         future.complete(response);
     }
 
+    private void checkpoint(String executionId, AgentContext snapshot) {
+        if (stateStore == null || snapshot == null) {
+            return;
+        }
+        java.util.Map<String, Object> metadata = new java.util.HashMap<>();
+        metadata.put("tenantId", toolExecutionContext.tenantId());
+        metadata.put("userId", toolExecutionContext.userId());
+        metadata.put("agentId", toolExecutionContext.agentId());
+        metadata.put("principalType", toolExecutionContext.principalType().name());
+        metadata.put("principalId", toolExecutionContext.principalId());
+        stateStore.checkpoint(executionId, snapshot, metadata);
+    }
+
     private void throwIfCancellationRequested() {
         if (cancellationToken.isCancellationRequested()) {
             throw new CancellationException("Execution cancelled: " + id);
