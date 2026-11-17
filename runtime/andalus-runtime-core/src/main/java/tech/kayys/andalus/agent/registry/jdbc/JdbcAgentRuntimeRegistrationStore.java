@@ -6,6 +6,9 @@ import tech.kayys.andalus.agent.capability.AgentRuntimeRegistrationRequest;
 import tech.kayys.andalus.agent.capability.AgentRuntimeRegistrationStore;
 import tech.kayys.andalus.agent.capability.AgentRuntimeStatus;
 
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -31,6 +34,7 @@ import java.util.TimeZone;
  * <p>This class deliberately does not own a connection pool or schema
  * migration lifecycle. The application supplies its configured DataSource.</p>
  */
+@ApplicationScoped
 public final class JdbcAgentRuntimeRegistrationStore implements AgentRuntimeRegistrationStore {
 
     private static final String SELECT_LOCKED = """
@@ -42,6 +46,7 @@ public final class JdbcAgentRuntimeRegistrationStore implements AgentRuntimeRegi
 
     private final DataSource dataSource;
 
+    @Inject
     public JdbcAgentRuntimeRegistrationStore(DataSource dataSource) {
         this.dataSource = java.util.Objects.requireNonNull(dataSource, "dataSource must not be null");
     }
