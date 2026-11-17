@@ -161,23 +161,6 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
         final ToolBudget budget = execution.toolBudget() != null
                 ? execution.toolBudget() : ToolBudget.unlimited();
 
-        // --- 0. Tool-result cache lookup ---
-        ExecutionCache cache = resolveExecutionCache();
-        if (cache != null && executionBudget.toolCacheEnabled()) {
-            String inputHash = ExecutionCache.hashTool(toolName, invocation.arguments());
-            Optional<ExecutionCacheEntry> hit = cache.lookup(
-                    CacheNamespace.TOOL, execution.tenantId(), execution.userId(), inputHash);
-            if (hit.isPresent()) {
-                ExecutionCacheEntry entry = hit.get();
-                LOG.fine(() -> "Cache HIT for tool " + toolName + " (" + inputHash + ")");
-                if (entry.value() instanceof ToolResult cachedResult) {
-                    recordToolExecution(execution, toolName, invocation.arguments(), 0, true);
-                    return CompletableFuture.completedFuture(
-                            new AgentDecision.ToolCompleted(invocation, cachedResult));
-                }
-            }
-        }
-
         // --- 1. Capability / existence check ---
         Tool tool = resolveTool(toolName);
         if (tool == null) {
@@ -242,6 +225,24 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
                 LOG.warning(() -> "Guardrail blocked tool " + toolName + ": " + guardResult.reason()
                         + " (policies: " + guardResult.triggeredPolicies() + ")");
                 return CompletableFuture.completedFuture(AgentDecision.fail("Guardrail blocked: " + guardResult.reason()));
+            }
+        }
+
+        // Cache lookup happens only after policy and guardrail evaluation so a hit
+        // cannot bypass current authorization decisions.
+        ExecutionCache cache = resolveExecutionCache();
+        if (cache != null && executionBudget.toolCacheEnabled()) {
+            String inputHash = ExecutionCache.hashTool(toolName, invocation.arguments());
+            Optional<ExecutionCacheEntry> hit = cache.lookup(
+                    CacheNamespace.TOOL, execution.tenantId(), execution.userId(), inputHash);
+            if (hit.isPresent()) {
+                ExecutionCacheEntry entry = hit.get();
+                LOG.fine(() -> "Cache HIT for tool " + toolName + " (" + inputHash + ")");
+                if (entry.value() instanceof ToolResult cachedResult) {
+                    recordToolExecution(execution, toolName, invocation.arguments(), 0, true);
+                    return CompletableFuture.completedFuture(
+                            new AgentDecision.ToolCompleted(invocation, cachedResult));
+                }
             }
         }
 
