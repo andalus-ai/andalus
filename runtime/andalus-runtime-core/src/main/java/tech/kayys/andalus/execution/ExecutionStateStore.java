@@ -51,6 +51,18 @@ public interface ExecutionStateStore {
         AgentContext context
     );
 
+    /**
+     * Checkpoints execution state with immutable metadata such as its owner identity.
+     * Implementations that do not support metadata retain source compatibility.
+     */
+    default ExecutionCheckpoint checkpoint(
+        String executionId,
+        AgentContext context,
+        Map<String, Object> metadata
+    ) {
+        return checkpoint(executionId, context);
+    }
+
     default void checkpoint(AgentExecutionState state) {
         // Deprecated marker
     }

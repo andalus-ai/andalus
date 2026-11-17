@@ -176,14 +176,6 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
                     AgentDecision.fail("Schema validation failed: " + validationError));
         }
 
-        // --- 2b. Execution-scoped tool budget ---
-        if (budget.isCallBudgetExhausted()) {
-            emitAudit(execution, ExecutionEventType.TOOL_FAILED, toolName,
-                    Map.of("reason", "budget exhausted", "budget", budget.toString()));
-            return CompletableFuture.completedFuture(
-                    AgentDecision.fail("Tool call budget exhausted for " + budget));
-        }
-
         // --- 3. Policy evaluation with complete identity; no wildcard role ---
         ToolPermissionContext permission = new ToolPermissionContext(
                 execution.tenantId(), execution.userId(), execution.executionId(),
@@ -228,6 +220,15 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
             }
         }
 
+        // Reserve the invocation atomically only after authorization and guardrails
+        // have passed. Cached invocations count as tool calls too.
+        if (!budget.tryAcquireCall()) {
+            emitAudit(execution, ExecutionEventType.TOOL_FAILED, toolName,
+                    Map.of("reason", "budget exhausted", "budget", budget.toString()));
+            return CompletableFuture.completedFuture(
+                    AgentDecision.fail("Tool call budget exhausted for " + budget));
+        }
+
         // Cache lookup happens only after policy and guardrail evaluation so a hit
         // cannot bypass current authorization decisions.
         ExecutionCache cache = resolveExecutionCache();
@@ -239,6 +240,7 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
                 ExecutionCacheEntry entry = hit.get();
                 LOG.fine(() -> "Cache HIT for tool " + toolName + " (" + inputHash + ")");
                 if (entry.value() instanceof ToolResult cachedResult) {
+                    budget.recordUsage(0, 0.0);
                     recordToolExecution(execution, toolName, invocation.arguments(), 0, true);
                     return CompletableFuture.completedFuture(
                             new AgentDecision.ToolCompleted(invocation, cachedResult));
@@ -254,7 +256,7 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
             long startMs = System.currentTimeMillis();
             AgentDecision decision = runWithResilience(tool, invocation);
             long durationMs = System.currentTimeMillis() - startMs;
-            budget.consume(durationMs, 0.0);
+            budget.recordUsage(durationMs, 0.0);
 
             if (decision instanceof AgentDecision.ToolCompleted tc) {
                 emitAudit(execution, ExecutionEventType.TOOL_EXECUTED, toolName,
