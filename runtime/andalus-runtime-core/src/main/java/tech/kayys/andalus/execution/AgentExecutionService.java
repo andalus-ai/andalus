@@ -154,13 +154,22 @@ public class AgentExecutionService {
     // ------------------------------------------------------------------
 
     public AgentExecution resume(String executionId) {
+        return resume(executionId, null, null, java.util.Set.of());
+    }
+
+    /** Resumes an execution using the caller identity of the resuming request. */
+    public AgentExecution resume(String executionId, String tenantId, String userId,
+                                 java.util.Set<String> roles) {
+        if ((userId == null || userId.isBlank()) && roles != null && !roles.isEmpty()) {
+            throw new IllegalArgumentException("roles require an authenticated userId");
+        }
         java.util.Optional<AgentContext> contextOpt = checkpointStore.load(executionId);
         if (contextOpt.isEmpty()) {
             throw new IllegalArgumentException("Execution not found: " + executionId);
         }
 
         ExecutionIdentity identity = new ExecutionIdentity(executionId, executionId, null);
-        AgentToolExecutionContext toolContext = createToolExecutionContext(identity, null, null, null, java.util.Set.of(), ExecutionBudget.balanced());
+        AgentToolExecutionContext toolContext = createToolExecutionContext(identity, null, tenantId, userId, roles, ExecutionBudget.balanced());
         DefaultAgentExecution execution = new DefaultAgentExecution(
             executionId,
             null,
@@ -174,7 +183,7 @@ public class AgentExecutionService {
             resolveContextPlanner(),
             resolveMemoryManager(),
             resolveCache(),
-            null, null,
+            tenantId, userId,
             resolveEventLedger(),
             toolContext
         );
@@ -183,7 +192,12 @@ public class AgentExecutionService {
     }
 
     public void approve(String executionId, AgentDecision decision) {
-        AgentExecution execution = resume(executionId);
+        approve(executionId, decision, null, null, java.util.Set.of());
+    }
+
+    public void approve(String executionId, AgentDecision decision, String tenantId,
+                        String userId, java.util.Set<String> roles) {
+        AgentExecution execution = resume(executionId, tenantId, userId, roles);
         if (decision instanceof AgentDecision.WaitForApproval) {
             execution.execute();
         }
