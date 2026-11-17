@@ -95,6 +95,18 @@ public class AgentExecutionService {
     // ------------------------------------------------------------------
 
     public AgentExecution create(AgentDefinition agent, AgentRequest request, ExecutionBudget budget) {
+        return create(agent, request, budget, null, null, java.util.Set.of());
+    }
+
+    /**
+     * Creates an execution with an explicit authenticated caller context.
+     * Roles are accepted only when a user identity is supplied.
+     */
+    public AgentExecution create(AgentDefinition agent, AgentRequest request, ExecutionBudget budget,
+                                 String tenantId, String userId, java.util.Set<String> roles) {
+        if ((userId == null || userId.isBlank()) && roles != null && !roles.isEmpty()) {
+            throw new IllegalArgumentException("roles require an authenticated userId");
+        }
         ExecutionIdentity identity = ExecutionIdentity.create();
 
         AgentContext agentContext = AgentContext.builder()
@@ -110,7 +122,7 @@ public class AgentExecutionService {
 
         ExecutionCache cache = resolveCache();
         ExecutionBudget effectiveBudget = budget != null ? budget : ExecutionBudget.balanced();
-        AgentToolExecutionContext toolContext = createToolExecutionContext(identity, agent, null, null, effectiveBudget);
+        AgentToolExecutionContext toolContext = createToolExecutionContext(identity, agent, tenantId, userId, roles, effectiveBudget);
 
         return new DefaultAgentExecution(
             identity.executionId(),
@@ -125,8 +137,8 @@ public class AgentExecutionService {
             resolveContextPlanner(),
             resolveMemoryManager(),
             cache,
-            null, // tenantId — null in standalone mode
-            null, // userId   — null in standalone mode
+            tenantId,
+            userId
             resolveEventLedger(),
             toolContext
         );
@@ -148,7 +160,7 @@ public class AgentExecutionService {
         }
 
         ExecutionIdentity identity = new ExecutionIdentity(executionId, executionId, null);
-        AgentToolExecutionContext toolContext = createToolExecutionContext(identity, null, null, null, ExecutionBudget.balanced());
+        AgentToolExecutionContext toolContext = createToolExecutionContext(identity, null, null, null, java.util.Set.of(), ExecutionBudget.balanced());
         DefaultAgentExecution execution = new DefaultAgentExecution(
             executionId,
             null,
@@ -179,7 +191,7 @@ public class AgentExecutionService {
 
     AgentToolExecutionContext createToolExecutionContext(
             ExecutionIdentity identity, AgentDefinition agent, String tenantId,
-            String userId, ExecutionBudget executionBudget) {
+            String userId, java.util.Set<String> roles, ExecutionBudget executionBudget) {
         String agentId = agent != null ? agent.id().value().asString() : "unknown-agent";
         PrincipalType principalType = userId != null && !userId.isBlank()
                 ? PrincipalType.USER : PrincipalType.ANONYMOUS;
@@ -192,7 +204,7 @@ public class AgentExecutionService {
                 identity.executionId(), identity.correlationId(), identity.parentExecutionId(),
                 tenantId, userId, agentId, principalType,
                 principalType == PrincipalType.USER ? userId : null,
-                java.util.Set.of(), executionBudget, executionBudgetForTools,
+                roles != null ? roles : java.util.Set.of(), executionBudget, executionBudgetForTools,
                 agent != null ? agent.constraints() : java.util.Map.of(),
                 java.util.Map.of(), java.time.Instant.now());
     }
