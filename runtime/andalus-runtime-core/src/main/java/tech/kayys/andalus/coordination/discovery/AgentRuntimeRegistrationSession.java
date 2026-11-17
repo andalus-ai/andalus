@@ -51,6 +51,7 @@ public final class AgentRuntimeRegistrationSession implements AutoCloseable {
         Objects.requireNonNull(heartbeatInterval, "heartbeatInterval must not be null");
         Duration leaseDuration = lifecycle.leaseDuration();
         if (heartbeatInterval.isZero() || heartbeatInterval.isNegative()
+                || heartbeatInterval.toMillis() < 1
                 || heartbeatInterval.compareTo(leaseDuration) >= 0) {
             throw new IllegalArgumentException("heartbeatInterval must be positive and shorter than the lease duration");
         }
