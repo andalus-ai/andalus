@@ -22,18 +22,16 @@ public final class AgentRuntimeRegistrationSession implements AutoCloseable {
 
     private final AgentRuntimeRegistrationLifecycle lifecycle;
     private final AgentRuntimeLeaseToken token;
-    private final ScheduledFuture<?> heartbeat;
+    private volatile ScheduledFuture<?> heartbeat;
     private volatile boolean routable;
     private boolean ownershipLost;
     private boolean closed;
 
     private AgentRuntimeRegistrationSession(
             AgentRuntimeRegistrationLifecycle lifecycle,
-            AgentRuntimeLeaseToken token,
-            ScheduledFuture<?> heartbeat) {
+            AgentRuntimeLeaseToken token) {
         this.lifecycle = lifecycle;
         this.token = token;
-        this.heartbeat = heartbeat;
     }
 
     /**
@@ -65,12 +63,12 @@ public final class AgentRuntimeRegistrationSession implements AutoCloseable {
 
         AgentRuntimeLeaseToken token = acquired.get().token();
         AgentRuntimeRegistrationSession session =
-                new AgentRuntimeRegistrationSession(lifecycle, token, null);
+                new AgentRuntimeRegistrationSession(lifecycle, token);
         try {
-            ScheduledFuture<?> future = hostScheduler.scheduleWithFixedDelay(
+            session.heartbeat = hostScheduler.scheduleWithFixedDelay(
                     session::renew, heartbeatInterval.toMillis(),
                     heartbeatInterval.toMillis(), TimeUnit.MILLISECONDS);
-            return Optional.of(new AgentRuntimeRegistrationSession(lifecycle, token, future));
+            return Optional.of(session);
         } catch (RuntimeException schedulingFailure) {
             lifecycle.shutdown(token);
             throw schedulingFailure;
