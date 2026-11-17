@@ -3,7 +3,7 @@ package tech.kayys.andalus.execution;
 import org.junit.jupiter.api.Test;
 
 import tech.kayys.andalus.execution.governance.ToolBudget;
-import tech.kayys.andalus.execution.governance.ToolBudgetLedger;
+import tech.kayys.andalus.execution.governance.quota.ToolBudgetLedger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
