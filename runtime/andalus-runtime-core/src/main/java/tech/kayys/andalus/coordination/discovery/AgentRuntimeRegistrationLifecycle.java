@@ -48,6 +48,11 @@ public class AgentRuntimeRegistrationLifecycle {
         }
     }
 
+    /** Lease duration used by registrations created through this facade. */
+    public Duration leaseDuration() {
+        return leaseDuration;
+    }
+
     /** Acquires a registration in STARTING state; empty means another live owner holds it. */
     public Optional<AgentRuntimeLease> start(
             String tenantId, String agentId, String instanceId, String ownerId) {
