@@ -138,7 +138,7 @@ public class AgentExecutionService {
             resolveMemoryManager(),
             cache,
             tenantId,
-            userId
+            userId,
             resolveEventLedger(),
             toolContext
         );
