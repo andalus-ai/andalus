@@ -168,8 +168,33 @@ public class AgentExecutionService {
             throw new IllegalArgumentException("Execution not found: " + executionId);
         }
 
+        java.util.Optional<ExecutionCheckpoint> lifecycleCheckpoint =
+                resolveExecutionCheckpointStore() != null
+                        ? resolveExecutionCheckpointStore().load(executionId)
+                        : java.util.Optional.empty();
+        java.util.Map<String, Object> checkpointMetadata = lifecycleCheckpoint
+                .map(ExecutionCheckpoint::metadata)
+                .orElse(java.util.Map.of());
+
+        // Identity-aware resume is fail-closed: older checkpoints without owner
+        // metadata remain usable only through the legacy anonymous overload.
+        boolean authenticatedResume = (tenantId != null && !tenantId.isBlank())
+                || (userId != null && !userId.isBlank());
+        if (authenticatedResume) {
+            if (checkpointMetadata.isEmpty()) {
+                throw new SecurityException("Execution checkpoint has no ownership metadata");
+            }
+            if (!java.util.Objects.equals(tenantId, checkpointMetadata.get("tenantId"))
+                    || !java.util.Objects.equals(userId, checkpointMetadata.get("userId"))
+                    || !"USER".equals(checkpointMetadata.get("principalType"))) {
+                throw new SecurityException("Execution belongs to a different caller or tenant");
+            }
+        }
+
+        String checkpointAgentId = (String) checkpointMetadata.getOrDefault("agentId", "unknown-agent");
         ExecutionIdentity identity = new ExecutionIdentity(executionId, executionId, null);
-        AgentToolExecutionContext toolContext = createToolExecutionContext(identity, null, tenantId, userId, roles, ExecutionBudget.balanced());
+        AgentToolExecutionContext toolContext = createToolExecutionContext(
+                identity, null, checkpointAgentId, tenantId, userId, roles, ExecutionBudget.balanced());
         DefaultAgentExecution execution = new DefaultAgentExecution(
             executionId,
             null,
@@ -207,6 +232,12 @@ public class AgentExecutionService {
             ExecutionIdentity identity, AgentDefinition agent, String tenantId,
             String userId, java.util.Set<String> roles, ExecutionBudget executionBudget) {
         String agentId = agent != null ? agent.id().value().asString() : "unknown-agent";
+        return createToolExecutionContext(identity, agent, agentId, tenantId, userId, roles, executionBudget);
+    }
+
+    private AgentToolExecutionContext createToolExecutionContext(
+            ExecutionIdentity identity, AgentDefinition agent, String agentId, String tenantId,
+            String userId, java.util.Set<String> roles, ExecutionBudget executionBudget) {
         PrincipalType principalType = userId != null && !userId.isBlank()
                 ? PrincipalType.USER : PrincipalType.ANONYMOUS;
         ToolBudget configured = toolBudgetLedger != null
