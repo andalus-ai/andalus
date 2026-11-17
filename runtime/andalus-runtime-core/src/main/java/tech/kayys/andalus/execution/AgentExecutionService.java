@@ -189,10 +189,7 @@ public class AgentExecutionService {
                 || !java.util.Objects.equals(
                         userId != null && !userId.isBlank() ? "USER" : "ANONYMOUS",
                         checkpointMetadata.get("principalType"))) {
-            // Also reject an anonymous legacy resume of a user-owned execution.
-            if (authenticatedResume || "USER".equals(checkpointMetadata.get("principalType"))) {
-                throw new SecurityException("Execution belongs to a different caller or tenant");
-            }
+            throw new SecurityException("Execution belongs to a different caller or tenant");
         }
 
         String checkpointAgentId = (String) checkpointMetadata.getOrDefault("agentId", "unknown-agent");
