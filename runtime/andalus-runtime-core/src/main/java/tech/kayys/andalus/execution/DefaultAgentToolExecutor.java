@@ -25,7 +25,6 @@ import tech.kayys.andalus.execution.event.ToolExecution;
 import tech.kayys.andalus.execution.event.ToolExecutionLedger;
 import tech.kayys.andalus.execution.governance.PolicyDecision;
 import tech.kayys.andalus.execution.governance.ToolBudget;
-import tech.kayys.andalus.execution.governance.ToolBudgetLedger;
 import tech.kayys.andalus.execution.governance.ToolCapabilityLevel;
 import tech.kayys.andalus.execution.governance.ToolPermissionContext;
 import tech.kayys.andalus.execution.governance.PolicyEvaluationContexts;
@@ -94,9 +93,6 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
      */
     @Inject
     Instance<ToolPolicyEvaluator> policyEvaluatorInstances;
-
-    @Inject
-    ToolBudgetLedger budgetLedger;
 
     @Inject
     Instance<EventLedger> eventLedgerInstances;
@@ -245,7 +241,7 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
             if (!guardResult.allowed()) {
                 LOG.warning(() -> "Guardrail blocked tool " + toolName + ": " + guardResult.reason()
                         + " (policies: " + guardResult.triggeredPolicies() + ")");
-                return CompletabletableFailed(AgentDecision.fail("Guardrail blocked: " + guardResult.reason()));
+                return CompletableFuture.completedFuture(AgentDecision.fail("Guardrail blocked: " + guardResult.reason()));
             }
         }
 
@@ -288,10 +284,6 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
             }
             return decision;
         });
-    }
-
-    private static CompletionStage<AgentDecision> CompletabletableFailed(AgentDecision decision) {
-        return CompletableFuture.completedFuture(decision);
     }
 
     // -------------------------------------------------------------------------
