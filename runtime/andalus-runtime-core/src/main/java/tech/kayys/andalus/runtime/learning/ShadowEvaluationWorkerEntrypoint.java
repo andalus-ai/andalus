@@ -49,7 +49,7 @@ public final class ShadowEvaluationWorkerEntrypoint {
             OutputStream output = System.out;
             output.write(response);
             output.flush();
-        } catch (Throwable failure) {
+        } catch (Exception failure) {
             // Keep stdout uncontaminated and avoid leaking stack traces or request contents.
             try {
                 System.err.println("shadow-worker: request failed (" + safeCode(failure) + ")");
