@@ -400,5 +400,31 @@ same in-memory artifact byte arrays that were verified. The trust-store
 implementation and its update/revocation lifecycle remain deployment-owned;
 mount trust material read-only and bind it to the immutable worker image or
 another authenticated deployment control. Unit tests cover valid signatures,
-unknown signers, and artifact tampering. This is a verification primitive,
-not yet a complete worker or an execution-boundary implementation.
+unknown signers, and artifact tampering. The verifier is a worker-side primitive;
+it does not itself provide a process boundary.
+
+
+### Isolated worker request engine
+
+`ShadowEvaluationWorkerEngine` implements the typed request lifecycle inside the
+worker process. It accepts only an `EXECUTE_REQUEST` frame, decodes the bounded
+DTO, verifies the dataset and both evaluator manifests, and only then calls the
+deployment-provided `VerifiedArtifactLoader`. Both artifacts must pass signature,
+descriptor and digest checks before either loader invocation. The loader receives
+the exact verified byte arrays and must not resolve artifact references or fetch
+additional code.
+
+After loading, the engine invokes the existing paired `ShadowEvaluationRunner`
+against the same dataset revision. It validates report provenance against the
+request before encoding a correlated response frame. Decode, trust, load,
+evaluation, provenance, and response-encoding failures produce bounded failure
+frames without stack traces or arbitrary exception text. Malformed outer frames
+that cannot be correlated are rejected exceptionally.
+
+This is the worker-side execution core, not a deployable worker image or a
+security boundary by itself. The loader implementation, pinned trust store,
+container/microVM image, resource limits, timeout enforcement, process-tree
+termination, and authenticated transport remain deployment responsibilities.
+The engine must run only inside the OS-enforced isolation boundary; never wire
+its artifact loader into the application host. The worker engine tests cover
+rejection before artifact loading and successful verified paired execution.
