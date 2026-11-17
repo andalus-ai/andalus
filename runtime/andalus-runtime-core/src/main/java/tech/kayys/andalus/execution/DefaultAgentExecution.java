@@ -395,6 +395,7 @@ public class DefaultAgentExecution implements AgentExecution {
 
         // Policy bridge: routes tool calls through the executor pipeline
         tech.kayys.andalus.agent.react.BaseReActAgent.ToolExecutorBridge policyBridge =
+            ToolPolicyBridge.of(toolExecutor, cancellationToken);
             (toolExecutor != null)
             ? (invocation, directFallback) -> {
                 AgentDecision decision = toolExecutor.execute(invocation, toolExecutionContext, cancellationToken)
