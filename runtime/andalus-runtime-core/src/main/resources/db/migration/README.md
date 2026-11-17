@@ -428,3 +428,18 @@ termination, and authenticated transport remain deployment responsibilities.
 The engine must run only inside the OS-enforced isolation boundary; never wire
 its artifact loader into the application host. The worker engine tests cover
 rejection before artifact loading and successful verified paired execution.
+
+
+### Worker process bootstrap and image contract
+
+`ShadowEvaluationWorkerEntrypoint` provides the single-request process contract expected by `DockerShadowEvaluationWorkerTransport`. The container entrypoint must invoke its `main` method. It reads one bounded binary frame from stdin until EOF, resolves exactly one image-baked `BootstrapProvider` through Java `ServiceLoader`, invokes the worker engine, validates response correlation/type, and writes exactly one binary response frame to stdout. stdout is reserved exclusively for protocol bytes; diagnostics are reduced to bounded generic codes on stderr. The process accepts no command-line arguments and handles one request before exiting.
+
+The immutable worker image must include exactly one provider registered at:
+
+```text
+META-INF/services/tech.kayys.andalus.runtime.learning.ShadowEvaluationWorkerEntrypoint$BootstrapProvider
+```
+
+The provider is trusted deployment code baked into the image, not an uploaded evaluator artifact. It must construct the worker-local Ed25519 verifier using a read-only trust bundle independent of request data, and a `VerifiedArtifactLoader` that loads only the exact byte arrays passed by the engine after verification. It must not fetch artifact references, inherit application credentials, or share mutable application state.
+
+The worker image build/release pipeline remains deployment-owned: pin the base image and final image by digest, include only required runtime dependencies, run as the unprivileged UID expected by the Docker transport, provide no network or writable root filesystem, and publish the final immutable image digest to the runtime configuration. The transport uses `--pull=never`; the image must already be present on the worker host. Do not register a `ShadowEvaluationExecutionBoundary` or report readiness UP until a concrete adapter invokes this entrypoint, tests the exact image/protocol end to end, and demonstrates OS-enforced isolation and worker-local signature verification.
