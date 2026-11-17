@@ -34,3 +34,23 @@ execution budgets, and dispatch rules before sending work to a candidate.
 
 Validation is structural only. It does not grant permissions, establish tenant visibility,
 reserve execution budget, or dispatch work; those checks remain mandatory at the execution boundary.
+
+
+## Distributed agent runtime registration (Phase 5.1)
+
+`JdbcAgentRuntimeRegistrationStore` implements the framework-owned
+`AgentRuntimeRegistrationStore` contract using the application's `DataSource`.
+It serializes ownership by `(tenant_id, agent_id, instance_id)`, uses row locks
+for mutations, increments a durable generation on takeover, and evaluates
+expiry against the database's `CURRENT_TIMESTAMP`. Mutations compare owner and
+generation so an older process cannot renew, publish state, or revoke its
+successor.
+
+Before enabling the adapter, apply
+`META-INF/andalus/agent-runtime-registration-schema.sql` to the runtime
+ database. The adapter intentionally does not create or migrate tables during
+application startup; migration execution remains owned by deployment/database
+operations. Production deployments must provide a shared transactional JDBC
+DataSource. The included H2 tests exercise lifecycle, tenant isolation, expiry,
+fencing, and concurrent acquisition; PostgreSQL integration coverage remains
+required before claiming cross-database production readiness.
