@@ -19,7 +19,7 @@ import tech.kayys.andalus.execution.event.EventLedger;
 import tech.kayys.andalus.execution.AgentToolExecutionContext;
 import tech.kayys.andalus.execution.AgentToolExecutionContext.PrincipalType;
 import tech.kayys.andalus.execution.governance.ToolBudget;
-import tech.kayys.andalus.execution.governance.ToolBudgetLedger;
+import tech.kayys.andalus.execution.governance.quota.ToolBudgetLedger;
 import tech.kayys.andalus.provider.DefaultModelRouter;
 import tech.kayys.andalus.provider.ModelRouter;
 import tech.kayys.andalus.provider.Provider;
