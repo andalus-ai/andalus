@@ -35,17 +35,79 @@ execution budgets, and dispatch rules before sending work to a candidate.
 Validation is structural only. It does not grant permissions, establish tenant visibility,
 reserve execution budget, or dispatch work; those checks remain mandatory at the execution boundary.
 
-## Tool decisions in the ReAct loop (`ToolPolicyBridge`)
 
-A tool call of the loop goes through `AgentToolExecutor`. What each decision means:
+## Distributed agent runtime registration (Phase 5.1)
 
-| Decision | Effect |
-|---|---|
-| `ToolCompleted` | the executor already ran the tool; its result is used |
-| `ExecuteTool` | the executor defers: the tool is run directly, once |
-| `Fail` | the call fails with the executor's error; the tool is not run |
-| `WaitForApproval` | the tool is **not run**; the call fails with a `ToolExecutionDeniedException` naming the tool (never its arguments) |
-| anything else | not run; fails the same way |
+`JdbcAgentRuntimeRegistrationStore` implements the framework-owned
+`AgentRuntimeRegistrationStore` contract using the application's `DataSource`.
+It serializes ownership by `(tenant_id, agent_id, instance_id)`, uses row locks
+for mutations, increments a durable generation on takeover, and evaluates
+expiry against the database's `CURRENT_TIMESTAMP`. Mutations compare owner and
+generation so an older process cannot renew, publish state, or revoke its
+successor.
 
-Behaviour change: before this bridge existed as its own class, `WaitForApproval` (and any unlisted decision) fell through to the direct execution path, so a policy
-that required approval did not stop the tool. A durable park-and-resume of the call is not part of this path; until it is, approval-gated tools fail closed here.
+Before enabling the adapter, apply
+`META-INF/andalus/agent-runtime-registration-schema.sql` to the runtime
+ database. The adapter intentionally does not create or migrate tables during
+application startup; migration execution remains owned by deployment/database
+operations. Production deployments must provide a shared transactional JDBC
+DataSource. The included H2 tests exercise lifecycle, tenant isolation, expiry,
+fencing, and concurrent acquisition; PostgreSQL integration coverage is provided by
+`JdbcAgentRuntimeRegistrationPostgresTest`: it starts PostgreSQL 16 through
+Testcontainers and creates two independent store instances backed by separate
+DataSources. It verifies cross-instance visibility, database-clock expiry
+takeover, generation fencing, heartbeat renewal, and simultaneous acquisition.
+Maven Surefire discovers it as a normal `*Test`; it skips automatically when
+Docker is unavailable and runs in Docker-enabled CI environments.
+
+## Shared runtime registration-backed discovery
+
+`RegisteredAgentCapabilitySource` is the distributed-discovery path for deployments
+using `AgentRuntimeRegistrationStore`. It first applies
+`AgentDirectory.findVisibleToTenant(tenantId)`, then includes a logical agent
+only when the shared registration store reports at least one live
+`AVAILABLE` runtime instance for that same tenant and agent. Multiple ready
+instances collapse to one logical candidate; STARTING, UNAVAILABLE, REVOKED,
+expired, and missing registrations are excluded.
+
+This source deliberately fails closed when the tenant is absent or the
+registration store is missing/ambiguous. It does not fall back to process-local
+runtime state. Registration is liveness/readiness metadata only: the dispatch
+boundary must still enforce invocation authorization and policy.
+
+The legacy `DirectoryAgentCapabilitySource` remains available for deployments
+that explicitly use the older runtime-state-provider path. Do not enable both
+sources for the same agent population, because the aggregation directory
+rejects duplicate logical agent IDs.
+
+## Registration lifecycle integration
+
+`AgentRuntimeRegistrationLifecycle` is the host-facing lifecycle facade for
+the shared registration SPI. Runtime startup calls `start(...)` and retains
+the returned registration token; readiness calls `markAvailable(token)`;
+degradation calls `markUnavailable(token)`; a host-managed heartbeat calls
+`heartbeat(token)`; graceful shutdown calls `shutdown(token)`.
+
+For hosts that want a reusable lifecycle boundary, `AgentRuntimeRegistrationSession.open(...)`
+acquires the registration and schedules heartbeats on a caller-supplied
+`ScheduledExecutorService`. The supplied scheduler remains host-owned: the
+session neither creates nor shuts it down. The session retains the exact token,
+exposes a local `isRoutable()` readiness view, and marks itself non-routable
+immediately when renewal is rejected. It cancels the heartbeat before fenced
+revocation on close. A failed/lost registration cannot be made available again
+through that session; the host must create a new session and acquire a new
+generation. Heartbeat intervals must be positive, at least one millisecond,
+and shorter than the registration lease duration.
+
+The facade intentionally does not create a scheduler, executor, or background
+thread. The embedding host owns heartbeat cadence, cancellation, and shutdown
+ordering. A heartbeat should be scheduled comfortably inside the configured
+lease duration and treated as failed when the store returns an empty result;
+the host must then stop advertising the instance and must not continue using
+the stale token. The registration store's clock is authoritative.
+
+These registration tokens are not `FencedLeaseManager` execution/task tokens.
+The older `AgentRuntimeLifecycleCoordinator` and
+`AgentRuntimeLifecycleLeaseObserver` remain the legacy lifecycle projection
+path; they must not be used as a source of registration ownership or as a
+bridge that copies execution-lease generations into registration records.

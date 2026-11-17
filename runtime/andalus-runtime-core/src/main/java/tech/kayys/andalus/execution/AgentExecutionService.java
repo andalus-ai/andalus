@@ -16,6 +16,10 @@ import tech.kayys.andalus.execution.context.DefaultRuntimeContextPlanner;
 import tech.kayys.andalus.execution.context.RuntimeContextPlanner;
 import tech.kayys.andalus.memory.manager.MemoryManager;
 import tech.kayys.andalus.execution.event.EventLedger;
+import tech.kayys.andalus.execution.AgentToolExecutionContext;
+import tech.kayys.andalus.execution.AgentToolExecutionContext.PrincipalType;
+import tech.kayys.andalus.execution.governance.ToolBudget;
+import tech.kayys.andalus.execution.governance.quota.ToolBudgetLedger;
 import tech.kayys.andalus.provider.DefaultModelRouter;
 import tech.kayys.andalus.provider.ModelRouter;
 import tech.kayys.andalus.provider.Provider;
@@ -36,6 +40,9 @@ public class AgentExecutionService {
 
     @Inject
     AgentToolExecutor toolExecutor;
+
+    @Inject
+    ToolBudgetLedger toolBudgetLedger;
 
     /** All CDI-managed {@link Provider} beans discovered at startup. */
     @Inject
@@ -88,6 +95,18 @@ public class AgentExecutionService {
     // ------------------------------------------------------------------
 
     public AgentExecution create(AgentDefinition agent, AgentRequest request, ExecutionBudget budget) {
+        return create(agent, request, budget, null, null, java.util.Set.of());
+    }
+
+    /**
+     * Creates an execution with an explicit authenticated caller context.
+     * Roles are accepted only when a user identity is supplied.
+     */
+    public AgentExecution create(AgentDefinition agent, AgentRequest request, ExecutionBudget budget,
+                                 String tenantId, String userId, java.util.Set<String> roles) {
+        if ((userId == null || userId.isBlank()) && roles != null && !roles.isEmpty()) {
+            throw new IllegalArgumentException("roles require an authenticated userId");
+        }
         ExecutionIdentity identity = ExecutionIdentity.create();
 
         AgentContext agentContext = AgentContext.builder()
@@ -103,6 +122,7 @@ public class AgentExecutionService {
 
         ExecutionCache cache = resolveCache();
         ExecutionBudget effectiveBudget = budget != null ? budget : ExecutionBudget.balanced();
+        AgentToolExecutionContext toolContext = createToolExecutionContext(identity, agent, tenantId, userId, roles, effectiveBudget);
 
         return new DefaultAgentExecution(
             identity.executionId(),
@@ -117,9 +137,10 @@ public class AgentExecutionService {
             resolveContextPlanner(),
             resolveMemoryManager(),
             cache,
-            null, // tenantId — null in standalone mode
-            null, // userId   — null in standalone mode
-            resolveEventLedger()
+            tenantId,
+            userId,
+            resolveEventLedger(),
+            toolContext
         );
     }
 
@@ -133,11 +154,48 @@ public class AgentExecutionService {
     // ------------------------------------------------------------------
 
     public AgentExecution resume(String executionId) {
+        return resume(executionId, null, null, java.util.Set.of());
+    }
+
+    /** Resumes an execution using the caller identity of the resuming request. */
+    public AgentExecution resume(String executionId, String tenantId, String userId,
+                                 java.util.Set<String> roles) {
+        if ((userId == null || userId.isBlank()) && roles != null && !roles.isEmpty()) {
+            throw new IllegalArgumentException("roles require an authenticated userId");
+        }
         java.util.Optional<AgentContext> contextOpt = checkpointStore.load(executionId);
         if (contextOpt.isEmpty()) {
             throw new IllegalArgumentException("Execution not found: " + executionId);
         }
 
+        java.util.Optional<ExecutionCheckpoint> lifecycleCheckpoint =
+                resolveExecutionCheckpointStore() != null
+                        ? resolveExecutionCheckpointStore().load(executionId)
+                        : java.util.Optional.empty();
+        java.util.Map<String, Object> checkpointMetadata = lifecycleCheckpoint
+                .map(ExecutionCheckpoint::metadata)
+                .orElse(java.util.Map.of());
+
+        // Identity-aware resume is fail-closed: older checkpoints without owner
+        // metadata remain usable only through the legacy anonymous overload.
+        boolean authenticatedResume = (tenantId != null && !tenantId.isBlank())
+                || (userId != null && !userId.isBlank());
+        if (checkpointMetadata.isEmpty()) {
+            if (authenticatedResume) {
+                throw new SecurityException("Execution checkpoint has no ownership metadata");
+            }
+        } else if (!java.util.Objects.equals(tenantId, checkpointMetadata.get("tenantId"))
+                || !java.util.Objects.equals(userId, checkpointMetadata.get("userId"))
+                || !java.util.Objects.equals(
+                        userId != null && !userId.isBlank() ? "USER" : "ANONYMOUS",
+                        checkpointMetadata.get("principalType"))) {
+            throw new SecurityException("Execution belongs to a different caller or tenant");
+        }
+
+        String checkpointAgentId = (String) checkpointMetadata.getOrDefault("agentId", "unknown-agent");
+        ExecutionIdentity identity = new ExecutionIdentity(executionId, executionId, null);
+        AgentToolExecutionContext toolContext = createToolExecutionContext(
+                identity, null, checkpointAgentId, tenantId, userId, roles, ExecutionBudget.balanced());
         DefaultAgentExecution execution = new DefaultAgentExecution(
             executionId,
             null,
@@ -151,18 +209,50 @@ public class AgentExecutionService {
             resolveContextPlanner(),
             resolveMemoryManager(),
             resolveCache(),
-            null, null,
-            resolveEventLedger()
+            tenantId, userId,
+            resolveEventLedger(),
+            toolContext
         );
         execution.resume();
         return execution;
     }
 
     public void approve(String executionId, AgentDecision decision) {
-        AgentExecution execution = resume(executionId);
+        approve(executionId, decision, null, null, java.util.Set.of());
+    }
+
+    public void approve(String executionId, AgentDecision decision, String tenantId,
+                        String userId, java.util.Set<String> roles) {
+        AgentExecution execution = resume(executionId, tenantId, userId, roles);
         if (decision instanceof AgentDecision.WaitForApproval) {
             execution.execute();
         }
+    }
+
+    AgentToolExecutionContext createToolExecutionContext(
+            ExecutionIdentity identity, AgentDefinition agent, String tenantId,
+            String userId, java.util.Set<String> roles, ExecutionBudget executionBudget) {
+        String agentId = agent != null ? agent.id().value().asString() : "unknown-agent";
+        return createToolExecutionContext(identity, agent, agentId, tenantId, userId, roles, executionBudget);
+    }
+
+    private AgentToolExecutionContext createToolExecutionContext(
+            ExecutionIdentity identity, AgentDefinition agent, String agentId, String tenantId,
+            String userId, java.util.Set<String> roles, ExecutionBudget executionBudget) {
+        PrincipalType principalType = userId != null && !userId.isBlank()
+                ? PrincipalType.USER : PrincipalType.ANONYMOUS;
+        ToolBudget configured = toolBudgetLedger != null
+                ? toolBudgetLedger.budgetFor(tenantId, userId)
+                : ToolBudget.unlimited();
+        ToolBudget executionBudgetForTools = new ToolBudget(
+                tenantId, userId, configured.maxCalls(), configured.maxCostUsd(), configured.maxDurationMs());
+        return new AgentToolExecutionContext(
+                identity.executionId(), identity.correlationId(), identity.parentExecutionId(),
+                tenantId, userId, agentId, principalType,
+                principalType == PrincipalType.USER ? userId : null,
+                roles != null ? roles : java.util.Set.of(), executionBudget, executionBudgetForTools,
+                agent != null ? agent.constraints() : java.util.Map.of(),
+                java.util.Map.of(), java.time.Instant.now());
     }
 
     // ------------------------------------------------------------------

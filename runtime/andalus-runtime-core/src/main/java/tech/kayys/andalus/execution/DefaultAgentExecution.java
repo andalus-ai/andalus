@@ -22,6 +22,9 @@ import tech.kayys.andalus.context.ContextProvider;
 import tech.kayys.andalus.core.AgentDefinition;
 import tech.kayys.andalus.execution.cache.ExecutionCache;
 import tech.kayys.andalus.execution.cache.ExecutionCacheEntry;
+import tech.kayys.andalus.execution.AgentToolExecutionContext;
+import tech.kayys.andalus.execution.AgentToolExecutionContext.PrincipalType;
+import tech.kayys.andalus.execution.governance.ToolBudget;
 import tech.kayys.andalus.execution.context.RuntimeContextPlan;
 import tech.kayys.andalus.execution.context.RuntimeContextPlanner;
 import tech.kayys.andalus.execution.context.DefaultRuntimeContextPlanner;
@@ -72,6 +75,7 @@ public class DefaultAgentExecution implements AgentExecution {
     /** Tenant / user context for cache key isolation. */
     private final String tenantId;
     private final String userId;
+    private final AgentToolExecutionContext toolExecutionContext;
 
     // Phase 5: Event Ledger — null if not configured (graceful degradation)
     private final EventLedger eventLedger;
@@ -149,6 +153,31 @@ public class DefaultAgentExecution implements AgentExecution {
         String userId,
         EventLedger eventLedger
     ) {
+        this(id, agent, agentContext, budget, checkpointStore, executionCheckpointStore,
+             toolExecutor, providers, modelRouter, contextPlanner, memoryManager,
+             executionCache, tenantId, userId, eventLedger,
+             defaultToolExecutionContext(id, agent, tenantId, userId, budget));
+    }
+
+    /** Full constructor with immutable tool execution identity and budget. */
+    public DefaultAgentExecution(
+        String id,
+        AgentDefinition agent,
+        AgentContext agentContext,
+        ExecutionBudget budget,
+        CheckpointStore checkpointStore,
+        ExecutionCheckpointStore executionCheckpointStore,
+        AgentToolExecutor toolExecutor,
+        List<Provider> providers,
+        tech.kayys.andalus.provider.ModelRouter modelRouter,
+        RuntimeContextPlanner contextPlanner,
+        tech.kayys.andalus.memory.manager.MemoryManager memoryManager,
+        ExecutionCache executionCache,
+        String tenantId,
+        String userId,
+        EventLedger eventLedger,
+        AgentToolExecutionContext toolExecutionContext
+    ) {
         this.id = id;
         this.agent = agent;
         this.agentContext = agentContext;
@@ -167,6 +196,7 @@ public class DefaultAgentExecution implements AgentExecution {
         this.executionCache = executionCache; // null if caching is not configured
         this.tenantId       = tenantId;
         this.userId         = userId;
+        this.toolExecutionContext = java.util.Objects.requireNonNull(toolExecutionContext, "toolExecutionContext");
         // Phase 5: Event Ledger
         this.eventLedger    = eventLedger;   // null means events are not persisted
         this.stateStore     = new DefaultExecutionStateStore(checkpointStore, eventLedger, this.executionCheckpointStore);
@@ -218,11 +248,6 @@ public class DefaultAgentExecution implements AgentExecution {
         // Phase 5: Record execution start
         stateStore.transition(id, ExecutionPhase.INPUT,
             java.util.Map.of("agentId", id, "tenantId", tenantId != null ? tenantId : "*"));
-
-        // Bind execution context to the tool executor so it can tag cache entries
-        if (toolExecutor instanceof DefaultAgentToolExecutor dex) {
-            dex.bindExecutionContext(id, tenantId, userId, budget);
-        }
 
         CompletableFuture<AgentResponse> future = new CompletableFuture<>();
         this.activeFuture = future;
@@ -371,6 +396,20 @@ public class DefaultAgentExecution implements AgentExecution {
         // Policy bridge: routes tool calls through the executor pipeline
         tech.kayys.andalus.agent.react.BaseReActAgent.ToolExecutorBridge policyBridge =
             ToolPolicyBridge.of(toolExecutor, cancellationToken);
+            (toolExecutor != null)
+            ? (invocation, directFallback) -> {
+                AgentDecision decision = toolExecutor.execute(invocation, toolExecutionContext, cancellationToken)
+                    .toCompletableFuture().get();
+                return switch (decision) {
+                    case AgentDecision.ToolCompleted tc -> tc.result();
+                    case AgentDecision.ExecuteTool et   -> directFallback.get();
+                    case AgentDecision.Fail f           -> {
+                        throw new RuntimeException(f.error());
+                    }
+                    default -> directFallback.get();
+                };
+              }
+            : null;
 
         // Checkpoint bridge: persists agent context before/after each model step.
         tech.kayys.andalus.agent.react.BaseReActAgent.CheckpointBridge cpBridge =
@@ -541,6 +580,25 @@ public class DefaultAgentExecution implements AgentExecution {
         future.complete(response);
     }
 
+    private void checkpoint(String executionId, AgentContext snapshot) {
+        if (stateStore == null || snapshot == null) {
+            return;
+        }
+        java.util.Map<String, Object> metadata = new java.util.HashMap<>();
+        putIfPresent(metadata, "tenantId", toolExecutionContext.tenantId());
+        putIfPresent(metadata, "userId", toolExecutionContext.userId());
+        putIfPresent(metadata, "agentId", toolExecutionContext.agentId());
+        putIfPresent(metadata, "principalType", toolExecutionContext.principalType().name());
+        putIfPresent(metadata, "principalId", toolExecutionContext.principalId());
+        stateStore.checkpoint(executionId, snapshot, metadata);
+    }
+
+    private static void putIfPresent(java.util.Map<String, Object> metadata, String key, Object value) {
+        if (value != null) {
+            metadata.put(key, value);
+        }
+    }
+
     private void throwIfCancellationRequested() {
         if (cancellationToken.isCancellationRequested()) {
             throw new CancellationException("Execution cancelled: " + id);
@@ -653,6 +711,18 @@ public class DefaultAgentExecution implements AgentExecution {
                 throw race;
             }
         }
+    }
+
+    private static AgentToolExecutionContext defaultToolExecutionContext(
+            String executionId, AgentDefinition agent, String tenantId, String userId, ExecutionBudget budget) {
+        String agentId = agent != null ? agent.id().value().asString() : "unknown-agent";
+        PrincipalType principalType = userId != null && !userId.isBlank()
+                ? PrincipalType.USER : PrincipalType.ANONYMOUS;
+        return new AgentToolExecutionContext(
+                executionId, executionId, null, tenantId, userId, agentId,
+                principalType, principalType == PrincipalType.USER ? userId : null,
+                java.util.Set.of(), budget, ToolBudget.unlimited(), java.util.Map.of(),
+                java.util.Map.of(), java.time.Instant.now());
     }
 
     private InferencePolicy mapBudgetToPolicy(ExecutionBudget budget) {
