@@ -56,6 +56,14 @@ public class DockerShadowEvaluationExecutionBoundary implements ShadowEvaluation
     @ConfigProperty(name = "andalus.shadow-worker.max-stderr-bytes", defaultValue = "65536")
     int maxStderrBytes;
 
+    /** Deployment attestation: exact immutable image and bootstrap were exercised end-to-end. */
+    @ConfigProperty(name = "andalus.shadow-worker.image-validated", defaultValue = "false")
+    boolean imageValidated;
+
+    /** Deployment attestation: Docker daemon/socket and host policy were reviewed and validated. */
+    @ConfigProperty(name = "andalus.shadow-worker.daemon-validated", defaultValue = "false")
+    boolean daemonValidated;
+
     @Override
     public IsolationLevel isolationLevel() {
         return configured() ? IsolationLevel.CONTAINER : IsolationLevel.NONE;
@@ -110,6 +118,7 @@ public class DockerShadowEvaluationExecutionBoundary implements ShadowEvaluation
         return nonBlank(dockerExecutable) && java.nio.file.Path.of(dockerExecutable).isAbsolute()
                 && java.nio.file.Files.isExecutable(java.nio.file.Path.of(dockerExecutable))
                 && workerImage != null && workerImage.matches("[a-zA-Z0-9][a-zA-Z0-9._/:@-]*@sha256:[a-f0-9]{64}")
+                && imageValidated && daemonValidated
                 && unique(manifestVerifiers) && unique(trustRegistries) && unique(artifactResolvers)
                 && validLimits();
     }
