@@ -116,7 +116,14 @@ public final class ShadowEvaluationWorkerEngine {
                 && report.candidateId().equals(request.candidateId())
                 && report.candidateVersion().equals(request.candidateVersion())
                 && report.datasetId().equals(request.dataset().id())
-                && report.datasetVersion().equals(request.dataset().version());
+                && report.datasetVersion().equals(request.dataset().version())
+                && report.datasetFingerprint().equals(ShadowEvaluationRunner.fingerprint(request.dataset()))
+                && report.baselineEvaluatorId().equals(request.baselineDescriptor().id())
+                && report.baselineEvaluatorVersion().equals(request.baselineDescriptor().version())
+                && report.baselineEvaluatorConfigFingerprint().equals(request.baselineDescriptor().configurationFingerprint())
+                && report.candidateEvaluatorId().equals(request.candidateDescriptor().id())
+                && report.candidateEvaluatorVersion().equals(request.candidateDescriptor().version())
+                && report.candidateEvaluatorConfigFingerprint().equals(request.candidateDescriptor().configurationFingerprint());
     }
 
     private static byte[] failure(java.util.UUID requestId, String code, String message) {
