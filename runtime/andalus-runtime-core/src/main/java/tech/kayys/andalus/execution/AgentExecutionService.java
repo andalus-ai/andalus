@@ -16,6 +16,10 @@ import tech.kayys.andalus.execution.context.DefaultRuntimeContextPlanner;
 import tech.kayys.andalus.execution.context.RuntimeContextPlanner;
 import tech.kayys.andalus.memory.manager.MemoryManager;
 import tech.kayys.andalus.execution.event.EventLedger;
+import tech.kayys.andalus.execution.AgentToolExecutionContext;
+import tech.kayys.andalus.execution.AgentToolExecutionContext.PrincipalType;
+import tech.kayys.andalus.execution.governance.ToolBudget;
+import tech.kayys.andalus.execution.governance.ToolBudgetLedger;
 import tech.kayys.andalus.provider.DefaultModelRouter;
 import tech.kayys.andalus.provider.ModelRouter;
 import tech.kayys.andalus.provider.Provider;
@@ -36,6 +40,9 @@ public class AgentExecutionService {
 
     @Inject
     AgentToolExecutor toolExecutor;
+
+    @Inject
+    ToolBudgetLedger toolBudgetLedger;
 
     /** All CDI-managed {@link Provider} beans discovered at startup. */
     @Inject
@@ -103,6 +110,7 @@ public class AgentExecutionService {
 
         ExecutionCache cache = resolveCache();
         ExecutionBudget effectiveBudget = budget != null ? budget : ExecutionBudget.balanced();
+        AgentToolExecutionContext toolContext = createToolExecutionContext(identity, agent, null, null, effectiveBudget);
 
         return new DefaultAgentExecution(
             identity.executionId(),
@@ -119,7 +127,8 @@ public class AgentExecutionService {
             cache,
             null, // tenantId — null in standalone mode
             null, // userId   — null in standalone mode
-            resolveEventLedger()
+            resolveEventLedger(),
+            toolContext
         );
     }
 
@@ -138,6 +147,8 @@ public class AgentExecutionService {
             throw new IllegalArgumentException("Execution not found: " + executionId);
         }
 
+        ExecutionIdentity identity = new ExecutionIdentity(executionId, executionId, null);
+        AgentToolExecutionContext toolContext = createToolExecutionContext(identity, null, null, null, ExecutionBudget.balanced());
         DefaultAgentExecution execution = new DefaultAgentExecution(
             executionId,
             null,
@@ -152,7 +163,8 @@ public class AgentExecutionService {
             resolveMemoryManager(),
             resolveCache(),
             null, null,
-            resolveEventLedger()
+            resolveEventLedger(),
+            toolContext
         );
         execution.resume();
         return execution;
@@ -163,6 +175,26 @@ public class AgentExecutionService {
         if (decision instanceof AgentDecision.WaitForApproval) {
             execution.execute();
         }
+    }
+
+    private AgentToolExecutionContext createToolExecutionContext(
+            ExecutionIdentity identity, AgentDefinition agent, String tenantId,
+            String userId, ExecutionBudget executionBudget) {
+        String agentId = agent != null ? agent.id().value().asString() : "unknown-agent";
+        PrincipalType principalType = userId != null && !userId.isBlank()
+                ? PrincipalType.USER : PrincipalType.ANONYMOUS;
+        ToolBudget configured = toolBudgetLedger != null
+                ? toolBudgetLedger.budgetFor(tenantId, userId)
+                : ToolBudget.unlimited();
+        ToolBudget executionBudgetForTools = new ToolBudget(
+                tenantId, userId, configured.maxCalls(), configured.maxCostUsd(), configured.maxDurationMs());
+        return new AgentToolExecutionContext(
+                identity.executionId(), identity.correlationId(), identity.parentExecutionId(),
+                tenantId, userId, agentId, principalType,
+                principalType == PrincipalType.USER ? userId : null,
+                java.util.Set.of(), executionBudget, executionBudgetForTools,
+                agent != null ? agent.constraints() : java.util.Map.of(),
+                java.util.Map.of(), java.time.Instant.now());
     }
 
     // ------------------------------------------------------------------
