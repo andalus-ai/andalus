@@ -76,9 +76,9 @@ public class DockerShadowEvaluationExecutionBoundary implements ShadowEvaluation
             if (!verifier.verifyDataset(datasetManifest, request.dataset()))
                 throw new IllegalStateException("dataset manifest verification failed");
 
-            verifyEvaluatorBinding(request.baselineCandidateId(), request.baselineCandidateVersion(),
+            verifyEvaluatorBinding(registry, request.baselineCandidateId(), request.baselineCandidateVersion(),
                     request.baselineDescriptor(), request.baselineArtifact());
-            verifyEvaluatorBinding(request.candidateId(), request.candidateVersion(),
+            verifyEvaluatorBinding(registry, request.candidateId(), request.candidateVersion(),
                     request.candidateDescriptor(), request.candidateArtifact());
 
             byte[] baselineBytes = readArtifact(resolver, request.baselineArtifact());
@@ -127,10 +127,14 @@ public class DockerShadowEvaluationExecutionBoundary implements ShadowEvaluation
                 java.time.Duration.ofSeconds(timeoutSeconds), maxStderrBytes);
     }
 
-    private void verifyEvaluatorBinding(String candidateId, String candidateVersion,
-            Evaluator.EvaluatorDescriptor descriptor,
+    private void verifyEvaluatorBinding(ShadowEvaluationTrustRegistry registry, String candidateId,
+            String candidateVersion, Evaluator.EvaluatorDescriptor descriptor,
             ShadowEvaluationManifest.EvaluatorArtifactManifest manifest) {
-        if (!candidateId.equals(manifest.candidateId())
+        ShadowEvaluationManifest.EvaluatorArtifactManifest registered = registry.findEvaluatorArtifact(
+                candidateId, candidateVersion, descriptor.id(), descriptor.version(),
+                descriptor.configurationFingerprint()).orElse(null);
+        if (!manifest.equals(registered)
+                || !candidateId.equals(manifest.candidateId())
                 || !candidateVersion.equals(manifest.candidateVersion())
                 || !descriptor.id().equals(manifest.evaluatorId())
                 || !descriptor.version().equals(manifest.evaluatorVersion())
