@@ -45,6 +45,18 @@ public record ExecutionCheckpoint(
         int iteration,
         AgentContext context
     ) {
+        return of(executionId, status, phase, attempt, iteration, context, Map.of());
+    }
+
+    public static ExecutionCheckpoint of(
+        String executionId,
+        ExecutionStatus status,
+        ExecutionPhase phase,
+        int attempt,
+        int iteration,
+        AgentContext context,
+        Map<String, Object> metadata
+    ) {
         return new ExecutionCheckpoint(
             ExecutionCheckpointId.create(),
             executionId,
@@ -54,7 +66,7 @@ public record ExecutionCheckpoint(
             iteration,
             context,
             Instant.now(),
-            Map.of()
+            metadata
         );
     }
 }
