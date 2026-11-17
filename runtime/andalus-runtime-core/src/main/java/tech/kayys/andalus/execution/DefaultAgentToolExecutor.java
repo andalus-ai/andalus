@@ -14,6 +14,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 
+import tech.kayys.andalus.execution.AgentToolExecutionContext;
 import tech.kayys.andalus.execution.cache.CacheNamespace;
 import tech.kayys.andalus.execution.cache.ExecutionCache;
 import tech.kayys.andalus.execution.cache.ExecutionCacheEntry;
@@ -24,9 +25,9 @@ import tech.kayys.andalus.execution.event.ToolExecution;
 import tech.kayys.andalus.execution.event.ToolExecutionLedger;
 import tech.kayys.andalus.execution.governance.PolicyDecision;
 import tech.kayys.andalus.execution.governance.ToolBudget;
-import tech.kayys.andalus.execution.governance.ToolBudgetLedger;
 import tech.kayys.andalus.execution.governance.ToolCapabilityLevel;
 import tech.kayys.andalus.execution.governance.ToolPermissionContext;
+import tech.kayys.andalus.execution.governance.PolicyEvaluationContexts;
 import tech.kayys.andalus.execution.governance.ToolPolicyEvaluator;
 import tech.kayys.andalus.resilience.CircuitBreakerRegistry;
 import tech.kayys.andalus.resilience.DefaultRetryPolicy;
@@ -80,12 +81,6 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
      */
     private final CircuitBreakerRegistry circuitBreakerRegistry = new CircuitBreakerRegistry();
 
-    /** Execution context for cache provenance (set per-execution via setter). */
-    private volatile String currentExecutionId;
-    private volatile String currentTenantId;
-    private volatile String currentUserId;
-    private volatile ExecutionBudget currentBudget = ExecutionBudget.balanced();
-
     /** 3 attempts, 500ms initial delay, 2× back-off, 10s max wait between retries. */
     private static final RetryPolicy RETRY_POLICY =
         new DefaultRetryPolicy(3, 500, 10_000, 2.0, java.util.List.of(Exception.class));
@@ -100,9 +95,6 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
     Instance<ToolPolicyEvaluator> policyEvaluatorInstances;
 
     @Inject
-    ToolBudgetLedger budgetLedger;
-
-    @Inject
     Instance<EventLedger> eventLedgerInstances;
     
     @Inject
@@ -110,18 +102,6 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
 
     /** Monotonic audit sequence per executor instance. */
     private final java.util.concurrent.atomic.AtomicLong auditSeq = new java.util.concurrent.atomic.AtomicLong();
-
-    /**
-     * Called by {@link tech.kayys.andalus.execution.DefaultAgentExecution} before each
-     * execution to bind the execution context for cache provenance.
-     */
-    public void bindExecutionContext(String executionId, String tenantId, String userId,
-                                      ExecutionBudget budget) {
-        this.currentExecutionId = executionId;
-        this.currentTenantId    = tenantId;
-        this.currentUserId      = userId;
-        this.currentBudget      = budget != null ? budget : ExecutionBudget.balanced();
-    }
 
     // -------------------------------------------------------------------------
     // AgentToolExecutor.ToolAware
@@ -142,32 +122,50 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
 
     @Override
     public CompletionStage<AgentDecision> execute(ToolInvocation invocation) {
-        String toolName = invocation.name();
+        AgentToolExecutionContext legacyContext = new AgentToolExecutionContext(
+                "legacy-" + java.util.UUID.randomUUID(), null, null, null, null,
+                "legacy-agent", AgentToolExecutionContext.PrincipalType.ANONYMOUS, null,
+                java.util.Set.of(), ExecutionBudget.balanced(), ToolBudget.unlimited(),
+                Map.of(), Map.of(), Instant.now());
+        return execute(invocation, legacyContext, null);
+    }
 
-        // --- 0. Tool-result cache lookup ---
-        ExecutionCache cache = resolveExecutionCache();
-        if (cache != null && currentBudget.toolCacheEnabled()) {
-            String inputHash = ExecutionCache.hashTool(toolName, invocation.arguments());
-            Optional<ExecutionCacheEntry> hit = cache.lookup(
-                    CacheNamespace.TOOL, currentTenantId, currentUserId, inputHash);
-            if (hit.isPresent()) {
-                ExecutionCacheEntry entry = hit.get();
-                LOG.fine(() -> "Cache HIT for tool " + toolName + " (" + inputHash + ")");
-                if (entry.value() instanceof ToolResult cachedResult) {
-                    recordToolExecution(toolName, invocation.arguments(), 0, true);
-                    return CompletableFuture.completedFuture(
-                            new AgentDecision.ToolCompleted(invocation, cachedResult));
-                }
-            }
+    @Override
+    public CompletionStage<AgentDecision> execute(
+            ToolInvocation invocation, AgentToolExecutionContext context) {
+        return execute(invocation, context, null);
+    }
+
+    @Override
+    public CompletionStage<AgentDecision> execute(
+            ToolInvocation invocation,
+            AgentToolExecutionContext context,
+            tech.kayys.andalus.tool.CancellationToken cancellation) {
+        if (invocation == null) {
+            return CompletableFuture.completedFuture(AgentDecision.fail("Tool invocation is required."));
         }
+        if (context == null) {
+            return CompletableFuture.failedFuture(
+                    new IllegalArgumentException("AgentToolExecutionContext is required."));
+        }
+        if (cancellation != null && cancellation.isCancellationRequested()) {
+            return CompletableFuture.failedFuture(new java.util.concurrent.CancellationException(
+                    "Execution cancelled before tool dispatch."));
+        }
+
+        // Capture the immutable context in this invocation; never read executor-wide identity.
+        final AgentToolExecutionContext execution = context;
+        final String toolName = invocation.name();
+        final ExecutionBudget executionBudget = execution.executionBudget() != null
+                ? execution.executionBudget() : ExecutionBudget.balanced();
+        final ToolBudget budget = execution.toolBudget() != null
+                ? execution.toolBudget() : ToolBudget.unlimited();
 
         // --- 1. Capability / existence check ---
         Tool tool = resolveTool(toolName);
         if (tool == null) {
             LOG.warning(() -> "Tool not found: " + toolName);
-            return CompletableFuture.completedFuture(
-                AgentDecision.fail("Tool not found: " + toolName)
-            );
+            return CompletableFuture.completedFuture(AgentDecision.fail("Tool not found: " + toolName));
         }
 
         // --- 2. Schema validation ---
@@ -175,96 +173,111 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
         if (validationError != null) {
             LOG.warning(() -> "Schema validation failed for tool " + toolName + ": " + validationError);
             return CompletableFuture.completedFuture(
-                AgentDecision.fail("Schema validation failed: " + validationError)
-            );
+                    AgentDecision.fail("Schema validation failed: " + validationError));
         }
 
-        // --- 2b. Phase 6: Tool Budget check ---
-        ToolBudget budget = (budgetLedger != null)
-            ? budgetLedger.budgetFor(currentTenantId, currentUserId)
-            : ToolBudget.unlimited();
+        // --- 2b. Execution-scoped tool budget ---
         if (budget.isCallBudgetExhausted()) {
-            emitAudit(ExecutionEventType.TOOL_FAILED, toolName,
-                Map.of("reason", "budget exhausted", "budget", budget.toString()));
+            emitAudit(execution, ExecutionEventType.TOOL_FAILED, toolName,
+                    Map.of("reason", "budget exhausted", "budget", budget.toString()));
             return CompletableFuture.completedFuture(
-                AgentDecision.fail("Tool call budget exhausted for " + budget)
-            );
+                    AgentDecision.fail("Tool call budget exhausted for " + budget));
         }
 
-        // --- 3. Phase 6: Policy evaluation (replaces naive requiresApproval) ---
-        ToolPermissionContext permCtx = ToolPermissionContext.standalone(
-            currentExecutionId, toolName, resolveCapabilityLevel(toolName));
-        PolicyDecision policyDecision = evaluatePolicy(invocation, permCtx);
+        // --- 3. Policy evaluation with complete identity; no wildcard role ---
+        ToolPermissionContext permission = new ToolPermissionContext(
+                execution.tenantId(), execution.userId(), execution.executionId(),
+                java.util.List.copyOf(execution.roles()), toolName, resolveCapabilityLevel(toolName));
+        var policyContext = PolicyEvaluationContexts.builder(permission, invocation)
+                .tenantId(execution.tenantId())
+                .userId(execution.userId())
+                .agentId(execution.agentId())
+                .roles(execution.roles())
+                .executionId(execution.executionId())
+                .correlationId(execution.correlationId())
+                .parentExecutionId(execution.parentExecutionId())
+                .attributes(execution.attributes())
+                .build();
+        PolicyDecision policyDecision = evaluatePolicy(policyContext);
 
         switch (policyDecision) {
             case PolicyDecision.Deny d -> {
                 LOG.info(() -> "Tool " + toolName + " denied by policy [" + d.policyId() + "]: " + d.reason());
-                emitAudit(ExecutionEventType.TOOL_FAILED, toolName,
-                    Map.of("reason", "policy deny", "policy", d.policyId(), "detail", d.reason()));
+                emitAudit(execution, ExecutionEventType.TOOL_FAILED, toolName,
+                        Map.of("reason", "policy deny", "policy", d.policyId(), "detail", d.reason()));
                 return CompletableFuture.completedFuture(
-                    AgentDecision.fail("Policy denied tool " + toolName + ": " + d.reason())
-                );
+                        AgentDecision.fail("Policy denied tool " + toolName + ": " + d.reason()));
             }
             case PolicyDecision.RequireApproval ra -> {
                 LOG.info(() -> "Tool " + toolName + " requires approval: " + ra.reason());
-                emitAudit(ExecutionEventType.TOOL_APPROVAL_REQUIRED, toolName,
-                    Map.of("policy", ra.policyId(), "reason", ra.reason()));
-                return CompletableFuture.completedFuture(
-                    new AgentDecision.WaitForApproval(invocation)
-                );
+                emitAudit(execution, ExecutionEventType.TOOL_APPROVAL_REQUIRED, toolName,
+                        Map.of("policy", ra.policyId(), "reason", ra.reason()));
+                return CompletableFuture.completedFuture(new AgentDecision.WaitForApproval(invocation));
             }
-            default -> {} // Allow — continue
+            default -> { }
         }
 
-        // --- 4. Guardrail check (optional CDI bean from andalus-guardrails-runtime) ---
+        // --- 4. Guardrail check ---
         ToolGuardrailCheck guardrailCheck = resolveGuardrailCheck();
         if (guardrailCheck != null) {
-            ToolGuardrailCheck.Result guardResult =
-                guardrailCheck.check(toolName, invocation.arguments());
+            ToolGuardrailCheck.Result guardResult = guardrailCheck.check(toolName, invocation.arguments());
             if (!guardResult.allowed()) {
-                LOG.warning(() -> "Guardrail blocked tool " + toolName
-                    + ": " + guardResult.reason()
-                    + " (policies: " + guardResult.triggeredPolicies() + ")");
-                return CompletableFuture.completedFuture(
-                    AgentDecision.fail("Guardrail blocked: " + guardResult.reason())
-                );
+                LOG.warning(() -> "Guardrail blocked tool " + toolName + ": " + guardResult.reason()
+                        + " (policies: " + guardResult.triggeredPolicies() + ")");
+                return CompletableFuture.completedFuture(AgentDecision.fail("Guardrail blocked: " + guardResult.reason()));
             }
         }
 
-        // --- 5–8. Circuit breaker + retry + timeout + actual execution
-        //     9.  Cache store (on success) ---
+        // Cache lookup happens only after policy and guardrail evaluation so a hit
+        // cannot bypass current authorization decisions.
+        ExecutionCache cache = resolveExecutionCache();
+        if (cache != null && executionBudget.toolCacheEnabled()) {
+            String inputHash = ExecutionCache.hashTool(toolName, invocation.arguments());
+            Optional<ExecutionCacheEntry> hit = cache.lookup(
+                    CacheNamespace.TOOL, execution.tenantId(), execution.userId(), inputHash);
+            if (hit.isPresent()) {
+                ExecutionCacheEntry entry = hit.get();
+                LOG.fine(() -> "Cache HIT for tool " + toolName + " (" + inputHash + ")");
+                if (entry.value() instanceof ToolResult cachedResult) {
+                    recordToolExecution(execution, toolName, invocation.arguments(), 0, true);
+                    return CompletableFuture.completedFuture(
+                            new AgentDecision.ToolCompleted(invocation, cachedResult));
+                }
+            }
+        }
+
+        // --- 5–8. Circuit breaker + retry + timeout + execution; 9. cache store ---
         return CompletableFuture.supplyAsync(() -> {
+            if (cancellation != null && cancellation.isCancellationRequested()) {
+                throw new java.util.concurrent.CancellationException("Execution cancelled before tool execution.");
+            }
             long startMs = System.currentTimeMillis();
             AgentDecision decision = runWithResilience(tool, invocation);
-
-            // Phase 6: Consume budget and emit audit event
             long durationMs = System.currentTimeMillis() - startMs;
-            if (budgetLedger != null) {
-                budget.consume(durationMs, 0.0); // cost USD injected by billing module later
-            }
+            budget.consume(durationMs, 0.0);
+
             if (decision instanceof AgentDecision.ToolCompleted tc) {
-                emitAudit(ExecutionEventType.TOOL_EXECUTED, toolName,
-                    Map.of("durationMs", durationMs));
-                recordToolExecution(toolName, invocation.arguments(), durationMs, false);
-            } else if (decision instanceof AgentDecision.Fail f) {
-                emitAudit(ExecutionEventType.TOOL_FAILED, toolName,
-                    Map.of("durationMs", durationMs, "error", f.error()));
+                emitAudit(execution, ExecutionEventType.TOOL_EXECUTED, toolName,
+                        Map.of("durationMs", durationMs));
+                recordToolExecution(execution, toolName, invocation.arguments(), durationMs, false);
+            } else if (decision instanceof AgentDecision.Fail fail) {
+                emitAudit(execution, ExecutionEventType.TOOL_FAILED, toolName,
+                        Map.of("durationMs", durationMs, "error", fail.error()));
             }
 
-            // Step 9 — persist a successful result to the tool cache
-            if (cache != null && currentBudget.toolCacheEnabled()
-                    && decision instanceof AgentDecision.ToolCompleted tc) {
+            if (cache != null && executionBudget.toolCacheEnabled()
+                    && decision instanceof AgentDecision.ToolCompleted completed) {
                 String inputHash = ExecutionCache.hashTool(toolName, invocation.arguments());
-                Instant expires  = ExecutionCache.expiresAt(currentBudget.toolCacheTtl());
-                String toolId    = tool.id() != null ? tool.id().toString() : toolName;
+                Instant expires = ExecutionCache.expiresAt(executionBudget.toolCacheTtl());
+                String toolId = tool.id() != null ? tool.id().toString() : toolName;
                 cache.store(ExecutionCacheEntry.builder()
                         .namespace(CacheNamespace.TOOL)
-                        .tenantId(currentTenantId)
-                        .userId(currentUserId)
-                        .executionId(currentExecutionId)
+                        .tenantId(execution.tenantId())
+                        .userId(execution.userId())
+                        .executionId(execution.executionId())
                         .toolId(toolId)
                         .inputHash(inputHash)
-                        .value(tc.result())
+                        .value(completed.result())
                         .expiresAt(expires)
                         .provenance(toolName + "(" + invocation.arguments() + ")")
                         .build());
@@ -318,38 +331,28 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
     // Phase 6: Governance helpers
     // -------------------------------------------------------------------------
 
-    private PolicyDecision evaluatePolicy(ToolInvocation invocation, ToolPermissionContext context) {
+    private PolicyDecision evaluatePolicy(tech.kayys.andalus.execution.governance.PolicyEvaluationContext context) {
         if (policyEvaluatorInstances == null || policyEvaluatorInstances.isUnsatisfied()) {
             return PolicyDecision.allow(); // No evaluator configured — open in standalone mode
         }
-        return policyEvaluatorInstances.get().evaluate(invocation, context);
+        return policyEvaluatorInstances.get().evaluate(context);
     }
 
-    private void emitAudit(ExecutionEventType type, String toolName, Map<String, Object> payload) {
+    private void emitAudit(AgentToolExecutionContext context, ExecutionEventType type,
+                          String toolName, Map<String, Object> payload) {
         if (eventLedgerInstances == null || eventLedgerInstances.isUnsatisfied()) return;
         EventLedger ledger = eventLedgerInstances.get();
         ledger.record(ExecutionEvent.of(
-            currentExecutionId != null ? currentExecutionId : "unknown",
-            auditSeq.getAndIncrement(),
-            type,
-            toolName,
-            payload
-        ));
+            context.executionId(), auditSeq.getAndIncrement(), type, toolName, payload));
     }
-    
-    private void recordToolExecution(String toolName, Map<String, Object> arguments, long durationMs, boolean cacheHit) {
+
+    private void recordToolExecution(AgentToolExecutionContext context, String toolName,
+                                     Map<String, Object> arguments, long durationMs, boolean cacheHit) {
         if (toolExecutionLedgerInstances == null || toolExecutionLedgerInstances.isUnsatisfied()) return;
         ToolExecutionLedger ledger = toolExecutionLedgerInstances.get();
         ledger.record(new ToolExecution(
-            currentExecutionId != null ? currentExecutionId : "unknown",
-            currentTenantId,
-            currentUserId,
-            toolName,
-            ExecutionCache.hashInputs(arguments),
-            durationMs,
-            cacheHit,
-            Instant.now()
-        ));
+            context.executionId(), context.tenantId(), context.userId(), toolName,
+            ExecutionCache.hashInputs(arguments), durationMs, cacheHit, Instant.now()));
     }
 
     /**
