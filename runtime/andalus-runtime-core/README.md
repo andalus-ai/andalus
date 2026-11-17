@@ -52,8 +52,13 @@ Before enabling the adapter, apply
 application startup; migration execution remains owned by deployment/database
 operations. Production deployments must provide a shared transactional JDBC
 DataSource. The included H2 tests exercise lifecycle, tenant isolation, expiry,
-fencing, and concurrent acquisition; PostgreSQL integration coverage remains
-required before claiming cross-database production readiness.
+fencing, and concurrent acquisition; PostgreSQL integration coverage is provided by
+`JdbcAgentRuntimeRegistrationPostgresTest`: it starts PostgreSQL 16 through
+Testcontainers and creates two independent store instances backed by separate
+DataSources. It verifies cross-instance visibility, database-clock expiry
+takeover, generation fencing, heartbeat renewal, and simultaneous acquisition.
+Maven Surefire discovers it as a normal `*Test`; it skips automatically when
+Docker is unavailable and runs in Docker-enabled CI environments.
 
 ## Shared runtime registration-backed discovery
 
