@@ -77,7 +77,7 @@ public final class AgentRuntimeRegistrationSession implements AutoCloseable {
             boolean published = lifecycle.markAvailable(token).isPresent();
             routable = published;
             emit(published ? AgentRuntimeRegistrationObserver.Event.AVAILABLE
-                    : AgentRuntimeRegistrationObserver.Event.RENEWAL_REJECTED);
+                    : AgentRuntimeRegistrationObserver.Event.STATUS_REJECTED);
             if (!published) loseOwnership();
             return published;
         } catch (RuntimeException failure) {
@@ -114,6 +114,7 @@ public final class AgentRuntimeRegistrationSession implements AutoCloseable {
 
     private synchronized void renew() {
         if (closed || ownershipLost) return;
+        long started = System.nanoTime();
         try {
             if (lifecycle.heartbeat(token).isEmpty()) {
                 routable = false;
@@ -126,6 +127,12 @@ public final class AgentRuntimeRegistrationSession implements AutoCloseable {
             routable = false;
             emit(AgentRuntimeRegistrationObserver.Event.RENEWAL_ERROR);
             loseOwnership();
+        } finally {
+            try {
+                observer.onRenewalDuration(System.nanoTime() - started);
+            } catch (RuntimeException ignored) {
+                // Instrumentation must never affect lease ownership or routing safety.
+            }
         }
     }
 
