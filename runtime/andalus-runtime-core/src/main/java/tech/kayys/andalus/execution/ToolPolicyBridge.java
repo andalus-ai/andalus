@@ -17,12 +17,15 @@ final class ToolPolicyBridge {
     private ToolPolicyBridge() {
     }
 
-    static BaseReActAgent.ToolExecutorBridge of(AgentToolExecutor executor, CancellationToken cancellation) {
+    static BaseReActAgent.ToolExecutorBridge of(
+            AgentToolExecutor executor,
+            AgentToolExecutionContext context,
+            CancellationToken cancellation) {
         if (executor == null) {
             return null;
         }
         return (invocation, directFallback) -> {
-            AgentDecision decision = executor.execute(invocation, cancellation).toCompletableFuture().get();
+            AgentDecision decision = executor.execute(invocation, context, cancellation).toCompletableFuture().get();
             return switch (decision) {
                 case AgentDecision.ToolCompleted tc -> tc.result();
                 case AgentDecision.ExecuteTool et -> directFallback.get();
