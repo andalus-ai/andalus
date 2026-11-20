@@ -18,6 +18,8 @@ class AgentRuntimeRegistrationTelemetryTest {
         telemetry.onEvent(AgentRuntimeRegistrationObserver.Event.ACQUIRED);
         telemetry.onEvent(AgentRuntimeRegistrationObserver.Event.RENEWED);
         telemetry.onEvent(AgentRuntimeRegistrationObserver.Event.RENEWAL_ERROR);
+        telemetry.onRenewalDuration(10);
+        telemetry.onRenewalDuration(30);
 
         var snapshot = telemetry.snapshot();
         assertEquals(1, snapshot.count(AgentRuntimeRegistrationObserver.Event.ACQUIRED));
@@ -25,5 +27,9 @@ class AgentRuntimeRegistrationTelemetryTest {
         assertEquals(1, snapshot.count(AgentRuntimeRegistrationObserver.Event.RENEWAL_ERROR));
         assertNotNull(snapshot.lastSuccess());
         assertNotNull(snapshot.lastFailure());
+        assertEquals(2, snapshot.renewalCount());
+        assertEquals(40, snapshot.totalRenewalNanos());
+        assertEquals(30, snapshot.maxRenewalNanos());
+        assertEquals(20, snapshot.averageRenewalNanos());
     }
 }
