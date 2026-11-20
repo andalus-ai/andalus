@@ -96,7 +96,7 @@ public final class AgentRuntimeRegistrationSession implements AutoCloseable {
             boolean published = lifecycle.markUnavailable(token).isPresent();
             routable = false;
             emit(published ? AgentRuntimeRegistrationObserver.Event.UNAVAILABLE
-                    : AgentRuntimeRegistrationObserver.Event.RENEWAL_REJECTED);
+                    : AgentRuntimeRegistrationObserver.Event.STATUS_REJECTED);
             if (!published) loseOwnership();
             return published;
         } catch (RuntimeException failure) {
