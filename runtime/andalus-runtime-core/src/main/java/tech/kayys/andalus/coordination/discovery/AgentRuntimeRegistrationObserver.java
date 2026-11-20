@@ -13,6 +13,7 @@ public interface AgentRuntimeRegistrationObserver {
         UNAVAILABLE,
         RENEWED,
         RENEWAL_REJECTED,
+        STATUS_REJECTED,
         RENEWAL_ERROR,
         REVOKED,
         REVOCATION_REJECTED,
@@ -23,4 +24,7 @@ public interface AgentRuntimeRegistrationObserver {
     AgentRuntimeRegistrationObserver NOOP = event -> { };
 
     void onEvent(Event event);
+
+    /** Records elapsed renewal-store latency; implementations may ignore it. */
+    default void onRenewalDuration(long elapsedNanos) { }
 }
