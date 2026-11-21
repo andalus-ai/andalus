@@ -452,3 +452,73 @@ The worker image build/release pipeline remains deployment-owned: pin the base i
 Before transport, the adapter resolves the exact dataset manifest and exact evaluator manifests from the trust registry, verifies their signatures, verifies dataset contents, reads bounded artifact bytes, and recomputes each artifact digest over the exact bytes sent to the worker. It never loads evaluator classes in the application process. The worker independently repeats signature/digest verification before loading either artifact. Successful responses are correlated by UUID, decoded through the strict DTO codec, and checked against request provenance. Worker failure frames are reduced to bounded failure codes; no report is accepted on mismatch.
 
 Configuration keys: `andalus.shadow-worker.docker-executable`, `andalus.shadow-worker.image`, `andalus.shadow-worker.timeout-seconds`, `andalus.shadow-worker.memory-mib`, `andalus.shadow-worker.cpus`, `andalus.shadow-worker.pids`, `andalus.shadow-worker.tmpfs-mib`, and `andalus.shadow-worker.max-stderr-bytes`, `andalus.shadow-worker.image-validated`, and `andalus.shadow-worker.daemon-validated`. The last two default to `false`; set them to `true` only after validating the exact immutable worker image/bootstrap end-to-end and reviewing the Docker daemon/socket and host policy. They are explicit deployment attestations, not automatic health probes. The image must already exist locally because the transport uses `--pull=never`. This adapter does not build/publish the worker image or provision its image-baked `BootstrapProvider` and trust bundle. A deployment must validate the Docker daemon/socket as trusted infrastructure and run end-to-end tests against the exact immutable image before enabling readiness or production use. No routing, training, promotion, or deployment action is performed.
+
+
+### Image-baked worker bootstrap implementation
+
+The runtime now includes `DefaultShadowEvaluationWorkerBootstrapProvider`, registered through the exact
+`META-INF/services/tech.kayys.andalus.runtime.learning.ShadowEvaluationWorkerEntrypoint$BootstrapProvider`
+service descriptor. It constructs the worker-local manifest verifier, one-request engine, paired
+runner, and verified-byte artifact loader. It reads trust material from
+`ANDALUS_SHADOW_TRUST_DIRECTORY`, defaulting to `/opt/andalus/trust`.
+
+The trust bundle is a UTF-8 file named `trusted-signers.ed25519` in that directory. Each non-comment
+line is `signerId=base64(X.509 SubjectPublicKeyInfo Ed25519 public key)`. Duplicate signer IDs,
+unknown formats, symlinked bundle files, empty bundles, oversized files, and invalid keys are
+rejected. The bundle is loaded once at worker startup; it is not updated from request data. Bake
+the bundle into the immutable image or mount it read-only from a separately authenticated
+deployment control. Do not include private signing keys in the worker image.
+
+`IsolatedJarEvaluatorLoader` accepts only the exact in-memory bytes already verified by the
+worker engine. The signed evaluator descriptor configuration must include
+`implementationClass`, so the class name is covered by the signed configuration fingerprint.
+Artifacts must be dependency-free JARs (shade only reviewed dependencies into the artifact).
+The loader rejects native libraries, service-provider declarations, multi-release JARs,
+module descriptors, launch/agent metadata, unsafe ZIP paths, duplicate entries, protected
+runtime packages, and excessive entry/expanded sizes. It uses a child-first classloader whose
+parent exposes only JDK classes and the shared `Evaluator` API.
+
+This classloader is defense in depth, **not a sandbox**: evaluator code can still exercise JDK
+capabilities available to its process. The only acceptable production use is inside the
+Docker/microVM boundary with no network, no host mounts, no inherited application credentials,
+read-only root filesystem, bounded resources, and process termination on timeout. The worker
+process handles one request and exits; a shutdown hook closes artifact classloaders and removes
+temporary JAR files. The deployment must still build and validate the immutable worker image,
+provision the read-only trust bundle, and verify the actual Docker daemon/host policy. The
+configuration attestations `image-validated` and `daemon-validated` must remain false until
+that validation is complete. Unit tests for trust-bundle loading and artifact rejection are
+authored; they have not been executed in this environment.
+
+
+### Building the worker container image
+
+The worker image build context is `runtime/andalus-runtime-core/worker-image`. It contains a minimal
+Dockerfile and `build-worker-image.sh`; generated `target/`, `lib/`, and `trust/` content is
+git-ignored. The script requires:
+
+- `JRE_IMAGE`: a Java 25 JRE reference pinned with `@sha256:<64 lowercase hex>`;
+- `ANDALUS_SHADOW_TRUST_BUNDLE`: a regular, non-symlink public-key bundle in the format above;
+- optional `IMAGE_TAG`: local build tag (defaults to `andalus-shadow-worker:local`).
+
+Install the matching `andalus-framework` reactor artifacts into the builder's local Maven
+repository first, then run the script from any directory:
+
+```bash
+JRE_IMAGE='registry.example/java25-jre@sha256:<verified-base-image-digest>' \
+ANDALUS_SHADOW_TRUST_BUNDLE='/secure/path/trusted-signers.ed25519' \
+bash runtime/andalus-runtime-core/worker-image/build-worker-image.sh
+```
+
+The script installs the runtime-core Maven reactor with tests skipped, copies runtime-scope
+dependencies into the image context, stages the runtime JAR and public trust bundle, and builds
+the image as UID/GID 10001. The Dockerfile has no mutable base-image default; a digest-pinned
+Java 25 JRE is mandatory. The resulting local tag is **not** the immutable reference expected by
+the runtime adapter. Push it to the deployment registry, resolve the registry's published
+manifest digest, and set `andalus.shadow-worker.image` to that exact
+`registry/repository@sha256:...` value.
+
+This recipe is not an image validation attestation. No image has been built, pushed, or tested by
+this change. Keep `andalus.shadow-worker.image-validated` and
+`andalus.shadow-worker.daemon-validated` false until the exact pushed digest, trust bundle,
+worker protocol, resource limits, Docker daemon/socket, and host policy have been validated in
+the deployment environment.
