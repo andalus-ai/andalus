@@ -36,6 +36,8 @@ import tech.kayys.andalus.resilience.RetryPolicy;
 import tech.kayys.andalus.tool.Tool;
 import tech.kayys.andalus.tool.ToolInvocation;
 import tech.kayys.andalus.tool.ToolResult;
+import tech.kayys.andalus.tool.ToolContext;
+import tech.kayys.andalus.tool.SimpleToolContext;
 
 /**
  * Default implementation of {@link AgentToolExecutor}.
@@ -254,7 +256,7 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
                 throw new java.util.concurrent.CancellationException("Execution cancelled before tool execution.");
             }
             long startMs = System.currentTimeMillis();
-            AgentDecision decision = runWithResilience(tool, invocation);
+            AgentDecision decision = runWithResilience(tool, invocation, execution, cancellation);
             long durationMs = System.currentTimeMillis() - startMs;
             budget.recordUsage(durationMs, 0.0);
 
@@ -382,13 +384,15 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
         };
     }
 
-    private AgentDecision runWithResilience(Tool tool, ToolInvocation invocation) {
+    private AgentDecision runWithResilience(
+            Tool tool, ToolInvocation invocation, AgentToolExecutionContext execution,
+            tech.kayys.andalus.tool.CancellationToken cancellation) {
         String toolName = invocation.name();
         var cb = circuitBreakerRegistry.getOrCreate(toolName);
 
         try {
             ToolResult result = cb.execute(() ->
-                Retry.retry(() -> executeWithTimeout(tool, invocation), RETRY_POLICY)
+                Retry.retry(() -> executeWithTimeout(tool, invocation, execution, cancellation), RETRY_POLICY)
             );
             LOG.fine(() -> "Tool " + toolName + " succeeded: success=" + result.isSuccess());
             return new AgentDecision.ToolCompleted(invocation, result);
@@ -407,9 +411,32 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
         }
     }
 
-    private ToolResult executeWithTimeout(Tool tool, ToolInvocation invocation)
-            throws Exception {
-        var future = tool.execute(invocation, null);
+    /**
+     * Builds the immutable tool-facing context from server-created execution data.
+     * Agent constraints provide deployment/agent configuration; execution attributes
+     * may add trusted per-run values. Identity fields are written last and cannot be
+     * shadowed by either map.
+     */
+    static ToolContext toolContextFor(AgentToolExecutionContext execution) {
+        java.util.Map<String, Object> attributes = new java.util.LinkedHashMap<>();
+        attributes.putAll(execution.constraints());
+        attributes.putAll(execution.attributes());
+        attributes.put("andalus.execution.id", execution.executionId());
+        attributes.put("andalus.agent.id", execution.agentId());
+        if (execution.tenantId() != null) attributes.put("andalus.tenant.id", execution.tenantId());
+        if (execution.userId() != null) attributes.put("andalus.user.id", execution.userId());
+        attributes.put("andalus.principal.type", execution.principalType().name());
+        attributes.put("andalus.roles", execution.roles());
+        return SimpleToolContext.of(attributes);
+    }
+
+    private ToolResult executeWithTimeout(
+            Tool tool, ToolInvocation invocation, AgentToolExecutionContext execution,
+            tech.kayys.andalus.tool.CancellationToken cancellation) throws Exception {
+        if (cancellation != null && cancellation.isCancellationRequested()) {
+            throw new java.util.concurrent.CancellationException("Tool execution cancelled before dispatch.");
+        }
+        var future = tool.execute(invocation, toolContextFor(execution), cancellation);
         try {
             return future.get(TOOL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (java.util.concurrent.ExecutionException ee) {
