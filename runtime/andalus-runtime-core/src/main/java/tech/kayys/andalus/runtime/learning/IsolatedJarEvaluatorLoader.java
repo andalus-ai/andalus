@@ -54,10 +54,11 @@ public final class IsolatedJarEvaluatorLoader
 
         validateJar(verifiedArtifactBytes);
         Path jar = Files.createTempFile("andalus-evaluator-", ".jar");
+        URLClassLoader loader = null;
         try {
             Files.write(jar, verifiedArtifactBytes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
-            URLClassLoader loader = new EvaluatorArtifactClassLoader(
-                    new URL[]{jar.toUri().toURL()}, new ApiOnlyParent(Evaluator.class.getClassLoader()));
+            loader = new EvaluatorArtifactClassLoader(
+                    new URL[]{jar.toUri().toURL()}, new ApiOnlyParent());
             loaders.add(loader);
             temporaryFiles.add(jar);
             Class<?> implementation = Class.forName(implementationClass, true, loader);
@@ -71,6 +72,11 @@ public final class IsolatedJarEvaluatorLoader
             }
             return (Evaluator) constructor.newInstance();
         } catch (Exception failure) {
+            if (loader != null) {
+                loaders.remove(loader);
+                try { loader.close(); } catch (IOException closeFailure) { failure.addSuppressed(closeFailure); }
+            }
+            temporaryFiles.remove(jar);
             Files.deleteIfExists(jar);
             throw failure;
         }
@@ -122,7 +128,7 @@ public final class IsolatedJarEvaluatorLoader
 
     private static boolean safeEntryName(String name) {
         if (name == null || name.isBlank() || name.startsWith("/") || name.startsWith("\\")
-                || name.contains("\\") || name.indexOf('\0') >= 0) return false;
+                || name.contains("\\") || name.indexOf('\\0') >= 0) return false;
         for (String segment : name.split("/")) {
             if (segment.equals("..") || segment.equals(".")) return false;
         }
@@ -135,8 +141,10 @@ public final class IsolatedJarEvaluatorLoader
                 || lower.endsWith(".jnilib") || lower.startsWith("meta-inf/services/")
                 || lower.startsWith("meta-inf/versions/") || lower.equals("module-info.class")
                 || lower.startsWith("java/") || lower.startsWith("javax/")
-                || lower.startsWith("jakarta/") || lower.startsWith("tech/kayys/andalus/")
-                && !lower.startsWith("tech/kayys/andalus/harness/evaluation/");
+                || lower.startsWith("jakarta/") || lower.startsWith("sun/")
+                || lower.startsWith("com/sun/") || lower.startsWith("jdk/")
+                || lower.startsWith("org/w3c/") || lower.startsWith("org/xml/")
+                || lower.startsWith("tech/kayys/andalus/");
     }
 
     @Override
@@ -156,7 +164,7 @@ public final class IsolatedJarEvaluatorLoader
     }
 
     private static final class ApiOnlyParent extends ClassLoader {
-        private ApiOnlyParent(ClassLoader apiLoader) { super(apiLoader); }
+        private ApiOnlyParent() { super(null); }
 
         @Override
         protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
@@ -182,7 +190,7 @@ public final class IsolatedJarEvaluatorLoader
             synchronized (getClassLoadingLock(name)) {
                 Class<?> loaded = findLoadedClass(name);
                 if (loaded == null) {
-                    if (name.startsWith("java.") || name.startsWith("jdk.")
+                    if (name.startsWith("java.") || name.startsWith("jdk.") || name.startsWith("javax.")
                             || name.equals(Evaluator.class.getName())
                             || name.startsWith(Evaluator.class.getName() + "$")) {
                         loaded = getParent().loadClass(name);
