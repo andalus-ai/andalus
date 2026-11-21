@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.Iterator;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletionStage;
@@ -31,13 +32,32 @@ public final class ShadowEvaluationWorkerEntrypoint {
     private ShadowEvaluationWorkerEntrypoint() { }
 
     public static void main(String[] args) {
-        int exitCode = 0;
+        int exitCode;
         try {
-            if (args.length != 0) throw new IllegalArgumentException("worker accepts no command-line arguments");
-            BootstrapProvider provider = uniqueProvider();
-            byte[] request = readBounded(System.in, MAX_FRAME_BYTES);
+            exitCode = run(args, System.in, System.out, System.err, uniqueProvider());
+        } catch (Exception failure) {
+            reportFailure(System.err, failure);
+            exitCode = 2;
+        }
+        if (exitCode != 0) System.exit(exitCode);
+    }
+
+    /**
+     * Executes one request. Package visibility and explicit streams make the process contract
+     * testable without replacing JVM-global stdin/stdout or terminating the test process.
+     */
+    static int run(String[] args, InputStream input, OutputStream output, PrintStream error,
+            BootstrapProvider provider) {
+        try {
+            if (args == null || args.length != 0)
+                throw new IllegalArgumentException("worker accepts no command-line arguments");
+            if (input == null || output == null || error == null || provider == null)
+                throw new IllegalArgumentException("worker process dependencies are required");
+            byte[] request = readBounded(input, MAX_FRAME_BYTES);
             if (request.length == 0) throw new IOException("empty worker request");
-            byte[] response = await(provider.createEngine().handle(request));
+            ShadowEvaluationWorkerEngine engine = provider.createEngine();
+            if (engine == null) throw new IOException("worker bootstrap returned no engine");
+            byte[] response = await(engine.handle(request));
             if (response == null || response.length == 0 || response.length > MAX_FRAME_BYTES)
                 throw new IOException("invalid worker response size");
             ShadowEvaluationWorkerProtocol.Frame responseFrame = ShadowEvaluationWorkerProtocol.decode(response);
@@ -46,17 +66,13 @@ public final class ShadowEvaluationWorkerEntrypoint {
                     || (responseFrame.type() != ShadowEvaluationWorkerProtocol.MessageType.EXECUTE_RESPONSE
                     && responseFrame.type() != ShadowEvaluationWorkerProtocol.MessageType.EXECUTE_FAILURE))
                 throw new IOException("worker response correlation or type mismatch");
-            OutputStream output = System.out;
             output.write(response);
             output.flush();
+            return 0;
         } catch (Exception failure) {
-            // Keep stdout uncontaminated and avoid leaking stack traces or request contents.
-            try {
-                System.err.println("shadow-worker: request failed (" + safeCode(failure) + ")");
-            } catch (RuntimeException ignored) { }
-            exitCode = 2;
+            reportFailure(error, failure);
+            return 2;
         }
-        if (exitCode != 0) System.exit(exitCode);
     }
 
     private static BootstrapProvider uniqueProvider() {
@@ -83,6 +99,13 @@ public final class ShadowEvaluationWorkerEntrypoint {
     private static byte[] await(CompletionStage<byte[]> result) throws Exception {
         if (result == null) throw new IOException("worker engine returned no result");
         return result.toCompletableFuture().get();
+    }
+
+    private static void reportFailure(PrintStream error, Throwable failure) {
+        try {
+            error.println("shadow-worker: request failed (" + safeCode(failure) + ")");
+            error.flush();
+        } catch (RuntimeException ignored) { }
     }
 
     private static String safeCode(Throwable failure) {
