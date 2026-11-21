@@ -32,4 +32,17 @@ class AgentRuntimeRegistrationTelemetryTest {
         assertEquals(30, snapshot.maxRenewalNanos());
         assertEquals(20, snapshot.averageRenewalNanos());
     }
+
+    @Test
+    void countsRecoverySchedulerRejectionAsAnOperationalFailure() {
+        AgentRuntimeRegistrationTelemetry telemetry = new AgentRuntimeRegistrationTelemetry();
+
+        telemetry.onEvent(AgentRuntimeRegistrationObserver.Event.RECOVERY_SCHEDULING_REJECTED);
+
+        var snapshot = telemetry.snapshot();
+        assertEquals(1, snapshot.count(
+                AgentRuntimeRegistrationObserver.Event.RECOVERY_SCHEDULING_REJECTED));
+        assertNotNull(snapshot.lastFailure());
+    }
+
 }
