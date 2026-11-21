@@ -40,8 +40,11 @@ public class AgentRuntimeRegistrationBootstrap {
     private volatile AgentRuntimeRegistrationSupervisor supervisor;
 
     void onStart(@Observes StartupEvent event) {
-        if (!hosts.isResolvable()) {
+        if (hosts.isUnsatisfied()) {
             return;
+        }
+        if (hosts.isAmbiguous()) {
+            throw new IllegalStateException("Exactly one AgentRuntimeRegistrationHost bean is required");
         }
         if (!schedulers.isResolvable() || !lifecycles.isResolvable()
                 || !readinessChecks.isResolvable()) {
