@@ -56,6 +56,15 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
                 .hasMessageContaining("timeout");
     }
 
+    @Test
+    void rejectsNonZeroWorkerExit() throws Exception {
+        Path executable = fakeExecutable("nonzero");
+        var transport = transport(executable, Duration.ofSeconds(5));
+
+        assertThatThrownBy(() -> transport.exchange(request(UUID.randomUUID())))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("status 7");
+    }
     private DockerShadowEvaluationWorkerTransport transport(Path executable, Duration timeout) {
         return new DockerShadowEvaluationWorkerTransport(executable.toString(), PINNED_IMAGE,
                 new DockerShadowEvaluationWorkerTransport.Limits(
@@ -71,7 +80,12 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
     private Path fakeExecutable(String mode) throws Exception {
         Path executable = temporaryDirectory.resolve("fake-docker");
         String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
-        String classpath = System.getProperty("java.class.path");
+        String fixtureClasses = Path.of(DockerShadowEvaluationTransportFixture.class
+                .getProtectionDomain().getCodeSource().getLocation().toURI()).toString();
+        String productionClasses = Path.of(ShadowEvaluationWorkerProtocol.class
+                .getProtectionDomain().getCodeSource().getLocation().toURI()).toString();
+        String classpath = String.join(java.io.File.pathSeparator,
+                fixtureClasses, productionClasses, System.getProperty("java.class.path"));
         String script = "#!/bin/sh\nexec " + shellQuote(java) + " -cp " + shellQuote(classpath)
                 + " tech.kayys.andalus.runtime.learning.DockerShadowEvaluationTransportFixture "
                 + "\"$@\" " + shellQuote(mode) + "\n";
