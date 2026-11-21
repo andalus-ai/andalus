@@ -163,6 +163,54 @@ class AgentRuntimeRegistrationGroupTest {
         }
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void closeRacingRegistrationCleansUpTheReservedSupervisor() throws Exception {
+        AgentRuntimeRegistrationStore store = mock(AgentRuntimeRegistrationStore.class);
+        ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(mock(ScheduledFuture.class));
+
+        CountDownLatch acquireEntered = new CountDownLatch(1);
+        CountDownLatch allowAcquire = new CountDownLatch(1);
+        when(store.acquire(any())).thenAnswer(invocation -> {
+            AgentRuntimeRegistrationRequest request = invocation.getArgument(0);
+            acquireEntered.countDown();
+            assertTrue(allowAcquire.await(5, TimeUnit.SECONDS),
+                    "test must release the blocked registration acquisition");
+            return Optional.of(lease(token(request), AgentRuntimeStatus.STARTING));
+        });
+        when(store.revoke(any())).thenReturn(true);
+
+        AgentRuntimeRegistrationGroup group = new AgentRuntimeRegistrationGroup(
+                new AgentRuntimeRegistrationLifecycle(store, TTL), scheduler);
+        ExecutorService callers = Executors.newFixedThreadPool(2);
+        try {
+            var registration = callers.submit(() -> group.register(registration("racing")));
+            assertTrue(acquireEntered.await(2, TimeUnit.SECONDS),
+                    "registration should reach the persistence boundary");
+
+            var shutdown = callers.submit(group::close);
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (group.size() != 0 && System.nanoTime() < deadline) {
+                Thread.yield();
+            }
+            assertEquals(0, group.size(), "shutdown should detach reserved membership");
+
+            allowAcquire.countDown();
+            assertThrows(java.util.concurrent.ExecutionException.class,
+                    () -> registration.get(3, TimeUnit.SECONDS));
+            shutdown.get(3, TimeUnit.SECONDS);
+            assertEquals(0, group.size());
+            verify(store, times(1)).revoke(any());
+            assertThrows(IllegalStateException.class, () -> group.register(registration("after-close")));
+        } finally {
+            allowAcquire.countDown();
+            callers.shutdownNow();
+            group.close();
+        }
+    }
+
     private static AgentRuntimeRegistrationHost.Registration registration(String agentId) {
         return new AgentRuntimeRegistrationHost.Registration(
                 "tenant-a", agentId, "instance-a", "owner-" + agentId,
