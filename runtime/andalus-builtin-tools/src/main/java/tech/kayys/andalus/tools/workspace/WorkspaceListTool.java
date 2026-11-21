@@ -22,6 +22,7 @@ public class WorkspaceListTool extends WorkspaceToolSupport {
     @Override
     public CompletableFuture<ToolResult> execute(ToolInvocation invocation, ToolContext context) {
         try {
+            var root = workspaceRoot(context);
             var directory = resolveExisting(context, stringArg(invocation, "path", "."));
             if (!Files.isDirectory(directory)) return CompletableFuture.completedFuture(
                     failure(invocation, "Requested workspace path is not a directory.", descriptor().name()));
@@ -39,7 +40,7 @@ public class WorkspaceListTool extends WorkspaceToolSupport {
                         .toList();
             }
             return CompletableFuture.completedFuture(ToolResult.success(
-                    invocation.invocationIdentifier(), Map.of("path", directory.toString(), "entries", entries),
+                    invocation.invocationIdentifier(), Map.of("path", root.relativize(directory).toString(), "entries", entries),
                     java.time.Duration.ZERO, descriptor().name()));
         } catch (SecurityException e) {
             return CompletableFuture.completedFuture(denied(invocation, e.getMessage()));
