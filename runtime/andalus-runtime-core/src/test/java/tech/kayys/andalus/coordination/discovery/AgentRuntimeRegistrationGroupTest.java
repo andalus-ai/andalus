@@ -7,6 +7,9 @@ import static org.mockito.Mockito.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -117,6 +120,47 @@ class AgentRuntimeRegistrationGroupTest {
         assertThrows(IllegalStateException.class, () -> group.register(registration("duplicate")));
         assertEquals(1, group.size());
         group.close();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void blockedDatabasePublicationDoesNotHoldGroupMembershipLock() throws Exception {
+        AgentRuntimeRegistrationStore store = mock(AgentRuntimeRegistrationStore.class);
+        ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(mock(ScheduledFuture.class));
+        when(store.acquire(any())).thenAnswer(invocation -> {
+            AgentRuntimeRegistrationRequest request = invocation.getArgument(0);
+            return Optional.of(lease(token(request), AgentRuntimeStatus.STARTING));
+        });
+
+        CountDownLatch publicationEntered = new CountDownLatch(1);
+        CountDownLatch allowPublication = new CountDownLatch(1);
+        when(store.publishStatus(any(), any(), any())).thenAnswer(invocation -> {
+            publicationEntered.countDown();
+            assertTrue(allowPublication.await(5, TimeUnit.SECONDS),
+                    "test must release the blocked status publication");
+            return Optional.of(lease(invocation.getArgument(0), invocation.getArgument(1)));
+        });
+        when(store.revoke(any())).thenReturn(true);
+
+        AgentRuntimeRegistrationGroup group = new AgentRuntimeRegistrationGroup(
+                new AgentRuntimeRegistrationLifecycle(store, TTL), scheduler);
+        AgentRuntimeRegistrationGroup.Key key = group.register(registration("blocked"));
+        ExecutorService caller = Executors.newSingleThreadExecutor();
+        try {
+            var publication = caller.submit(() -> group.markAvailable(key));
+            assertTrue(publicationEntered.await(2, TimeUnit.SECONDS),
+                    "status publication should reach the store");
+            assertEquals(1, group.size(),
+                    "membership queries must not wait for an unrelated database operation");
+            allowPublication.countDown();
+            assertTrue(publication.get(2, TimeUnit.SECONDS));
+        } finally {
+            allowPublication.countDown();
+            caller.shutdownNow();
+            group.close();
+        }
     }
 
     private static AgentRuntimeRegistrationHost.Registration registration(String agentId) {
