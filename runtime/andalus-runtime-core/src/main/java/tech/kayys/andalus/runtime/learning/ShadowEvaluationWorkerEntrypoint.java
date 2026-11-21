@@ -109,8 +109,10 @@ public final class ShadowEvaluationWorkerEntrypoint {
     }
 
     private static String safeCode(Throwable failure) {
-        if (failure instanceof IOException) return "IO";
-        if (failure instanceof IllegalArgumentException) return "INVALID_REQUEST";
+        Throwable cause = failure;
+        while (cause.getCause() != null && cause.getCause() != cause) cause = cause.getCause();
+        if (cause instanceof IOException) return "IO";
+        if (cause instanceof IllegalArgumentException) return "INVALID_REQUEST";
         return "EXECUTION";
     }
 }
