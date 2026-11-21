@@ -7,6 +7,9 @@ import tech.kayys.andalus.anp.identity.TrustedDidDocument;
 import tech.kayys.andalus.anp.identity.TrustedDidDocumentStore;
 import tech.kayys.andalus.anp.identity.TrustedDidKeyRotationValidator;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -23,18 +26,21 @@ public class PostgresAnpKeyRotationCoordinator {
     private final AnpKeyStore keyStore;
     private final AnpKeyRotationAuthorizer authorizer;
     private final AnpKeyRotationMaterialProvider materialProvider;
+    private final PostgresAnpKeyRotationRecoveryQueue recoveryQueue;
 
     public PostgresAnpKeyRotationCoordinator(
             PostgresAnpKeyRotationJournal journal,
             TrustedDidDocumentStore didStore,
             AnpKeyStore keyStore,
             AnpKeyRotationAuthorizer authorizer,
-            AnpKeyRotationMaterialProvider materialProvider) {
+            AnpKeyRotationMaterialProvider materialProvider,
+            PostgresAnpKeyRotationRecoveryQueue recoveryQueue) {
         this.journal = Objects.requireNonNull(journal, "journal");
         this.didStore = Objects.requireNonNull(didStore, "didStore");
         this.keyStore = Objects.requireNonNull(keyStore, "keyStore");
         this.authorizer = Objects.requireNonNull(authorizer, "authorizer");
         this.materialProvider = Objects.requireNonNull(materialProvider, "materialProvider");
+        this.recoveryQueue = Objects.requireNonNull(recoveryQueue, "recoveryQueue");
     }
 
     /** Starts an authorized rotation and immediately drives it as far as possible. */
@@ -55,6 +61,32 @@ public class PostgresAnpKeyRotationCoordinator {
         PostgresAnpKeyRotationJournal.Rotation prepared = journal.findOrPrepare(request);
         return resume(prepared.operationId(), candidate, newKeyPair);
     }
+
+    /**
+     * Claims a bounded batch and resumes each operation independently.
+     * Failed operations retain their lease until expiry to avoid a tight retry loop.
+     */
+    public List<RecoveryResult> recoverPending(String workerId, Duration leaseDuration, int limit) {
+        List<PostgresAnpKeyRotationJournal.Rotation> claimed =
+                recoveryQueue.claimPending(workerId, leaseDuration, limit);
+        List<RecoveryResult> results = new ArrayList<>(claimed.size());
+        for (PostgresAnpKeyRotationJournal.Rotation rotation : claimed) {
+            try {
+                PostgresAnpKeyRotationJournal.Rotation completed = resume(rotation.operationId());
+                results.add(new RecoveryResult(rotation.operationId(), true,
+                        completed.state().name(), null));
+                recoveryQueue.release(rotation.operationId(), workerId);
+            } catch (RuntimeException failure) {
+                results.add(new RecoveryResult(rotation.operationId(), false,
+                        rotation.state().name(), failure.getClass().getSimpleName()));
+                // Keep the lease until expiry; the next worker attempt is naturally back-pressured.
+            }
+        }
+        return List.copyOf(results);
+    }
+
+    public record RecoveryResult(String operationId, boolean completed,
+                                 String lastKnownState, String failureType) { }
 
     /** Resumes an operation using material supplied by the configured KMS/HSM provider. */
     public PostgresAnpKeyRotationJournal.Rotation resume(String operationId) {
