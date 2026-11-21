@@ -150,8 +150,8 @@ public final class AwsKmsAnpKeyMaterialProtector implements AnpKeyMaterialProtec
     }
 
     private static byte[] additionalAuthenticatedData(String agentId, String keyId) {
-        return ("andalus-anp-key-v1\u0000" + agentId + "\u0000" + keyId)
-                .getBytes(StandardCharsets.UTF_8);
+        return ("andalus-anp-key-v1|" + agentId.length() + ":" + agentId
+                + "|" + keyId.length() + ":" + keyId).getBytes(StandardCharsets.UTF_8);
     }
 
     private static void requireContext(String agentId, String keyId) {
