@@ -96,6 +96,80 @@ class AgentRuntimeRegistrationSessionTest {
         verify(store).revoke(TOKEN);
     }
 
+    @Test
+    void observerDistinguishesRejectedRenewalFromStoreFailure() {
+        AgentRuntimeRegistrationStore store = mock(AgentRuntimeRegistrationStore.class);
+        AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
+        ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        ScheduledFuture<?> future = mock(ScheduledFuture.class);
+        ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
+        java.util.List<AgentRuntimeRegistrationObserver.Event> events = new java.util.ArrayList<>();
+        when(store.acquire(any())).thenReturn(Optional.of(lease(AgentRuntimeStatus.STARTING)));
+        when(store.renew(TOKEN, TTL)).thenReturn(Optional.empty());
+        when(scheduler.scheduleWithFixedDelay(task.capture(), anyLong(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(future);
+
+        AgentRuntimeRegistrationSession session = AgentRuntimeRegistrationSession.open(
+                lifecycle, scheduler, "tenant-a", "agent-a", "instance-a", "owner-a",
+                Duration.ofSeconds(5), events::add).orElseThrow();
+        task.getValue().run();
+
+        assertEquals(java.util.List.of(
+                AgentRuntimeRegistrationObserver.Event.ACQUIRED,
+                AgentRuntimeRegistrationObserver.Event.RENEWAL_REJECTED), events);
+        assertFalse(session.isRoutable());
+        session.close();
+    }
+
+    @Test
+    void observerFailureCannotChangeRegistrationSafety() {
+        AgentRuntimeRegistrationStore store = mock(AgentRuntimeRegistrationStore.class);
+        AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
+        ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        ScheduledFuture<?> future = mock(ScheduledFuture.class);
+        when(store.acquire(any())).thenReturn(Optional.of(lease(AgentRuntimeStatus.STARTING)));
+        when(store.publishStatus(TOKEN, AgentRuntimeStatus.AVAILABLE, TTL))
+                .thenReturn(Optional.of(lease(AgentRuntimeStatus.AVAILABLE)));
+        when(store.revoke(TOKEN)).thenReturn(true);
+        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(future);
+
+        AgentRuntimeRegistrationSession session = AgentRuntimeRegistrationSession.open(
+                lifecycle, scheduler, "tenant-a", "agent-a", "instance-a", "owner-a",
+                Duration.ofSeconds(5), event -> { throw new IllegalStateException("metrics unavailable"); })
+                .orElseThrow();
+
+        assertTrue(session.markAvailable());
+        assertTrue(session.isRoutable());
+        session.close();
+        verify(store).revoke(TOKEN);
+    }
+
+    @Test
+    void observerReportsStoreExceptionSeparatelyFromRejectedLease() {
+        AgentRuntimeRegistrationStore store = mock(AgentRuntimeRegistrationStore.class);
+        AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
+        ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        ScheduledFuture<?> future = mock(ScheduledFuture.class);
+        ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
+        java.util.List<AgentRuntimeRegistrationObserver.Event> events = new java.util.ArrayList<>();
+        when(store.acquire(any())).thenReturn(Optional.of(lease(AgentRuntimeStatus.STARTING)));
+        when(store.renew(TOKEN, TTL)).thenThrow(new IllegalStateException("database unavailable"));
+        when(scheduler.scheduleWithFixedDelay(task.capture(), anyLong(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(future);
+
+        AgentRuntimeRegistrationSession session = AgentRuntimeRegistrationSession.open(
+                lifecycle, scheduler, "tenant-a", "agent-a", "instance-a", "owner-a",
+                Duration.ofSeconds(5), events::add).orElseThrow();
+        task.getValue().run();
+
+        assertEquals(java.util.List.of(
+                AgentRuntimeRegistrationObserver.Event.ACQUIRED,
+                AgentRuntimeRegistrationObserver.Event.RENEWAL_ERROR), events);
+        assertFalse(session.isRoutable());
+        session.close();
+    }
+
     private static AgentRuntimeLease lease(AgentRuntimeStatus status) {
         return new AgentRuntimeLease(TOKEN, status, Instant.parse("2030-01-01T00:00:00Z"));
     }

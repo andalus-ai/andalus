@@ -10,91 +10,83 @@ import java.util.concurrent.TimeUnit;
 import tech.kayys.andalus.agent.capability.AgentRuntimeLease;
 import tech.kayys.andalus.agent.capability.AgentRuntimeLeaseToken;
 
-/**
- * Host-owned registration session.
- *
- * <p>The host supplies its managed scheduler; this class never creates threads or
- * owns the scheduler lifecycle. It retains the exact registration token, renews
- * it at a bounded cadence, and fails local readiness closed if renewal is lost.
- * Closing the session cancels heartbeats before attempting fenced revocation.</p>
- */
+/** Host-owned, fail-closed session for a distributed runtime registration. */
 public final class AgentRuntimeRegistrationSession implements AutoCloseable {
-
     private final AgentRuntimeRegistrationLifecycle lifecycle;
     private final AgentRuntimeLeaseToken token;
+    private final AgentRuntimeRegistrationObserver observer;
     private volatile ScheduledFuture<?> heartbeat;
     private volatile boolean routable;
     private boolean ownershipLost;
     private boolean closed;
 
-    private AgentRuntimeRegistrationSession(
-            AgentRuntimeRegistrationLifecycle lifecycle,
-            AgentRuntimeLeaseToken token) {
+    private AgentRuntimeRegistrationSession(AgentRuntimeRegistrationLifecycle lifecycle,
+            AgentRuntimeLeaseToken token, AgentRuntimeRegistrationObserver observer) {
         this.lifecycle = lifecycle;
         this.token = token;
+        this.observer = observer;
     }
 
-    /**
-     * Acquires a STARTING registration and schedules renewal on the host scheduler.
-     * Empty means another live owner holds the requested instance identity.
-     */
+    /** Acquires STARTING and schedules renewal on the caller-owned scheduler. */
     public static Optional<AgentRuntimeRegistrationSession> open(
-            AgentRuntimeRegistrationLifecycle lifecycle,
-            ScheduledExecutorService hostScheduler,
-            String tenantId,
-            String agentId,
-            String instanceId,
-            String ownerId,
+            AgentRuntimeRegistrationLifecycle lifecycle, ScheduledExecutorService hostScheduler,
+            String tenantId, String agentId, String instanceId, String ownerId,
             Duration heartbeatInterval) {
+        return open(lifecycle, hostScheduler, tenantId, agentId, instanceId, ownerId,
+                heartbeatInterval, AgentRuntimeRegistrationObserver.NOOP);
+    }
+
+    /** Opens a session with an optional runtime-owned telemetry observer. */
+    public static Optional<AgentRuntimeRegistrationSession> open(
+            AgentRuntimeRegistrationLifecycle lifecycle, ScheduledExecutorService hostScheduler,
+            String tenantId, String agentId, String instanceId, String ownerId,
+            Duration heartbeatInterval, AgentRuntimeRegistrationObserver observer) {
         Objects.requireNonNull(lifecycle, "lifecycle must not be null");
         Objects.requireNonNull(hostScheduler, "hostScheduler must not be null");
         Objects.requireNonNull(heartbeatInterval, "heartbeatInterval must not be null");
+        Objects.requireNonNull(observer, "observer must not be null");
         Duration leaseDuration = lifecycle.leaseDuration();
         if (heartbeatInterval.isZero() || heartbeatInterval.isNegative()
                 || heartbeatInterval.toMillis() < 1
                 || heartbeatInterval.compareTo(leaseDuration) >= 0) {
-            throw new IllegalArgumentException("heartbeatInterval must be positive and shorter than the lease duration");
+            throw new IllegalArgumentException(
+                    "heartbeatInterval must be positive and shorter than the lease duration");
         }
-
         Optional<AgentRuntimeLease> acquired =
                 lifecycle.start(tenantId, agentId, instanceId, ownerId);
         if (acquired.isEmpty()) {
             return Optional.empty();
         }
-
-        AgentRuntimeLeaseToken token = acquired.get().token();
-        AgentRuntimeRegistrationSession session =
-                new AgentRuntimeRegistrationSession(lifecycle, token);
+        AgentRuntimeRegistrationSession session = new AgentRuntimeRegistrationSession(
+                lifecycle, acquired.get().token(), observer);
+        session.emit(AgentRuntimeRegistrationObserver.Event.ACQUIRED);
         try {
-            session.heartbeat = hostScheduler.scheduleWithFixedDelay(
-                    session::renew, heartbeatInterval.toMillis(),
-                    heartbeatInterval.toMillis(), TimeUnit.MILLISECONDS);
+            session.heartbeat = hostScheduler.scheduleWithFixedDelay(session::renew,
+                    heartbeatInterval.toMillis(), heartbeatInterval.toMillis(), TimeUnit.MILLISECONDS);
             return Optional.of(session);
         } catch (RuntimeException schedulingFailure) {
-            lifecycle.shutdown(token);
+            session.emit(AgentRuntimeRegistrationObserver.Event.SCHEDULING_ERROR);
+            lifecycle.shutdown(session.token);
             throw schedulingFailure;
         }
     }
 
-    /** Publishes AVAILABLE only while this session still owns a live registration. */
     public synchronized boolean markAvailable() {
-        if (closed || ownershipLost) {
-            return false;
-        }
+        if (closed || ownershipLost) return false;
         try {
             boolean published = lifecycle.markAvailable(token).isPresent();
             routable = published;
-            if (!published) {
-                loseOwnership();
-            }
+            emit(published ? AgentRuntimeRegistrationObserver.Event.AVAILABLE
+                    : AgentRuntimeRegistrationObserver.Event.STATUS_REJECTED);
+            if (!published) loseOwnership();
             return published;
         } catch (RuntimeException failure) {
+            emit(AgentRuntimeRegistrationObserver.Event.OPERATION_ERROR);
             loseOwnership();
             throw failure;
         }
     }
 
-    /** Removes the instance from routing without relinquishing its registration. */
     public synchronized boolean markUnavailable() {
         if (closed || ownershipLost) {
             routable = false;
@@ -103,63 +95,77 @@ public final class AgentRuntimeRegistrationSession implements AutoCloseable {
         try {
             boolean published = lifecycle.markUnavailable(token).isPresent();
             routable = false;
-            if (!published) {
-                loseOwnership();
-            }
+            emit(published ? AgentRuntimeRegistrationObserver.Event.UNAVAILABLE
+                    : AgentRuntimeRegistrationObserver.Event.STATUS_REJECTED);
+            if (!published) loseOwnership();
             return published;
         } catch (RuntimeException failure) {
             routable = false;
+            emit(AgentRuntimeRegistrationObserver.Event.OPERATION_ERROR);
             loseOwnership();
             throw failure;
         }
     }
 
-    /** Local routing/readiness view; false immediately after a failed renewal. */
-    public boolean isRoutable() {
-        return routable;
-    }
+    /** Local readiness view; it becomes false immediately when renewal is unproven. */
+    public boolean isRoutable() { return routable; }
 
-    public AgentRuntimeLeaseToken token() {
-        return token;
-    }
+    public AgentRuntimeLeaseToken token() { return token; }
 
     private synchronized void renew() {
-        if (closed || ownershipLost) {
-            return;
-        }
+        if (closed || ownershipLost) return;
+        long started = System.nanoTime();
         try {
             if (lifecycle.heartbeat(token).isEmpty()) {
                 routable = false;
+                emit(AgentRuntimeRegistrationObserver.Event.RENEWAL_REJECTED);
                 loseOwnership();
+            } else {
+                emit(AgentRuntimeRegistrationObserver.Event.RENEWED);
             }
         } catch (RuntimeException failure) {
             routable = false;
+            emit(AgentRuntimeRegistrationObserver.Event.RENEWAL_ERROR);
             loseOwnership();
+        } finally {
+            try {
+                observer.onRenewalDuration(System.nanoTime() - started);
+            } catch (RuntimeException ignored) {
+                // Instrumentation must never affect lease ownership or routing safety.
+            }
+        }
+    }
+
+    private void emit(AgentRuntimeRegistrationObserver.Event event) {
+        try {
+            observer.onEvent(event);
+        } catch (RuntimeException ignored) {
+            // Instrumentation must never affect ownership or routing safety.
         }
     }
 
     private void loseOwnership() {
         ownershipLost = true;
         ScheduledFuture<?> task = heartbeat;
-        if (task != null) {
-            task.cancel(false);
-        }
+        if (task != null) task.cancel(false);
     }
 
-    /**
-     * Stops the scheduled heartbeat first, then revokes this exact token.
-     * A lost/stale token cannot revoke a successor.
-     */
+    /** Cancels heartbeats before fenced revocation; stale tokens cannot revoke successors. */
     @Override
     public synchronized void close() {
-        if (closed) {
-            return;
-        }
+        if (closed) return;
         closed = true;
         routable = false;
         heartbeat.cancel(false);
         if (!ownershipLost) {
-            lifecycle.shutdown(token);
+            try {
+                emit(lifecycle.shutdown(token)
+                        ? AgentRuntimeRegistrationObserver.Event.REVOKED
+                        : AgentRuntimeRegistrationObserver.Event.REVOCATION_REJECTED);
+            } catch (RuntimeException failure) {
+                emit(AgentRuntimeRegistrationObserver.Event.OPERATION_ERROR);
+                throw failure;
+            }
         }
     }
 }

@@ -106,6 +106,12 @@ lease duration and treated as failed when the store returns an empty result;
 the host must then stop advertising the instance and must not continue using
 the stale token. The registration store's clock is authoritative.
 
+## Registration telemetry (Phase 5.1.8)
+
+`AgentRuntimeRegistrationObserver` is a runtime-owned, dependency-neutral event hook. The session reports acquisition, readiness changes, successful renewals, rejected renewals, store exceptions, scheduling failures, and fenced shutdown outcomes. A rejected lease and a database/store exception are distinct events; both make the session non-routable and stop renewal. Recovery requires a new session and a newly acquired generation—this session never retries a stale token.
+
+`AgentRuntimeRegistrationTelemetry` is an application-scoped in-process aggregate with event counters, renewal count/total/average/maximum latency, and last-success/last-failure timestamps. Its snapshot deliberately omits tenant, agent, instance, and owner labels to avoid high-cardinality metrics and identity leakage. Hosts can export the snapshot through their existing metrics stack. Pass the telemetry bean (or another observer) to the observer-aware `AgentRuntimeRegistrationSession.open(...)` overload; the default overload remains a no-op for compatibility. The telemetry bean does not install an exporter or deliver alerts. Configure alert thresholds in the host, for example on sustained renewal errors/rejections or an aged last-success timestamp.
+
 These registration tokens are not `FencedLeaseManager` execution/task tokens.
 The older `AgentRuntimeLifecycleCoordinator` and
 `AgentRuntimeLifecycleLeaseObserver` remain the legacy lifecycle projection
