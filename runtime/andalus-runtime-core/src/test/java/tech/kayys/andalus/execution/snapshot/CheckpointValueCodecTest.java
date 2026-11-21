@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import tech.kayys.andalus.execution.resource.model.ResourceId;
 
 class CheckpointValueCodecTest {
     private final CheckpointValueCodec codec = new CheckpointValueCodec();
@@ -34,6 +35,17 @@ class CheckpointValueCodecTest {
         assertArrayEquals((byte[]) input.get("bytes"), (byte[]) restored.get("bytes"));
         assertEquals(input.get("list"), restored.get("list"));
         assertThrows(UnsupportedOperationException.class, () -> restored.put("x", 1));
+    }
+
+
+    @Test
+    void resourceIdsRoundTripWithoutLosingTheirLogicalValue() {
+        ResourceId original = ResourceId.of("resource://document/contract-42");
+        CheckpointValueCodec.ResourceIdValue encoded = codec.encodeResourceId(original);
+        assertEquals(original.value(), encoded.value());
+        assertEquals(original, codec.decodeResourceId(encoded));
+        assertThrows(IllegalArgumentException.class,
+                () -> new CheckpointValueCodec.ResourceIdValue("  "));
     }
 
     @Test
