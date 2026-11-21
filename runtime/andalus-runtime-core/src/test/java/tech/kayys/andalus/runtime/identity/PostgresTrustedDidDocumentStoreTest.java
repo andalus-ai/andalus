@@ -26,12 +26,13 @@ class PostgresTrustedDidDocumentStoreTest {
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
+    private static PGSimpleDataSource dataSource;
     private static PostgresTrustedDidDocumentStore firstNode;
     private static PostgresTrustedDidDocumentStore secondNode;
 
     @BeforeAll
     static void initializeDatabase() throws Exception {
-        PGSimpleDataSource dataSource = new PGSimpleDataSource();
+        dataSource = new PGSimpleDataSource();
         dataSource.setURL(POSTGRES.getJdbcUrl());
         dataSource.setUser(POSTGRES.getUsername());
         dataSource.setPassword(POSTGRES.getPassword());
@@ -55,7 +56,7 @@ class PostgresTrustedDidDocumentStoreTest {
 
     @BeforeEach
     void clearRegistry() throws Exception {
-        try (Connection connection = POSTGRES.createConnection("");
+        try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
             statement.execute("DELETE FROM andalus_trusted_did_documents");
         }
