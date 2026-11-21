@@ -26,6 +26,7 @@ public class WorkspaceReadTool extends WorkspaceToolSupport {
             String requested = WorkspaceListTool.stringArg(invocation, "path", "");
             if (requested.isBlank()) return CompletableFuture.completedFuture(
                     failure(invocation, "A relative file path is required.", descriptor().name()));
+            var root = workspaceRoot(context);
             var file = resolveExisting(context, requested);
             if (!Files.isRegularFile(file)) return CompletableFuture.completedFuture(
                     failure(invocation, "Requested workspace path is not a regular file.", descriptor().name()));
@@ -34,7 +35,7 @@ public class WorkspaceReadTool extends WorkspaceToolSupport {
                     failure(invocation, "File exceeds the 1 MiB read limit.", descriptor().name()));
             String content = Files.readString(file, StandardCharsets.UTF_8);
             return CompletableFuture.completedFuture(ToolResult.success(
-                    invocation.invocationIdentifier(), Map.of("path", file.toString(), "content", content),
+                    invocation.invocationIdentifier(), Map.of("path", root.relativize(file).toString(), "content", content),
                     java.time.Duration.ZERO, descriptor().name()));
         } catch (SecurityException e) {
             return CompletableFuture.completedFuture(denied(invocation, e.getMessage()));
