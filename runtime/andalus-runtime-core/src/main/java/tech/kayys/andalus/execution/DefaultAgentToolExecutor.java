@@ -335,7 +335,9 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
 
     private PolicyDecision evaluatePolicy(tech.kayys.andalus.execution.governance.PolicyEvaluationContext context) {
         if (policyEvaluatorInstances == null || policyEvaluatorInstances.isUnsatisfied()) {
-            return PolicyDecision.allow(); // No evaluator configured — open in standalone mode
+            return PolicyDecision.deny(
+                    "No ToolPolicyEvaluator is configured; tool execution is denied by default.",
+                    "runtime-policy-evaluator-required");
         }
         return policyEvaluatorInstances.get().evaluate(context);
     }
