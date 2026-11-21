@@ -24,10 +24,12 @@ public final class SimpleGraphExecutionContext implements GraphExecutionContext 
 
     private final UUID executionId;
     private final SimpleVariableStore variableStore;
+    private final ExecutionCallerContext callerContext;
 
-    private SimpleGraphExecutionContext(UUID executionId, Map<String, Object> vars) {
+    private SimpleGraphExecutionContext(UUID executionId, Map<String, Object> vars, ExecutionCallerContext callerContext) {
         this.executionId   = executionId;
         this.variableStore = new SimpleVariableStore(vars);
+        this.callerContext = callerContext != null ? callerContext : ExecutionCallerContext.anonymous();
     }
 
     /**
@@ -40,7 +42,22 @@ public final class SimpleGraphExecutionContext implements GraphExecutionContext 
         if (request != null && request.content() != null) {
             vars.put(PROMPT_KEY.name(), request.content());
         }
-        return new SimpleGraphExecutionContext(id, vars);
+        return fromRequest(request, ExecutionCallerContext.anonymous());
+    }
+
+    /** Creates a request context with identity supplied by a trusted application boundary. */
+    public static SimpleGraphExecutionContext fromRequest(AgentRequest request, ExecutionCallerContext callerContext) {
+        UUID id = UUID.randomUUID();
+        Map<String, Object> vars = new ConcurrentHashMap<>();
+        if (request != null && request.content() != null) {
+            vars.put(PROMPT_KEY.name(), request.content());
+        }
+        return new SimpleGraphExecutionContext(id, vars, callerContext);
+    }
+
+    /** Caller identity supplied by the trusted application boundary. */
+    public ExecutionCallerContext callerContext() {
+        return callerContext;
     }
 
     /** Convenience accessor for the stored prompt, if any. */
@@ -77,7 +94,7 @@ public final class SimpleGraphExecutionContext implements GraphExecutionContext 
     public GraphExecutionContext createChild(Map<String, Object> childVariables) {
         Map<String, Object> merged = new ConcurrentHashMap<>(variableStore.rawMap());
         if (childVariables != null) merged.putAll(childVariables);
-        return new SimpleGraphExecutionContext(UUID.randomUUID(), merged);
+        return new SimpleGraphExecutionContext(UUID.randomUUID(), merged, callerContext);
     }
 
     // =========================================================================
