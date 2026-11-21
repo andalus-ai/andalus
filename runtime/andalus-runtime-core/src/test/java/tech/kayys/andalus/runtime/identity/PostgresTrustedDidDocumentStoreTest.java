@@ -2,6 +2,7 @@ package tech.kayys.andalus.runtime.identity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -50,6 +51,14 @@ class PostgresTrustedDidDocumentStoreTest {
         ObjectMapper mapper = new ObjectMapper();
         firstNode = new PostgresTrustedDidDocumentStore(dataSource, mapper);
         secondNode = new PostgresTrustedDidDocumentStore(dataSource, mapper);
+    }
+
+    @BeforeEach
+    void clearRegistry() throws Exception {
+        try (Connection connection = POSTGRES.createConnection("");
+             Statement statement = connection.createStatement()) {
+            statement.execute("DELETE FROM andalus_trusted_did_documents");
+        }
     }
 
     @Test
