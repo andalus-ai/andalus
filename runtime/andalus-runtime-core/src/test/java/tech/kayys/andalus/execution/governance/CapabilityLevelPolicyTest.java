@@ -55,4 +55,22 @@ class CapabilityLevelPolicyTest {
         PolicyDecision d = policy.evaluate(invocation("system.restart"), ctx(ToolCapabilityLevel.SYSTEM, List.of()));
         assertInstanceOf(PolicyDecision.Deny.class, d);
     }
+
+    @Test
+    void network_denied_without_role() {
+        PolicyDecision d = policy.evaluate(invocation("innocent.lookup"), ctx(ToolCapabilityLevel.NETWORK, List.of()));
+        assertInstanceOf(PolicyDecision.Deny.class, d);
+    }
+
+    @Test
+    void network_allowed_with_specific_role() {
+        PolicyDecision d = policy.evaluate(invocation("innocent.lookup"), ctx(ToolCapabilityLevel.NETWORK, List.of("network-approved")));
+        assertTrue(d.isAllowed());
+    }
+
+    @Test
+    void filesystem_denied_without_role() {
+        PolicyDecision d = policy.evaluate(invocation("read_file"), ctx(ToolCapabilityLevel.FILESYSTEM, List.of()));
+        assertInstanceOf(PolicyDecision.Deny.class, d);
+    }
 }
