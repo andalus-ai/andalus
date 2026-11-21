@@ -6,8 +6,9 @@ import tech.kayys.andalus.tool.ToolInvocation;
 import java.util.Set;
 
 /**
- * Built-in policy: SHELL and SYSTEM capability levels are denied by default
- * unless the caller holds the "shell-approved" or "system-approved" role (§29, §30).
+ * Built-in policy: elevated EXECUTE, NETWORK, FILESYSTEM, SHELL, and SYSTEM
+ * capability levels are denied by default unless the caller holds the matching
+ * explicit approval role (for example, "network-approved" or "filesystem-approved").
  *
  * <p>Priority 10 — runs first, before approval-gate policies.</p>
  */
@@ -23,7 +24,7 @@ public class CapabilityLevelPolicy implements ToolPolicy {
     public String id() { return "capability-level-check"; }
 
     @Override
-    public String description() { return "Denies SHELL/SYSTEM tools unless caller has explicit approval role."; }
+    public String description() { return "Denies elevated EXECUTE/NETWORK/FILESYSTEM/SHELL/SYSTEM tools unless caller has the matching explicit approval role."; }
 
     @Override
     public int priority() { return 10; }
