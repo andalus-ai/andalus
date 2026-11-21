@@ -234,7 +234,7 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
         // Cache lookup happens only after policy and guardrail evaluation so a hit
         // cannot bypass current authorization decisions.
         ExecutionCache cache = resolveExecutionCache();
-        if (cache != null && executionBudget.toolCacheEnabled()) {
+        if (cache != null && executionBudget.toolCacheEnabled() && isCacheable(tool)) {
             String inputHash = ExecutionCache.hashTool(toolName, invocation.arguments());
             Optional<ExecutionCacheEntry> hit = cache.lookup(
                     CacheNamespace.TOOL, execution.tenantId(), execution.userId(), inputHash);
@@ -269,7 +269,7 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
                         Map.of("durationMs", durationMs, "error", fail.error()));
             }
 
-            if (cache != null && executionBudget.toolCacheEnabled()
+            if (cache != null && executionBudget.toolCacheEnabled() && isCacheable(tool)
                     && decision instanceof AgentDecision.ToolCompleted completed) {
                 String inputHash = ExecutionCache.hashTool(toolName, invocation.arguments());
                 Instant expires = ExecutionCache.expiresAt(executionBudget.toolCacheTtl());
@@ -409,6 +409,13 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
             LOG.log(Level.WARNING, "Tool " + toolName + " failed after retries", e);
             return AgentDecision.fail("Tool " + toolName + " failed: " + e.getMessage());
         }
+    }
+
+    /** Only explicitly deterministic tools may use the result cache. */
+    static boolean isCacheable(Tool tool) {
+        if (tool == null || tool.descriptor() == null) return false;
+        var profile = tool.descriptor().executionProfile();
+        return profile != null && profile.deterministic();
     }
 
     /**
