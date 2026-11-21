@@ -360,20 +360,26 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
     }
 
     /**
-     * Resolves the capability level for a tool by convention on the tool name prefix.
-     * A proper capability registry can replace this in a future phase.
+     * Resolves governance from trusted registration metadata, never from the
+     * model-controlled invocation name. Missing or CUSTOM metadata fails closed.
      */
-    private ToolCapabilityLevel resolveCapabilityLevel(String toolName) {
-        if (toolName.startsWith("shell."))              return ToolCapabilityLevel.SHELL;
-        if (toolName.startsWith("system."))             return ToolCapabilityLevel.SYSTEM;
-        if (toolName.startsWith("filesystem."))         return ToolCapabilityLevel.FILESYSTEM;
-        if (toolName.startsWith("http.post")
-         || toolName.startsWith("http.put")
-         || toolName.startsWith("http.delete"))         return ToolCapabilityLevel.WRITE;
-        if (toolName.startsWith("http."))               return ToolCapabilityLevel.NETWORK;
-        if (toolName.startsWith("db.write")
-         || toolName.startsWith("db.delete"))           return ToolCapabilityLevel.WRITE;
-        return ToolCapabilityLevel.READ;
+    static ToolCapabilityLevel resolveCapabilityLevel(Tool tool) {
+        if (tool == null || tool.descriptor() == null) {
+            return ToolCapabilityLevel.SYSTEM;
+        }
+        var profile = tool.descriptor().executionProfile();
+        if (profile == null || profile.kind() == null) {
+            return ToolCapabilityLevel.SYSTEM;
+        }
+        return switch (profile.kind()) {
+            case READ -> profile.readOnly()
+                    ? ToolCapabilityLevel.READ : ToolCapabilityLevel.WRITE;
+            case WRITE -> ToolCapabilityLevel.WRITE;
+            case SHELL -> ToolCapabilityLevel.SHELL;
+            case NETWORK -> ToolCapabilityLevel.NETWORK;
+            case SYSTEM -> ToolCapabilityLevel.SYSTEM;
+            case CUSTOM -> ToolCapabilityLevel.SYSTEM;
+        };
     }
 
     private AgentDecision runWithResilience(Tool tool, ToolInvocation invocation) {
