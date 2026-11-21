@@ -68,7 +68,7 @@ class ShadowEvaluationWorkerEntrypointTest {
                 new ByteArrayInputStream(new byte[]{1}), stdout, error(stderr), provider());
 
         assertThat(exit).isEqualTo(2);
-        assertThat(stdout).isEmpty();
+        assertThat(stdout.size()).isZero();
         assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("request failed (INVALID_REQUEST)");
     }
 
