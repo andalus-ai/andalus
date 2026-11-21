@@ -1,7 +1,7 @@
 # Shadow evaluation worker image
 
-This directory contains the worker container recipe and a guarded local build
-script. The image is a single-request worker; it is not a production isolation
+This directory contains the worker container recipe and a guarded repeatable local build
+script. It does not claim bit-for-bit reproducibility across Docker builders. The image is a single-request worker; it is not a production isolation
 attestation by itself.
 
 ## Prerequisites
@@ -21,7 +21,7 @@ From this directory, for example:
 JRE_IMAGE='registry.example/java:25-jre@sha256:<64-hex-digest>' \
 IMAGE_TAG='andalus-shadow-worker:local' \
 TRUST_BUNDLE='/secure/deployment/trusted-signers.ed25519' \
-./build.sh
+bash build.sh
 ```
 
 The default artifact locations are:
@@ -56,6 +56,6 @@ does not push the image, sign provenance, or validate the Docker daemon.
 - Independently verify artifact signatures and digests in the worker before
   evaluator class loading. The worker classloader is not a sandbox.
 
-A successful local build is only a build result. It must not set the
+The script provides repeatable input validation and build invocation, not a guarantee of bit-for-bit identical image bytes across builders. A successful local build is only a build result. It must not set the
 `image-validated` or `daemon-validated` deployment attestations and must not
 enable production shadow execution without the separate isolation review.
