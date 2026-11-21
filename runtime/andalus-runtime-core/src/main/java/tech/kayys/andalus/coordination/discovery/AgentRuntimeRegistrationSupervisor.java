@@ -88,7 +88,7 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
     /** Begins registration. Returns true when a STARTING registration was acquired. */
     public synchronized boolean start() {
         if (closed) throw new IllegalStateException("supervisor is closed");
-        if (session != null && session.isRoutable()) return true;
+        if (session != null) return true;
         readiness.starting();
         return acquireAndRestore();
     }
@@ -191,7 +191,8 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
 
         if (event == AgentRuntimeRegistrationObserver.Event.RENEWAL_REJECTED
                 || event == AgentRuntimeRegistrationObserver.Event.RENEWAL_ERROR
-                || event == AgentRuntimeRegistrationObserver.Event.STATUS_REJECTED) {
+                || event == AgentRuntimeRegistrationObserver.Event.STATUS_REJECTED
+                || event == AgentRuntimeRegistrationObserver.Event.OPERATION_ERROR) {
             readiness.degraded();
             scheduleRecovery();
         }
@@ -235,8 +236,11 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
         cancelRecovery();
         AgentRuntimeRegistrationSession current = session;
         session = null;
-        if (current != null) current.close();
-        readiness.stopped();
+        try {
+            if (current != null) current.close();
+        } finally {
+            readiness.stopped();
+        }
     }
 
     private static String requireText(String value, String name) {
