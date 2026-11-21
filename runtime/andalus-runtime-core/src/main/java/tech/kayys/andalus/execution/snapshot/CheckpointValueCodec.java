@@ -12,11 +12,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import tech.kayys.andalus.execution.resource.model.ResourceId;
 
 /** Safe, explicit value algebra for checkpoint snapshots. */
 public final class CheckpointValueCodec {
     public CheckpointValue encode(Object value) {
         return encode(value, "$", new IdentityHashMap<>());
+    }
+
+    public ResourceIdValue encodeResourceId(ResourceId resourceId) {
+        Objects.requireNonNull(resourceId, "resourceId");
+        return new ResourceIdValue(resourceId.value());
+    }
+
+    public ResourceId decodeResourceId(ResourceIdValue value) {
+        Objects.requireNonNull(value, "value");
+        return ResourceId.of(value.value());
     }
 
     public Object decode(CheckpointValue value) {
@@ -90,7 +101,7 @@ public final class CheckpointValueCodec {
 
     /** Explicit tagged union; extend only with a versioned schema migration. */
     public sealed interface CheckpointValue permits NullValue, StringValue, BooleanValue,
-            IntegerValue, DecimalValue, InstantValue, UuidValue, BytesValue, ListValue, MapValue { }
+            IntegerValue, DecimalValue, InstantValue, UuidValue, ResourceIdValue, BytesValue, ListValue, MapValue { }
     public enum NullValue implements CheckpointValue { INSTANCE }
     public record StringValue(String value) implements CheckpointValue {
         public StringValue { Objects.requireNonNull(value, "value"); }
@@ -107,6 +118,12 @@ public final class CheckpointValueCodec {
     }
     public record UuidValue(UUID value) implements CheckpointValue {
         public UuidValue { Objects.requireNonNull(value, "value"); }
+    }
+    public record ResourceIdValue(String value) implements CheckpointValue {
+        public ResourceIdValue {
+            Objects.requireNonNull(value, "value");
+            if (value.isBlank()) throw new IllegalArgumentException("value cannot be blank");
+        }
     }
     public record BytesValue(String base64) implements CheckpointValue {
         public BytesValue(byte[] value) { this(Base64.getEncoder().encodeToString(value.clone())); }
