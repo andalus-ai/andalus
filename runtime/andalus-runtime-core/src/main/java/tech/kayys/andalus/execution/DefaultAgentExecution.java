@@ -406,9 +406,10 @@ public class DefaultAgentExecution implements AgentExecution {
                 if (snapshot == null) {
                     return;
                 }
-                if (stateStore != null) {
-                    stateStore.checkpoint(execId, snapshot);
-                }
+                // Persist lifecycle metadata (tenant, user, agent and principal)
+                // with the authoritative checkpoint before updating the legacy
+                // AgentContext-only compatibility store.
+                checkpoint(execId, snapshot);
                 if (checkpointStore != null) {
                     checkpointStore.save(execId, snapshot);
                 }
@@ -490,9 +491,7 @@ public class DefaultAgentExecution implements AgentExecution {
                     return;
                 }
 
-                if (stateStore != null) {
-                    stateStore.checkpoint(id, agentContext);
-                }
+                checkpoint(id, agentContext);
                 if (checkpointStore != null) {
                     checkpointStore.save(id, agentContext);
                 }
@@ -561,7 +560,7 @@ public class DefaultAgentExecution implements AgentExecution {
         if (outcome.status() != ExecutionStatus.COMPLETED) {
             return;
         }
-        stateStore.checkpoint(id, agentContext);
+        checkpoint(id, agentContext);
         if (checkpointStore != null) {
             checkpointStore.save(id, agentContext);
         }
@@ -646,16 +645,15 @@ public class DefaultAgentExecution implements AgentExecution {
             return;
         }
 
-        if (stateStore != null) {
-            stateStore.checkpoint(id, agentContext);
-        }
+        // Commit the lifecycle transition before snapshotting so the
+        // checkpoint describes PAUSED rather than the previous RUNNING state.
+        stateStore.transitionStatus(id, ExecutionStatus.RUNNING, ExecutionStatus.PAUSED);
+        this.status = ExecutionStatus.PAUSED;
 
+        checkpoint(id, agentContext);
         if (checkpointStore != null) {
             checkpointStore.save(id, agentContext);
         }
-
-        stateStore.transitionStatus(id, ExecutionStatus.RUNNING, ExecutionStatus.PAUSED);
-        this.status = ExecutionStatus.PAUSED;
     }
 
     @Override

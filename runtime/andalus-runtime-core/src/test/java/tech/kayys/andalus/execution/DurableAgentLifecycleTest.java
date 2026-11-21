@@ -344,6 +344,14 @@ class DurableAgentLifecycleTest {
         assertTrue(checkpointStore.load(pausedId).isPresent());
         assertTrue(legacyCheckpointStore.load(pausedId).isPresent());
 
+        // The latest lifecycle checkpoint must describe the paused state and
+        // retain the ownership metadata used by identity-aware recovery.
+        ExecutionCheckpoint latestPausedCheckpoint = checkpointStore.load(pausedId).orElseThrow();
+        assertEquals(ExecutionStatus.PAUSED, latestPausedCheckpoint.status());
+        assertEquals("tenant-1", latestPausedCheckpoint.metadata().get("tenantId"));
+        assertEquals("user-1", latestPausedCheckpoint.metadata().get("userId"));
+        assertEquals("USER", latestPausedCheckpoint.metadata().get("principalType"));
+
         // Cancel transitions to CANCELLED and does NOT delete checkpoints
         pausedExecution.cancel();
         assertEquals(ExecutionStatus.CANCELLED, pausedExecution.status());

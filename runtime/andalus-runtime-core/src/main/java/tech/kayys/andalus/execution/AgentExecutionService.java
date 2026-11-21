@@ -163,15 +163,23 @@ public class AgentExecutionService {
         if ((userId == null || userId.isBlank()) && roles != null && !roles.isEmpty()) {
             throw new IllegalArgumentException("roles require an authenticated userId");
         }
-        java.util.Optional<AgentContext> contextOpt = checkpointStore.load(executionId);
+        ExecutionCheckpointStore lifecycleStore = resolveExecutionCheckpointStore();
+        java.util.Optional<ExecutionCheckpoint> lifecycleCheckpoint =
+                lifecycleStore != null
+                        ? lifecycleStore.load(executionId)
+                        : java.util.Optional.empty();
+
+        // The lifecycle checkpoint is the authoritative recovery record. The
+        // AgentContext-only store is consulted solely for executions written
+        // before lifecycle checkpoints were introduced.
+        java.util.Optional<AgentContext> contextOpt = lifecycleCheckpoint
+                .map(ExecutionCheckpoint::context)
+                .or(() -> checkpointStore != null
+                        ? checkpointStore.load(executionId)
+                        : java.util.Optional.empty());
         if (contextOpt.isEmpty()) {
             throw new IllegalArgumentException("Execution not found: " + executionId);
         }
-
-        java.util.Optional<ExecutionCheckpoint> lifecycleCheckpoint =
-                resolveExecutionCheckpointStore() != null
-                        ? resolveExecutionCheckpointStore().load(executionId)
-                        : java.util.Optional.empty();
         java.util.Map<String, Object> checkpointMetadata = lifecycleCheckpoint
                 .map(ExecutionCheckpoint::metadata)
                 .orElse(java.util.Map.of());
@@ -202,7 +210,7 @@ public class AgentExecutionService {
             contextOpt.get(),
             ExecutionBudget.balanced(),
             checkpointStore,
-            resolveExecutionCheckpointStore(),
+            lifecycleStore,
             toolExecutor,
             List.of(),
             resolveModelRouter(),
