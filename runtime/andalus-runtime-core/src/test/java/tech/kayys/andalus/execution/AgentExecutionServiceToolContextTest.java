@@ -58,4 +58,44 @@ class AgentExecutionServiceToolContextTest {
         assertTrue(context.roles().isEmpty());
         assertEquals("unknown-agent", context.agentId());
     }
+
+    @Test
+    void workspaceRootCannotBeOverriddenByExecutionAttributes() throws Exception {
+        java.nio.file.Path configuredRoot = java.nio.file.Files.createTempDirectory("andalus-workspace-configured");
+        java.nio.file.Path untrustedRoot = java.nio.file.Files.createTempDirectory("andalus-workspace-attribute");
+
+        AgentExecutionService service = new AgentExecutionService();
+        AgentToolExecutionContext base = service.createToolExecutionContext(
+                new ExecutionIdentity("exec-workspace", "corr-workspace", null),
+                null, "tenant-a", "user-1", java.util.Set.of("reader"), ExecutionBudget.balanced());
+        AgentToolExecutionContext context = new AgentToolExecutionContext(
+                base.executionId(), base.correlationId(), base.parentExecutionId(),
+                base.tenantId(), base.userId(), base.agentId(), base.principalType(),
+                base.principalId(), base.roles(), base.executionBudget(), base.toolBudget(),
+                java.util.Map.of("andalus.workspace.root", configuredRoot),
+                java.util.Map.of("andalus.workspace.root", untrustedRoot), base.createdAt());
+
+        tech.kayys.andalus.tool.ToolContext toolContext = DefaultAgentToolExecutor.toolContextFor(context);
+
+        assertEquals(configuredRoot, toolContext.getAttribute("andalus.workspace.root").orElseThrow());
+    }
+
+    @Test
+    void workspaceRootIsNotAcceptedFromExecutionAttributesAlone() {
+        AgentExecutionService service = new AgentExecutionService();
+        AgentToolExecutionContext base = service.createToolExecutionContext(
+                new ExecutionIdentity("exec-no-workspace", "corr-no-workspace", null),
+                null, "tenant-a", "user-1", java.util.Set.of("reader"), ExecutionBudget.balanced());
+        AgentToolExecutionContext context = new AgentToolExecutionContext(
+                base.executionId(), base.correlationId(), base.parentExecutionId(),
+                base.tenantId(), base.userId(), base.agentId(), base.principalType(),
+                base.principalId(), base.roles(), base.executionBudget(), base.toolBudget(),
+                java.util.Map.of(),
+                java.util.Map.of("andalus.workspace.root", java.nio.file.Path.of(".")), base.createdAt());
+
+        tech.kayys.andalus.tool.ToolContext toolContext = DefaultAgentToolExecutor.toolContextFor(context);
+
+        assertTrue(toolContext.getAttribute("andalus.workspace.root").isEmpty());
+    }
+
 }
