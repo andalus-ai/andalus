@@ -1,6 +1,7 @@
 package tech.kayys.andalus.coordination.discovery;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ScheduledExecutorService;
@@ -13,6 +14,10 @@ import tech.kayys.andalus.agent.capability.AgentRuntimeLeaseToken;
  * <p>Each registration receives its own readiness state and fenced lease session. The
  * group shares only the host-owned scheduler and lifecycle facade. It creates no
  * threads and never infers tenant or agent identity.</p>
+ *
+ * <p>The group monitor protects membership only. Supervisor operations may perform
+ * database or scheduler work and are therefore always invoked outside that monitor.
+ * Each supervisor remains responsible for serializing its own lifecycle transitions.</p>
  */
 public final class AgentRuntimeRegistrationGroup implements AutoCloseable {
 
@@ -40,15 +45,14 @@ public final class AgentRuntimeRegistrationGroup implements AutoCloseable {
     /**
      * Adds and starts one independently supervised agent registration.
      * Duplicate tenant/agent/instance identities are rejected.
+     *
+     * <p>Membership is reserved before startup so concurrent duplicate registrations
+     * cannot race. Startup runs outside the group monitor. If shutdown wins that race,
+     * the newly started supervisor is closed and this method fails.</p>
      */
-    public synchronized Key register(AgentRuntimeRegistrationHost.Registration registration) {
-        ensureOpen();
+    public Key register(AgentRuntimeRegistrationHost.Registration registration) {
         Objects.requireNonNull(registration, "registration must not be null");
         Key key = new Key(registration.tenantId(), registration.agentId(), registration.instanceId());
-        if (entries.containsKey(key)) {
-            throw new IllegalStateException("Agent registration already exists: " + key);
-        }
-
         AgentRuntimeRegistrationReadiness readiness = new AgentRuntimeRegistrationReadiness();
         AgentRuntimeRegistrationSupervisor supervisor = new AgentRuntimeRegistrationSupervisor(
                 lifecycle, scheduler, readiness,
@@ -56,60 +60,102 @@ public final class AgentRuntimeRegistrationGroup implements AutoCloseable {
                 registration.ownerId(), registration.heartbeatInterval(),
                 registration.initialRetryDelay(), registration.maxRetryDelay(), observer);
         Entry entry = new Entry(supervisor, readiness);
-        entries.put(key, entry);
+
+        synchronized (this) {
+            ensureOpen();
+            if (entries.containsKey(key)) {
+                throw new IllegalStateException("Agent registration already exists: " + key);
+            }
+            entries.put(key, entry);
+        }
+
         try {
             supervisor.start();
+            synchronized (this) {
+                if (!closed && entries.get(key) == entry) {
+                    return key;
+                }
+            }
+            closeAfterFailedRegistration(supervisor);
+            throw new IllegalStateException("registration group closed during agent startup: " + key);
         } catch (RuntimeException failure) {
-            entries.remove(key);
-            supervisor.close();
+            synchronized (this) {
+                entries.remove(key, entry);
+            }
+            try {
+                supervisor.close();
+            } catch (RuntimeException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
             throw failure;
         }
-        return key;
     }
 
     /** Publishes AVAILABLE only for the selected logical agent. */
-    public synchronized boolean markAvailable(Key key) {
-        Entry entry = entries.get(Objects.requireNonNull(key, "key must not be null"));
+    public boolean markAvailable(Key key) {
+        Entry entry = find(Objects.requireNonNull(key, "key must not be null"));
         return entry != null && entry.supervisor().markAvailable();
     }
 
     /** Withdraws only the selected logical agent while retaining its lease for recovery. */
-    public synchronized boolean markUnavailable(Key key) {
-        Entry entry = entries.get(Objects.requireNonNull(key, "key must not be null"));
+    public boolean markUnavailable(Key key) {
+        Entry entry = find(Objects.requireNonNull(key, "key must not be null"));
         return entry != null && entry.supervisor().markUnavailable();
     }
 
-    /** Removes one registration and performs fenced shutdown. */
-    public synchronized boolean unregister(Key key) {
-        Entry entry = entries.remove(Objects.requireNonNull(key, "key must not be null"));
+    /** Removes one registration and performs fenced shutdown outside the group monitor. */
+    public boolean unregister(Key key) {
+        Entry entry;
+        synchronized (this) {
+            entry = entries.remove(Objects.requireNonNull(key, "key must not be null"));
+        }
         if (entry == null) return false;
         entry.supervisor().close();
         return true;
     }
 
     /** A group is ready only when it is non-empty and every registered agent is READY. */
-    public synchronized boolean isReady() {
-        return !entries.isEmpty()
-                && entries.values().stream().allMatch(entry -> entry.readiness().isReady()
-                        && entry.readiness().state() == AgentRuntimeRegistrationReadiness.State.READY);
+    public boolean isReady() {
+        List<Entry> snapshot;
+        synchronized (this) {
+            if (entries.isEmpty()) return false;
+            snapshot = List.copyOf(entries.values());
+        }
+        return snapshot.stream().allMatch(entry -> entry.readiness().isReady()
+                && entry.readiness().state() == AgentRuntimeRegistrationReadiness.State.READY);
     }
 
-    public synchronized Map<Key, AgentRuntimeRegistrationReadiness.State> states() {
-        Map<Key, AgentRuntimeRegistrationReadiness.State> snapshot = new LinkedHashMap<>();
-        entries.forEach((key, entry) -> snapshot.put(key, entry.readiness().state()));
-        return Map.copyOf(snapshot);
+    public Map<Key, AgentRuntimeRegistrationReadiness.State> states() {
+        Map<Key, Entry> snapshot;
+        synchronized (this) {
+            snapshot = new LinkedHashMap<>(entries);
+        }
+        Map<Key, AgentRuntimeRegistrationReadiness.State> result = new LinkedHashMap<>();
+        snapshot.forEach((key, entry) -> result.put(key, entry.readiness().state()));
+        return Map.copyOf(result);
     }
 
     public synchronized int size() {
         return entries.size();
     }
 
+    /**
+     * Stops accepting registrations and atomically detaches all current entries.
+     * Each supervisor is closed outside the group monitor so slow persistence calls
+     * cannot prevent unrelated membership queries or deadlock lifecycle callbacks.
+     */
     @Override
-    public synchronized void close() {
-        if (closed) return;
-        closed = true;
+    public void close() {
+        List<Entry> snapshot;
+        synchronized (this) {
+            if (closed) return;
+            closed = true;
+            snapshot = List.copyOf(entries.values());
+            entries.clear();
+        }
+
         RuntimeException firstFailure = null;
-        for (Entry entry : entries.values()) {
+        for (Entry entry : snapshot) {
             try {
                 entry.supervisor().close();
             } catch (RuntimeException failure) {
@@ -117,8 +163,15 @@ public final class AgentRuntimeRegistrationGroup implements AutoCloseable {
                 else firstFailure.addSuppressed(failure);
             }
         }
-        entries.clear();
         if (firstFailure != null) throw firstFailure;
+    }
+
+    private synchronized Entry find(Key key) {
+        return entries.get(key);
+    }
+
+    private static void closeAfterFailedRegistration(AgentRuntimeRegistrationSupervisor supervisor) {
+        supervisor.close();
     }
 
     private void ensureOpen() {
