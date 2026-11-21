@@ -1,0 +1,10 @@
+ARG JRE_IMAGE
+FROM ${JRE_IMAGE}
+
+WORKDIR /opt/andalus-worker
+COPY runtime.jar /opt/andalus-worker/runtime.jar
+COPY smoke-bootstrap.jar /opt/andalus-worker/smoke-bootstrap.jar
+COPY lib/ /opt/andalus-worker/lib/
+
+USER 65532:65532
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=65", "-cp", "/opt/andalus-worker/runtime.jar:/opt/andalus-worker/smoke-bootstrap.jar:/opt/andalus-worker/lib/*", "tech.kayys.andalus.runtime.learning.ShadowEvaluationWorkerEntrypoint"]
