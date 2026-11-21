@@ -16,7 +16,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODULE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-REPO_ROOT="$(cd "${MODULE_DIR}/../../.." && pwd)"
+REPO_ROOT="$(cd "${MODULE_DIR}/../.." && pwd)"
 IMAGE_CONTEXT="${SCRIPT_DIR}"
 
 # Install the reactor artifacts locally so the standalone dependency-copy step can
