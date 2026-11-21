@@ -16,6 +16,7 @@ import tech.kayys.andalus.tool.ToolResult;
 @ApplicationScoped
 public class WorkspaceSearchTool extends WorkspaceToolSupport {
     private static final int MAX_FILES = 5_000;
+    private static final int MAX_VISITED_ENTRIES = 20_000;
     private static final int MAX_MATCHES = 200;
     private static final long MAX_TOTAL_SCAN_BYTES = 32L * 1_024 * 1_024;
 
@@ -39,12 +40,14 @@ public class WorkspaceSearchTool extends WorkspaceToolSupport {
             var matcher = FileSystems.getDefault().getPathMatcher("glob:" + glob);
             List<Map<String, Object>> matches = new ArrayList<>();
             int scanned = 0;
+            int visited = 0;
             long totalBytes = 0;
             boolean truncated = false;
             try (var paths = Files.walk(root, 12)) {
                 var iterator = paths.iterator();
-                while (iterator.hasNext() && scanned < MAX_FILES && matches.size() < MAX_MATCHES && totalBytes < MAX_TOTAL_SCAN_BYTES) {
+                while (iterator.hasNext() && visited < MAX_VISITED_ENTRIES && scanned < MAX_FILES && matches.size() < MAX_MATCHES && totalBytes < MAX_TOTAL_SCAN_BYTES) {
                     var file = iterator.next();
+                    visited++;
                     if (!Files.isRegularFile(file)) continue;
                     scanned++;
                     var real = file.toRealPath();
@@ -76,7 +79,7 @@ public class WorkspaceSearchTool extends WorkspaceToolSupport {
             }
             return CompletableFuture.completedFuture(ToolResult.success(
                     invocation.invocationIdentifier(),
-                    Map.of("matches", matches, "truncated", truncated || matches.size() >= MAX_MATCHES || scanned >= MAX_FILES || totalBytes >= MAX_TOTAL_SCAN_BYTES),
+                    Map.of("matches", matches, "truncated", truncated || matches.size() >= MAX_MATCHES || visited >= MAX_VISITED_ENTRIES || scanned >= MAX_FILES || totalBytes >= MAX_TOTAL_SCAN_BYTES),
                     java.time.Duration.ZERO, descriptor().name()));
         } catch (SecurityException e) {
             return CompletableFuture.completedFuture(denied(invocation, e.getMessage()));
