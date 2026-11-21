@@ -38,6 +38,7 @@ public class AgentRuntimeRegistrationBootstrap {
     Instance<AgentRuntimeRegistrationTelemetry> telemetry;
 
     private volatile AgentRuntimeRegistrationSupervisor supervisor;
+    private volatile boolean configured;
 
     void onStart(@Observes StartupEvent event) {
         if (hosts.isUnsatisfied()) {
@@ -54,6 +55,7 @@ public class AgentRuntimeRegistrationBootstrap {
                     + "and AgentRuntimeRegistrationReadiness bean");
         }
 
+        configured = true;
         AgentRuntimeRegistrationHost.Registration config = hosts.get().registration();
         AgentRuntimeRegistrationObserver observer = telemetry.isResolvable()
                 ? telemetry.get() : AgentRuntimeRegistrationObserver.NOOP;
@@ -80,7 +82,7 @@ public class AgentRuntimeRegistrationBootstrap {
 
     public boolean isReady() {
         AgentRuntimeRegistrationSupervisor current = supervisor;
-        return current != null && current.isReady();
+        return !configured || (current != null && current.isReady());
     }
 
     public Optional<AgentRuntimeLeaseToken> token() {
