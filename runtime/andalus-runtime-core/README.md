@@ -128,6 +128,33 @@ On rejected renewal, store failure, or rejected status publication, the supervis
 
 The supervisor does not own threads, shut down the scheduler, perform process liveness checks, or authorize invocation. The host remains responsible for local dependency readiness, startup/shutdown ordering, and ensuring that the supervisor is closed before its scheduler. Retry delay is capped by the configured maximum. Hosts should size the retry maximum and alert thresholds against their registration lease duration and service recovery objectives.
 
+
+## Multi-agent registration groups (Phase 5.1.11)
+
+For a process hosting multiple independently registered agents, use
+`AgentRuntimeRegistrationGroup` instead of creating multiple instances of the
+single-agent CDI bootstrap. Construct the group with the shared
+`AgentRuntimeRegistrationLifecycle` and host-owned
+`ScheduledExecutorService`, then call `register(Registration)` once per
+trusted host identity. Each entry receives its own supervisor, readiness
+state, heartbeat, recovery loop, and fenced lease token. The group does not
+create threads or infer identity.
+
+Use the returned `Key(tenantId, agentId, instanceId)` with
+`markAvailable`, `markUnavailable`, and `unregister`. Duplicate keys are
+rejected. Removing one entry closes only that supervisor; closing the group
+closes all remaining supervisors before the host shuts down its scheduler.
+`isReady()` is true only when the group is non-empty and every registered
+agent is READY. Hosts should expose this aggregate signal through their
+application readiness integration and may use `states()` to report per-agent
+diagnostics. One agent becoming degraded does not change the readiness state
+or lease of another agent, although it makes the aggregate group unready.
+
+The group is a programmatic host integration boundary, not an automatic
+replacement for the single-agent `AgentRuntimeRegistrationBootstrap`.
+Applications with multiple agents must own registration ordering, dynamic
+add/remove calls, aggregate health exposure, and group shutdown explicitly.
+
 ## CDI host integration (Phase 5.1.10)
 
 The runtime provides an opt-in Quarkus/CDI adapter through `AgentRuntimeRegistrationBootstrap`. It is inert when no `AgentRuntimeRegistrationHost` bean is supplied. An opting-in deployment must provide exactly one host identity bean and exactly one CDI `ScheduledExecutorService`; the runtime also requires its registration lifecycle and readiness beans. Missing or ambiguous required dependencies fail startup instead of silently disabling registration.
