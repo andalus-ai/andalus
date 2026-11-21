@@ -65,20 +65,34 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
         String sql = """
                 SELECT agent_id, algorithm, private_key_ciphertext, public_key_bytes
                 FROM andalus_anp_signing_keys WHERE key_id = ? AND revoked_at IS NULL
+                FOR SHARE
                 """;
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, keyId);
-            try (ResultSet result = statement.executeQuery()) {
-                if (!result.next()) return Optional.empty();
-                String agentId = result.getString("agent_id");
-                byte[] privateKey = protector.unprotect(agentId, keyId,
-                        result.getBytes("private_key_ciphertext"));
-                if (privateKey == null || privateKey.length == 0) {
-                    throw new IllegalStateException("KMS returned empty ANP private key material");
+        try (Connection connection = dataSource.getConnection()) {
+            boolean previousAutoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, keyId);
+                try (ResultSet result = statement.executeQuery()) {
+                    if (!result.next()) {
+                        connection.commit();
+                        return Optional.empty();
+                    }
+                    String agentId = result.getString("agent_id");
+                    byte[] privateKey = protector.unprotect(agentId, keyId,
+                            result.getBytes("private_key_ciphertext"));
+                    if (privateKey == null || privateKey.length == 0) {
+                        throw new IllegalStateException("KMS returned empty ANP private key material");
+                    }
+                    AnpIdentityKeyPair pair = new AnpIdentityKeyPair(keyId, result.getString("algorithm"),
+                            privateKey, result.getBytes("public_key_bytes"));
+                    connection.commit();
+                    return Optional.of(pair);
                 }
-                return Optional.of(new AnpIdentityKeyPair(keyId, result.getString("algorithm"),
-                        privateKey, result.getBytes("public_key_bytes")));
+            } catch (RuntimeException | SQLException exception) {
+                rollbackQuietly(connection, exception);
+                throw exception;
+            } finally {
+                connection.setAutoCommit(previousAutoCommit);
             }
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to read active ANP signing key", exception);
@@ -127,6 +141,11 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
             boolean previousAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
             try {
+                lockKeyId(connection, keyPair.keyId());
+                if (isRevoked(connection, keyPair.keyId())) {
+                    throw new IllegalStateException("A revoked ANP key identifier cannot be reactivated: "
+                            + keyPair.keyId());
+                }
                 try (PreparedStatement insert = connection.prepareStatement(INSERT_KEY)) {
                     insert.setString(1, keyPair.keyId());
                     insert.setString(2, agentId);
@@ -181,6 +200,14 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
             boolean previousAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
             try {
+                lockKeyId(connection, keyId);
+                try (PreparedStatement tombstone = connection.prepareStatement("""
+                        INSERT INTO andalus_anp_revoked_key_ids (key_id)
+                        VALUES (?) ON CONFLICT (key_id) DO NOTHING
+                        """)) {
+                    tombstone.setString(1, keyId);
+                    tombstone.executeUpdate();
+                }
                 try (PreparedStatement revoke = connection.prepareStatement("""
                         UPDATE andalus_anp_signing_keys
                         SET revoked_at = COALESCE(revoked_at, CURRENT_TIMESTAMP)
@@ -203,6 +230,24 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
             }
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to revoke ANP signing key", exception);
+        }
+    }
+
+    private static void lockKeyId(Connection connection, String keyId) throws SQLException {
+        try (PreparedStatement lock = connection.prepareStatement(
+                "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))")) {
+            lock.setString(1, keyId);
+            lock.execute();
+        }
+    }
+
+    private static boolean isRevoked(Connection connection, String keyId) throws SQLException {
+        try (PreparedStatement query = connection.prepareStatement(
+                "SELECT 1 FROM andalus_anp_revoked_key_ids WHERE key_id = ?")) {
+            query.setString(1, keyId);
+            try (ResultSet result = query.executeQuery()) {
+                return result.next();
+            }
         }
     }
 
