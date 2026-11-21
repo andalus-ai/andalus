@@ -4,14 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import tech.kayys.andalus.tool.SimpleToolContext;
-import tech.kayys.andalus.tool.ToolCapabilityLevel;
 import tech.kayys.andalus.tool.ToolKind;
 
 class WorkspaceToolSecurityTest {
@@ -50,7 +48,7 @@ class WorkspaceToolSecurityTest {
         try {
             Files.createSymbolicLink(link, outside);
         } catch (UnsupportedOperationException | java.io.IOException | SecurityException e) {
-            org.junit.jupiter.api.Assumptions.abort("Symbolic links are not available in this environment");
+            org.junit.jupiter.api.Assumptions.assumeTrue(false, "Symbolic links are not available in this environment");
         }
         var context = SimpleToolContext.of(Map.of(WorkspaceToolSupport.WORKSPACE_ROOT, workspace));
         assertThrows(SecurityException.class,
@@ -68,5 +66,6 @@ class WorkspaceToolSecurityTest {
         var profile = tool.descriptor().executionProfile();
         assertEquals(ToolKind.READ, profile.kind());
         assertTrue(profile.readOnly());
+        assertFalse(profile.deterministic(), "workspace content depends on external filesystem state and must not be cached");
     }
 }
