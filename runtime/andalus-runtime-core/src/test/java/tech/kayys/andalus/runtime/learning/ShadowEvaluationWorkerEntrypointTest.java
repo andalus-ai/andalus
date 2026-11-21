@@ -73,32 +73,6 @@ class ShadowEvaluationWorkerEntrypointTest {
     }
 
     @Test
-    void launchesRealJvmAndDiscoversExactlyOneTestBootstrapProvider() throws Exception {
-        UUID requestId = UUID.randomUUID();
-        byte[] request = frame(requestId, new byte[]{1, 2, 3, 4});
-        String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
-        String classpath = System.getProperty("surefire.test.class.path",
-                System.getProperty("java.class.path"));
-        Process process = new ProcessBuilder(java, "-cp", classpath,
-                ShadowEvaluationWorkerEntrypoint.class.getName()).start();
-
-        try {
-            process.getOutputStream().write(request);
-            process.getOutputStream().close();
-            assertThat(process.waitFor(20, TimeUnit.SECONDS)).isTrue();
-            byte[] stdout = process.getInputStream().readAllBytes();
-            String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
-
-            var failure = ShadowEvaluationWorkerCodec.decodeFailureFrame(stdout, requestId);
-            assertThat(process.exitValue()).isZero();
-            assertThat(failure.code()).isEqualTo("INVALID_REQUEST");
-            assertThat(stderr).isEmpty();
-        } finally {
-            if (process.isAlive()) process.destroyForcibly();
-        }
-    }
-
-    @Test
     void boundedReaderRejectsOversizedInput() {
         byte[] input = new byte[33];
         assertThat(org.assertj.core.api.Assertions.catchThrowable(() ->

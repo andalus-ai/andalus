@@ -22,24 +22,32 @@ public class WorkspaceListTool extends WorkspaceToolSupport {
     @Override
     public CompletableFuture<ToolResult> execute(ToolInvocation invocation, ToolContext context) {
         try {
-            var directory = resolveExisting(context, stringArg(invocation, "path", "."));
+            var root = workspaceRoot(context);
+            String requested = stringArg(invocation, "path", ".");
+            if (requested.length() > 4_096) return CompletableFuture.completedFuture(
+                    failure(invocation, "Workspace path exceeds the 4096-character limit.", descriptor().name()));
+            var directory = resolveExisting(context, requested);
             if (!Files.isDirectory(directory)) return CompletableFuture.completedFuture(
                     failure(invocation, "Requested workspace path is not a directory.", descriptor().name()));
-            List<Map<String, Object>> entries;
-            try (var stream = Files.list(directory)) {
-                entries = stream.sorted(Comparator.comparing(p -> p.getFileName().toString()))
-                        .limit(200)
-                        .filter(p -> {
-                            try { return p.toRealPath().startsWith(workspaceRoot(context)); }
-                            catch (Exception ignored) { return false; }
-                        })
-                        .map(p -> Map.<String, Object>of(
-                                "name", p.getFileName().toString(),
-                                "type", Files.isDirectory(p) ? "directory" : "file"))
-                        .toList();
+            List<java.nio.file.Path> children = new java.util.ArrayList<>();
+            try (var stream = Files.newDirectoryStream(directory)) {
+                for (var child : stream) {
+                    if (children.size() >= 200) break;
+                    try {
+                        if (child.toRealPath().startsWith(root)) children.add(child);
+                    } catch (Exception ignored) {
+                        // Broken links and paths outside the workspace are not exposed.
+                    }
+                }
             }
+            children.sort(Comparator.comparing(p -> p.getFileName().toString()));
+            List<Map<String, Object>> entries = children.stream()
+                    .map(p -> Map.<String, Object>of(
+                            "name", p.getFileName().toString(),
+                            "type", Files.isDirectory(p) ? "directory" : "file"))
+                    .toList();
             return CompletableFuture.completedFuture(ToolResult.success(
-                    invocation.invocationIdentifier(), Map.of("path", directory.toString(), "entries", entries),
+                    invocation.invocationIdentifier(), Map.of("path", root.relativize(directory).toString(), "entries", entries),
                     java.time.Duration.ZERO, descriptor().name()));
         } catch (SecurityException e) {
             return CompletableFuture.completedFuture(denied(invocation, e.getMessage()));

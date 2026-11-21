@@ -5,7 +5,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Set;
 
 import tech.kayys.andalus.extension.Metadata;
 import tech.kayys.andalus.identity.ResourceId;
@@ -14,7 +13,6 @@ import tech.kayys.andalus.tool.Tool;
 import tech.kayys.andalus.tool.ToolContext;
 import tech.kayys.andalus.tool.ToolDescriptor;
 import tech.kayys.andalus.tool.ToolExecutionProfile;
-import tech.kayys.andalus.tool.ToolId;
 import tech.kayys.andalus.tool.ToolInvocation;
 import tech.kayys.andalus.tool.ToolKind;
 import tech.kayys.andalus.tool.ToolResult;
@@ -40,7 +38,7 @@ abstract class WorkspaceToolSupport implements Tool {
             @Override public String version() { return "1.0.0"; }
             @Override public Map<String, Object> inputSchema() { return schema; }
             @Override public ToolExecutionProfile executionProfile() {
-                return ToolExecutionProfile.readOnly(ToolKind.READ);
+                return new ToolExecutionProfile(false, true, true, Duration.ZERO, ToolKind.READ);
             }
         };
     }
