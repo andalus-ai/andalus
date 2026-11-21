@@ -44,6 +44,12 @@ public class DefaultToolPolicyEvaluator implements ToolPolicyEvaluator {
 
     public PolicyEvaluationResult evaluateDetailed(PolicyEvaluationContext context) {
         List<ToolPolicy> sorted = policies();
+        if (sorted.isEmpty()) {
+            PolicyDecision deny = PolicyDecision.deny(
+                    "No tool policies are registered; refusing to execute tools without an explicit policy set.",
+                    "runtime-policy-set-required");
+            return new PolicyEvaluationResult(deny, List.of());
+        }
         PolicyDecision aggregate = PolicyDecision.allow();
         List<PolicyEvaluation> evaluations = new ArrayList<>(sorted.size());
 
