@@ -135,7 +135,7 @@ jobs:
         run: >-
           ./mvnw -B -ntp -Pci
           -pl runtime/andalus-runtime-core -am
-          -Dtest=ShadowEvaluationWorkerProtocolTest,ShadowEvaluationWorkerCodecTest,ShadowEvaluationWorkerEngineTest,ShadowEvaluationWorkerManifestVerifierTest,DockerShadowEvaluationWorkerTransportTest,DockerShadowEvaluationWorkerTransportProcessTest
+          -Dtest=ShadowEvaluationWorkerProtocolTest,ShadowEvaluationWorkerCodecTest,ShadowEvaluationWorkerEngineTest,ShadowEvaluationWorkerManifestVerifierTest,ShadowEvaluationWorkerEntrypointTest,DockerShadowEvaluationWorkerTransportTest,DockerShadowEvaluationWorkerTransportProcessTest
           -Dsurefire.failIfNoSpecifiedTests=false
           test
 
