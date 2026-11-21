@@ -57,8 +57,14 @@ public class AgentRuntimeRegistrationReadiness {
         return () -> {
             State current = state.get();
             boolean up = current == State.READY || current == State.NOT_CONFIGURED;
+            if (up) {
+                return HealthCheckResponse.named("agent-runtime-registration")
+                        .up()
+                        .withData("state", current.name())
+                        .build();
+            }
             return HealthCheckResponse.named("agent-runtime-registration")
-                    .status(up)
+                    .down()
                     .withData("state", current.name())
                     .build();
         };

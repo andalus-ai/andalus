@@ -32,6 +32,7 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
     private final long initialRetryMillis;
     private final long maxRetryMillis;
     private final AtomicInteger recoveryAttempt = new AtomicInteger();
+    private final Object recoveryLock = new Object();
 
     private volatile AgentRuntimeRegistrationSession session;
     private volatile ScheduledFuture<?> recoveryTask;
@@ -134,7 +135,7 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
 
     public Optional<AgentRuntimeLeaseToken> token() {
         AgentRuntimeRegistrationSession current = session;
-        return current == null ? Optional.empty() : Optional.of(current.token());
+        return current == null || ownershipLost ? Optional.empty() : Optional.of(current.token());
     }
 
     private boolean acquireAndRestore() {
@@ -224,20 +225,26 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
         }
     }
 
-    private synchronized void scheduleRecovery() {
-        if (closed || (recoveryTask != null && !recoveryTask.isDone())) return;
-        long delay = nextRetryDelayMillis();
-        try {
-            recoveryTask = hostScheduler.schedule(this::recover, delay, TimeUnit.MILLISECONDS);
-        } catch (RuntimeException schedulerUnavailable) {
-            readiness.degraded();
+    private void scheduleRecovery() {
+        synchronized (recoveryLock) {
+            if (closed || (recoveryTask != null && !recoveryTask.isDone())) return;
+            long delay = nextRetryDelayMillis();
+            try {
+                recoveryTask = hostScheduler.schedule(this::recover, delay, TimeUnit.MILLISECONDS);
+            } catch (RuntimeException schedulerUnavailable) {
+                readiness.degraded();
+            }
         }
     }
 
-    private synchronized void recover() {
-        recoveryTask = null;
-        if (closed) return;
-        acquireAndRestore();
+    private void recover() {
+        synchronized (this) {
+            synchronized (recoveryLock) {
+                recoveryTask = null;
+            }
+            if (closed) return;
+            acquireAndRestore();
+        }
     }
 
     private long nextRetryDelayMillis() {
@@ -248,10 +255,12 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
         return Math.min(maxRetryMillis, initialRetryMillis * multiplier);
     }
 
-    private synchronized void cancelRecovery() {
-        ScheduledFuture<?> task = recoveryTask;
-        recoveryTask = null;
-        if (task != null) task.cancel(false);
+    private void cancelRecovery() {
+        synchronized (recoveryLock) {
+            ScheduledFuture<?> task = recoveryTask;
+            recoveryTask = null;
+            if (task != null) task.cancel(false);
+        }
     }
 
     @Override

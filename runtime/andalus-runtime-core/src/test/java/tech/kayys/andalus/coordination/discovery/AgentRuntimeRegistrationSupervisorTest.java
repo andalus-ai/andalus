@@ -67,6 +67,7 @@ class AgentRuntimeRegistrationSupervisorTest {
         heartbeatTasks.getAllValues().get(0).run();
         assertEquals(AgentRuntimeRegistrationReadiness.State.DEGRADED, readiness.state());
         assertFalse(supervisor.isReady());
+        assertTrue(supervisor.token().isEmpty(), "a lost generation must not be exposed as current");
 
         retryTask.getValue().run();
 
