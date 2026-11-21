@@ -151,7 +151,7 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
         try {
             Optional<AgentRuntimeRegistrationSession> acquired = AgentRuntimeRegistrationSession.open(
                     lifecycle, hostScheduler, tenantId, agentId, instanceId, ownerId,
-                    heartbeatInterval, this::onSessionEvent);
+                    heartbeatInterval, sessionObserver());
             if (acquired.isEmpty()) {
                 readiness.degraded();
                 scheduleRecovery();
@@ -180,6 +180,24 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
             scheduleRecovery();
             return false;
         }
+    }
+
+    private AgentRuntimeRegistrationObserver sessionObserver() {
+        return new AgentRuntimeRegistrationObserver() {
+            @Override
+            public void onEvent(Event event) {
+                onSessionEvent(event);
+            }
+
+            @Override
+            public void onRenewalDuration(long elapsedNanos) {
+                try {
+                    downstreamObserver.onRenewalDuration(elapsedNanos);
+                } catch (RuntimeException ignored) {
+                    // Host telemetry must not affect registration ownership.
+                }
+            }
+        };
     }
 
     private void onSessionEvent(AgentRuntimeRegistrationObserver.Event event) {
