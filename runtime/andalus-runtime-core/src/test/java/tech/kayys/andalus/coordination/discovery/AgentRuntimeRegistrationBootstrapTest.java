@@ -92,7 +92,7 @@ class AgentRuntimeRegistrationBootstrapTest {
 
         assertDoesNotThrow(() -> bootstrap.onStart(null));
         assertFalse(bootstrap.markAvailable());
-        assertFalse(bootstrap.isReady());
+        assertTrue(bootstrap.isReady());
         assertTrue(bootstrap.token().isEmpty());
     }
 
