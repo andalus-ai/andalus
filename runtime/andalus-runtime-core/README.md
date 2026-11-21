@@ -137,3 +137,19 @@ Implement `AgentRuntimeRegistrationHost` in the embedding application and return
 The bootstrap observes Quarkus `StartupEvent` and starts a STARTING registration. The host must call `markAvailable()` only after its own agent initialization and local dependency checks succeed. Call `markUnavailable()` when the process remains alive but should stop receiving agent traffic. The adapter exposes `isReady()` and the current fenced `token()` for host diagnostics/integration. It observes `ShutdownEvent` and closes the supervisor, cancelling its heartbeat/recovery tasks and attempting fenced revocation.
 
 The embedding application owns the scheduler bean and must keep it alive until registration shutdown has completed. Do not shut the scheduler down before the runtime's `ShutdownEvent` observer has closed the bootstrap. The adapter creates no threads, does not mark the agent AVAILABLE automatically, and does not grant invocation authorization. Registration store schema/migrations remain deployment-managed. When registration is not configured, the readiness check remains `NOT_CONFIGURED` and reports UP.
+
+Example host provider (identity values must come from the embedding application's trusted configuration/identity system):
+
+```java
+@ApplicationScoped
+public class MyAgentRegistrationHost implements AgentRuntimeRegistrationHost {
+    @Override
+    public Registration registration() {
+        return new Registration(
+                tenantId(), agentId(), processInstanceId(), ownerId(),
+                Duration.ofSeconds(10), Duration.ofSeconds(1), Duration.ofSeconds(30));
+    }
+}
+```
+
+The application must also expose its managed scheduler as a CDI bean. Inject `AgentRuntimeRegistrationBootstrap` into the component that knows when the agent is locally ready and call `markAvailable()` at that point. A successful process startup alone is not sufficient to publish AVAILABLE.
