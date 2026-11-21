@@ -144,6 +144,13 @@
       <artifactId>quarkus-hibernate-orm-panache</artifactId>
     </dependency>
 
+    <!-- Trusted DID document persistence contract and ANP identity model. -->
+    <dependency>
+      <groupId>tech.kayys.andalus</groupId>
+      <artifactId>andalus-anp</artifactId>
+      <version>0.0.1</version>
+    </dependency>
+
     <!-- JDBC test database; production database drivers remain application-owned. -->
     <dependency>
       <groupId>com.h2database</groupId>
