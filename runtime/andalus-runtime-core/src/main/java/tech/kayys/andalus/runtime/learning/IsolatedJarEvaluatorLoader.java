@@ -55,7 +55,7 @@ public final class IsolatedJarEvaluatorLoader
         validateJar(verifiedArtifactBytes);
         Path jar = Files.createTempFile("andalus-evaluator-", ".jar");
         try {
-            Files.write(jar, verifiedArtifactBytes, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.write(jar, verifiedArtifactBytes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
             URLClassLoader loader = new EvaluatorArtifactClassLoader(
                     new URL[]{jar.toUri().toURL()}, new ApiOnlyParent(Evaluator.class.getClassLoader()));
             loaders.add(loader);
