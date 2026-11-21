@@ -6,6 +6,12 @@ legacy ServiceLoader tool factories.
 
 ## Workspace tools
 
+This is an opt-in runtime module. Applications that want these beans must include
+`tech.kayys.andalus:andalus-builtin-tools` on the Quarkus application classpath;
+merely building the root Maven reactor does not add the tools to another application.
+The module generates a Jandex index so its `@ApplicationScoped` tool beans can be
+found by Quarkus CDI.
+
 The initial workspace catalog is read-only:
 
 | Tool | Purpose |
