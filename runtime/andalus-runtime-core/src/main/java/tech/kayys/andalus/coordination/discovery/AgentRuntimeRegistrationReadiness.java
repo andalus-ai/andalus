@@ -14,9 +14,8 @@ import org.eclipse.microprofile.health.Readiness;
  * does not use distributed registration leaves this check NOT_CONFIGURED and
  * therefore does not become unready.</p>
  */
-@Readiness
 @ApplicationScoped
-public class AgentRuntimeRegistrationReadiness implements HealthCheck {
+public class AgentRuntimeRegistrationReadiness {
 
     public enum State {
         NOT_CONFIGURED,
@@ -53,13 +52,15 @@ public class AgentRuntimeRegistrationReadiness implements HealthCheck {
         state.set(State.STOPPED);
     }
 
-    @Override
-    public HealthCheckResponse call() {
-        State current = state.get();
-        boolean up = current == State.READY || current == State.NOT_CONFIGURED;
-        return HealthCheckResponse.named("agent-runtime-registration")
-                .status(up)
-                .withData("state", current.name())
-                .build();
+    @Readiness
+    public HealthCheck readinessCheck() {
+        return () -> {
+            State current = state.get();
+            boolean up = current == State.READY || current == State.NOT_CONFIGURED;
+            return HealthCheckResponse.named("agent-runtime-registration")
+                    .status(up)
+                    .withData("state", current.name())
+                    .build();
+        };
     }
 }
