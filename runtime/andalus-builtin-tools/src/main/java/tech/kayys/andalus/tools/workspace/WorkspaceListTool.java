@@ -26,19 +26,23 @@ public class WorkspaceListTool extends WorkspaceToolSupport {
             var directory = resolveExisting(context, stringArg(invocation, "path", "."));
             if (!Files.isDirectory(directory)) return CompletableFuture.completedFuture(
                     failure(invocation, "Requested workspace path is not a directory.", descriptor().name()));
-            List<Map<String, Object>> entries;
-            try (var stream = Files.list(directory)) {
-                entries = stream.sorted(Comparator.comparing(p -> p.getFileName().toString()))
-                        .limit(200)
-                        .filter(p -> {
-                            try { return p.toRealPath().startsWith(workspaceRoot(context)); }
-                            catch (Exception ignored) { return false; }
-                        })
-                        .map(p -> Map.<String, Object>of(
-                                "name", p.getFileName().toString(),
-                                "type", Files.isDirectory(p) ? "directory" : "file"))
-                        .toList();
+            List<java.nio.file.Path> children = new java.util.ArrayList<>();
+            try (var stream = Files.newDirectoryStream(directory)) {
+                for (var child : stream) {
+                    if (children.size() >= 200) break;
+                    try {
+                        if (child.toRealPath().startsWith(root)) children.add(child);
+                    } catch (Exception ignored) {
+                        // Broken links and paths outside the workspace are not exposed.
+                    }
+                }
             }
+            children.sort(Comparator.comparing(p -> p.getFileName().toString()));
+            List<Map<String, Object>> entries = children.stream()
+                    .map(p -> Map.<String, Object>of(
+                            "name", p.getFileName().toString(),
+                            "type", Files.isDirectory(p) ? "directory" : "file"))
+                    .toList();
             return CompletableFuture.completedFuture(ToolResult.success(
                     invocation.invocationIdentifier(), Map.of("path", root.relativize(directory).toString(), "entries", entries),
                     java.time.Duration.ZERO, descriptor().name()));
