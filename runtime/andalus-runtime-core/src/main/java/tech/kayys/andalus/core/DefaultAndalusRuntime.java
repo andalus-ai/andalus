@@ -70,7 +70,17 @@ public class DefaultAndalusRuntime extends BaseResource implements AndalusRuntim
 
     @Override
     public CompletableFuture<AgentResponse> executeAsync(AgentDefinition agent, AgentRequest request) {
-        return CompletableFuture.supplyAsync(() -> executeSync(agent, request), RUNTIME_POOL);
+        return executeAsync(agent, request, tech.kayys.andalus.execution.ExecutionCallerContext.anonymous());
+    }
+
+    /**
+     * Executes asynchronously with identity supplied by a trusted application boundary.
+     * Do not derive caller identity from request variables or prompt content.
+     */
+    public CompletableFuture<AgentResponse> executeAsync(
+            AgentDefinition agent, AgentRequest request,
+            tech.kayys.andalus.execution.ExecutionCallerContext callerContext) {
+        return CompletableFuture.supplyAsync(() -> executeSync(agent, request, callerContext), RUNTIME_POOL);
     }
 
     @Override
@@ -85,8 +95,18 @@ public class DefaultAndalusRuntime extends BaseResource implements AndalusRuntim
     // -------------------------------------------------------------------------
 
     public AgentResponse executeSync(AgentDefinition agent, AgentRequest request) {
+        return executeSync(agent, request, tech.kayys.andalus.execution.ExecutionCallerContext.anonymous());
+    }
+
+    /**
+     * Executes with identity supplied by a trusted application boundary.
+     * Do not derive caller identity from request variables or prompt content.
+     */
+    public AgentResponse executeSync(
+            AgentDefinition agent, AgentRequest request,
+            tech.kayys.andalus.execution.ExecutionCallerContext callerContext) {
         try {
-            GraphExecutionContext context = SimpleGraphExecutionContext.fromRequest(request);
+            GraphExecutionContext context = SimpleGraphExecutionContext.fromRequest(request, callerContext);
             ExecutionResult result   = executionEngine.executeAgent(agent, context);
 
             // Map ExecutionResult → AgentResponse, carrying the real content.
