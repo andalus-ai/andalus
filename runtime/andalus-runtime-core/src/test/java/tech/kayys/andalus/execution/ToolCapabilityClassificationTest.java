@@ -11,6 +11,9 @@ import tech.kayys.andalus.tool.ToolId;
 import tech.kayys.andalus.tool.ToolInvocation;
 import tech.kayys.andalus.tool.ToolKind;
 import tech.kayys.andalus.tool.ToolResult;
+import tech.kayys.andalus.identity.ResourceId;
+import tech.kayys.andalus.extension.Metadata;
+import tech.kayys.andalus.resource.ResourceType;
 import tech.kayys.andalus.execution.governance.ToolCapabilityLevel;
 
 import java.time.Duration;
@@ -72,6 +75,21 @@ class ToolCapabilityClassificationTest {
             @Override
             public CompletableFuture<ToolResult> execute(ToolInvocation invocation, ToolContext context) {
                 return CompletableFuture.failedFuture(new UnsupportedOperationException("not executed in test"));
+            }
+
+            @Override
+            public ResourceId id() {
+                return descriptor.id();
+            }
+
+            @Override
+            public ResourceType type() {
+                return descriptor.type();
+            }
+
+            @Override
+            public Metadata metadata() {
+                return descriptor.metadata();
             }
         };
     }
