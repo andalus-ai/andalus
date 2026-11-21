@@ -23,7 +23,10 @@ public class WorkspaceListTool extends WorkspaceToolSupport {
     public CompletableFuture<ToolResult> execute(ToolInvocation invocation, ToolContext context) {
         try {
             var root = workspaceRoot(context);
-            var directory = resolveExisting(context, stringArg(invocation, "path", "."));
+            String requested = stringArg(invocation, "path", ".");
+            if (requested.length() > 4_096) return CompletableFuture.completedFuture(
+                    failure(invocation, "Workspace path exceeds the 4096-character limit.", descriptor().name()));
+            var directory = resolveExisting(context, requested);
             if (!Files.isDirectory(directory)) return CompletableFuture.completedFuture(
                     failure(invocation, "Requested workspace path is not a directory.", descriptor().name()));
             List<java.nio.file.Path> children = new java.util.ArrayList<>();
