@@ -23,7 +23,7 @@ class CheckpointValueCodecTest {
         input.put("integer", new BigInteger("123456789012345678901234567890"));
         input.put("decimal", new BigDecimal("12.3400")); input.put("instant", instant);
         input.put("uuid", uuid); input.put("bytes", new byte[] { 0, 1, -1 });
-        input.put("list", List.of("a", 2, false));
+        input.put("list", List.of("a", BigInteger.valueOf(2), false));
         @SuppressWarnings("unchecked")
         Map<String, Object> restored = (Map<String, Object>) codec.decode(codec.encode(input));
         assertEquals(List.copyOf(input.keySet()), List.copyOf(restored.keySet()));
