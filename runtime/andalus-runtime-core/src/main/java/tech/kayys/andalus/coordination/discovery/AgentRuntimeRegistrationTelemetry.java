@@ -30,7 +30,8 @@ public class AgentRuntimeRegistrationTelemetry implements AgentRuntimeRegistrati
             case ACQUIRED, AVAILABLE, UNAVAILABLE, RENEWED, REVOKED ->
                     lastSuccessEpochMillis.set(now);
             case RENEWAL_REJECTED, STATUS_REJECTED, RENEWAL_ERROR,
-                    REVOCATION_REJECTED, OPERATION_ERROR, SCHEDULING_ERROR ->
+                    REVOCATION_REJECTED, OPERATION_ERROR, SCHEDULING_ERROR,
+                    RECOVERY_SCHEDULING_REJECTED ->
                     lastFailureEpochMillis.set(now);
         }
     }
