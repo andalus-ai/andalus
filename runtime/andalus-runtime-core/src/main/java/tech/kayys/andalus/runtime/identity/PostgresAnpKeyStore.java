@@ -1,7 +1,5 @@
 package tech.kayys.andalus.runtime.identity;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import tech.kayys.andalus.anp.identity.AnpIdentityKeyPair;
 import tech.kayys.andalus.anp.identity.AnpKeyStore;
 
@@ -22,7 +20,6 @@ import java.util.Optional;
  * never persists plaintext private material. Key IDs are immutable: reusing an ID for
  * different material or another agent is rejected, and a revoked ID can never be restored.
  */
-@ApplicationScoped
 public class PostgresAnpKeyStore implements AnpKeyStore {
     private static final String INSERT_KEY = """
             INSERT INTO andalus_anp_signing_keys
@@ -44,7 +41,6 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
     private final DataSource dataSource;
     private final AnpKeyMaterialProtector protector;
 
-    @Inject
     public PostgresAnpKeyStore(DataSource dataSource, AnpKeyMaterialProtector protector) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
         this.protector = Objects.requireNonNull(protector, "protector");
