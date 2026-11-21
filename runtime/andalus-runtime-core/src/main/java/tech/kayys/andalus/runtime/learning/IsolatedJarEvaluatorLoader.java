@@ -160,10 +160,12 @@ public final class IsolatedJarEvaluatorLoader
 
         @Override
         protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-            if (name.startsWith("java.") || name.startsWith("jdk.")
-                    || name.equals(Evaluator.class.getName())
+            if (name.startsWith("java.") || name.startsWith("jdk.") || name.startsWith("javax.")) {
+                return ClassLoader.getPlatformClassLoader().loadClass(name);
+            }
+            if (name.equals(Evaluator.class.getName())
                     || name.startsWith(Evaluator.class.getName() + "$")) {
-                return super.loadClass(name, resolve);
+                return Evaluator.class.getClassLoader().loadClass(name);
             }
             throw new ClassNotFoundException("class is outside the evaluator API: " + name);
         }
