@@ -119,6 +119,39 @@ class AgentRuntimeRegistrationSupervisorTest {
         supervisor.close();
     }
 
+
+    @Test
+    void reportsRecoverySchedulerRejectionSeparatelyFromStoreFailure() {
+        AgentRuntimeRegistrationStore store = mock(AgentRuntimeRegistrationStore.class);
+        AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
+        ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        ScheduledFuture<?> heartbeat = mock(ScheduledFuture.class);
+        ArgumentCaptor<Runnable> heartbeatTask = ArgumentCaptor.forClass(Runnable.class);
+        java.util.List<AgentRuntimeRegistrationObserver.Event> events = new java.util.ArrayList<>();
+        when(store.acquire(any())).thenReturn(Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING)));
+        when(store.publishStatus(FIRST, AgentRuntimeStatus.AVAILABLE, TTL))
+                .thenReturn(Optional.of(lease(FIRST, AgentRuntimeStatus.AVAILABLE)));
+        when(store.renew(FIRST, TTL)).thenThrow(new IllegalStateException("database unavailable"));
+        when(scheduler.scheduleWithFixedDelay(heartbeatTask.capture(), anyLong(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(heartbeat);
+        when(scheduler.schedule(any(Runnable.class), anyLong(), any(TimeUnit.class)))
+                .thenThrow(new IllegalStateException("scheduler stopping"));
+
+        AgentRuntimeRegistrationSupervisor supervisor = new AgentRuntimeRegistrationSupervisor(
+                lifecycle, scheduler, new AgentRuntimeRegistrationReadiness(),
+                "tenant-a", "agent-a", "instance-a", "owner-a",
+                HEARTBEAT, Duration.ofMillis(100), Duration.ofSeconds(2), events::add);
+
+        assertTrue(supervisor.start());
+        assertTrue(supervisor.markAvailable());
+        heartbeatTask.getValue().run();
+
+        assertTrue(events.contains(AgentRuntimeRegistrationObserver.Event.RECOVERY_SCHEDULING_REJECTED));
+        assertTrue(events.contains(AgentRuntimeRegistrationObserver.Event.RENEWAL_ERROR));
+        assertTrue(supervisor.token().isEmpty());
+        supervisor.close();
+    }
+
     private static AgentRuntimeLease lease(AgentRuntimeLeaseToken token, AgentRuntimeStatus status) {
         return new AgentRuntimeLease(token, status, Instant.parse("2030-01-01T00:00:00Z"));
     }
