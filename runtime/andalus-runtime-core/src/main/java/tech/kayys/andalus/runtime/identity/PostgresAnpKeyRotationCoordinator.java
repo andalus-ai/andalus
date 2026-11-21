@@ -1,7 +1,5 @@
 package tech.kayys.andalus.runtime.identity;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import tech.kayys.andalus.anp.identity.AnpIdentityKeyPair;
 import tech.kayys.andalus.anp.identity.AnpKeyStore;
 import tech.kayys.andalus.anp.identity.DidWbaPublicKeyResolver;
@@ -19,7 +17,6 @@ import java.util.Objects;
  * DID and key stores are not one transaction; inbound authentication must continue
  * enforcing both trusted-DID authorization and active-key status during recovery.
  */
-@ApplicationScoped
 public class PostgresAnpKeyRotationCoordinator {
     private final PostgresAnpKeyRotationJournal journal;
     private final TrustedDidDocumentStore didStore;
@@ -27,7 +24,6 @@ public class PostgresAnpKeyRotationCoordinator {
     private final AnpKeyRotationAuthorizer authorizer;
     private final AnpKeyRotationMaterialProvider materialProvider;
 
-    @Inject
     public PostgresAnpKeyRotationCoordinator(
             PostgresAnpKeyRotationJournal journal,
             TrustedDidDocumentStore didStore,
@@ -49,9 +45,12 @@ public class PostgresAnpKeyRotationCoordinator {
         Objects.requireNonNull(request, "request");
         authorizer.authorize(request.actorId(), request.did());
         validateCandidate(request, candidate, newKeyPair);
-        requireCurrentRevision(request);
-        if (keyStore.getActiveKey(request.oldKeyId()).isEmpty()) {
-            throw new SecurityException("The old signing key is not currently active");
+        boolean existing = journal.find(request.operationId()).isPresent();
+        if (!existing) {
+            requireCurrentRevision(request);
+            if (keyStore.getActiveKey(request.oldKeyId()).isEmpty()) {
+                throw new SecurityException("The old signing key is not currently active");
+            }
         }
         PostgresAnpKeyRotationJournal.Rotation prepared = journal.findOrPrepare(request);
         return resume(prepared.operationId(), candidate, newKeyPair);
