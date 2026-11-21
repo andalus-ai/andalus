@@ -119,6 +119,16 @@ jobs:
           -am install
           -Dmaven.test.skip=true
 
+      # Exercise the isolated shadow-worker trust and transport path explicitly.
+      # This runs after external repository contracts have been published to Maven Local.
+      - name: Verify shadow worker protocol, codec, engine, and process transport
+        run: >-
+          ./mvnw -B -ntp -Pci
+          -pl runtime/andalus-runtime-core -am
+          -Dtest=ShadowEvaluationWorkerProtocolTest,ShadowEvaluationWorkerCodecTest,ShadowEvaluationWorkerEngineTest,ShadowEvaluationWorkerManifestVerifierTest,DockerShadowEvaluationWorkerTransportTest,DockerShadowEvaluationWorkerTransportProcessTest
+          -Dsurefire.failIfNoSpecifiedTests=false
+          test
+
       - name: Build and Test (all modules)
         run: ./mvnw clean verify -DskipTests=false -Pci -q
 
