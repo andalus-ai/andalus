@@ -51,7 +51,7 @@ import tech.kayys.andalus.tool.SimpleToolContext;
  *   <li>Circuit breaker protection</li>
  *   <li>Retry with exponential back-off</li>
  *   <li>Timeout enforcement (30s hard cap per tool call)</li>
- *   <li>{@link Tool#execute(ToolInvocation, Object)} — the actual execution</li>
+ *   <li>{@link Tool#execute(ToolInvocation, ToolContext, tech.kayys.andalus.tool.CancellationToken)} — the actual execution</li>
  * </ol>
  */
 @ApplicationScoped
