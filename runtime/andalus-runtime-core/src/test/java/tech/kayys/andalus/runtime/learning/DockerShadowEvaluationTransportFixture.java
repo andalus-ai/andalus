@@ -29,8 +29,10 @@ public final class DockerShadowEvaluationTransportFixture {
         byte[] failure = ShadowEvaluationWorkerCodec.encodeFailure(
                 new ShadowEvaluationWorkerCodec.WorkerFailure(
                         "FIXTURE_FAILURE", "synthetic worker response"));
+        java.util.UUID responseId = "wrong-correlation".equals(mode)
+                ? java.util.UUID.randomUUID() : decoded.requestId();
         byte[] response = ShadowEvaluationWorkerProtocol.encode(
-                new ShadowEvaluationWorkerProtocol.Frame(decoded.requestId(),
+                new ShadowEvaluationWorkerProtocol.Frame(responseId,
                         ShadowEvaluationWorkerProtocol.MessageType.EXECUTE_FAILURE, failure));
         System.out.write(response);
         System.out.flush();
