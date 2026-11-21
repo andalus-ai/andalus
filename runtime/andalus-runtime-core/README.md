@@ -129,6 +129,22 @@ On rejected renewal, store failure, or rejected status publication, the supervis
 The supervisor does not own threads, shut down the scheduler, perform process liveness checks, or authorize invocation. The host remains responsible for local dependency readiness, startup/shutdown ordering, and ensuring that the supervisor is closed before its scheduler. Retry delay is capped by the configured maximum. Hosts should size the retry maximum and alert thresholds against their registration lease duration and service recovery objectives.
 
 
+
+## Multi-agent PostgreSQL recovery validation (Phase 5.1.12)
+
+`AgentRuntimeRegistrationGroupPostgresTest` exercises the multi-agent group
+against PostgreSQL 16 through Testcontainers and the production JDBC store.
+It expires one agent using PostgreSQL's `CURRENT_TIMESTAMP`, then verifies
+that the supervisor reacquires a higher generation and restores AVAILABLE
+without changing a sibling agent's token or status. A second scenario verifies
+that the same logical agent ID in separate tenants remains isolated.
+
+The test uses a host-owned scheduled executor and closes the registration
+group before shutting down that executor. It is disabled automatically when
+Docker is unavailable, consistent with the existing PostgreSQL store tests.
+This is integration coverage for recovery and tenant isolation; it does not
+replace deployment migration validation or multi-process load testing.
+
 ## Multi-agent registration groups (Phase 5.1.11)
 
 For a process hosting multiple independently registered agents, use
