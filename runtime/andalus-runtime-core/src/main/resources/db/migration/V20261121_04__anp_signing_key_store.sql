@@ -20,3 +20,10 @@ CREATE TABLE IF NOT EXISTS andalus_anp_agent_signing_keys (
         REFERENCES andalus_anp_signing_keys(key_id),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Tombstones make revocation terminal even when an identifier is revoked before
+-- its key material is ever registered.
+CREATE TABLE IF NOT EXISTS andalus_anp_revoked_key_ids (
+    key_id VARCHAR(512) PRIMARY KEY,
+    revoked_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
