@@ -117,3 +117,13 @@ The older `AgentRuntimeLifecycleCoordinator` and
 `AgentRuntimeLifecycleLeaseObserver` remain the legacy lifecycle projection
 path; they must not be used as a source of registration ownership or as a
 bridge that copies execution-lease generations into registration records.
+
+## Registration readiness and recovery (Phase 5.1.9)
+
+`AgentRuntimeRegistrationReadiness` exposes an opt-in MicroProfile readiness check. Its initial `NOT_CONFIGURED` state is UP so applications that do not enable distributed registration are unaffected. Once the host starts registration, `STARTING`, `DEGRADED`, and `STOPPED` report DOWN; only `READY` reports UP. This check is readiness, not liveness.
+
+`AgentRuntimeRegistrationSupervisor` is an explicit host integration boundary. Construct it with the host-managed `ScheduledExecutorService`, registration identity, heartbeat interval, and bounded retry delays. Call `start()` during host startup, then `markAvailable()` only after local dependencies and agent initialization are ready. Call `markUnavailable()` when the agent is intentionally withdrawn from routing, and `close()` during shutdown before the host terminates its scheduler.
+
+On rejected renewal, store failure, or rejected status publication, the supervisor marks readiness DOWN and schedules bounded exponential reacquisition. Every recovery calls the registration store's acquire operation and therefore obtains a new generation; the failed token is never reused. If the host had already called `markAvailable()`, the supervisor republishes AVAILABLE after a new session is acquired. If the host had marked the agent unavailable, recovery acquires a STARTING registration and waits for the host to call `markAvailable()` again. A database outage therefore keeps the instance unready until registration can be proven again.
+
+The supervisor does not own threads, shut down the scheduler, perform process liveness checks, or authorize invocation. The host remains responsible for local dependency readiness, startup/shutdown ordering, and ensuring that the supervisor is closed before its scheduler. Retry delay is capped by the configured maximum. Hosts should size the retry maximum and alert thresholds against their registration lease duration and service recovery objectives.
