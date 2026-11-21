@@ -28,7 +28,7 @@ class ShadowEvaluationWorkerEntrypointTest {
         assertThat(exit).isZero();
         assertThat(failure.code()).isEqualTo("INVALID_REQUEST");
         assertThat(failure.message()).isEqualTo("Worker request payload is invalid");
-        assertThat(stderr).hasSize(0);
+        assertThat(stderr.size()).isZero();
     }
 
     @Test
@@ -40,7 +40,7 @@ class ShadowEvaluationWorkerEntrypointTest {
                 new ByteArrayInputStream(new byte[0]), stdout, error(stderr), provider());
 
         assertThat(exit).isEqualTo(2);
-        assertThat(stdout).isEmpty();
+        assertThat(stdout.size()).isZero();
         assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("request failed (IO)");
     }
 
