@@ -52,6 +52,14 @@ jobs:
           path: _aqli
           ref: main
 
+      # AQLI resolves Suling through its local Gradle composite build at ./suling.
+      - name: Checkout Suling (AQLI runtime dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: bhangun/suling
+          path: _aqli/suling
+          ref: main
+
       - name: Setup Gradle 9.4.0
         uses: gradle/actions/setup-gradle@v4
         with:
