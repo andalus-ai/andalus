@@ -428,6 +428,18 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
         java.util.Map<String, Object> attributes = new java.util.LinkedHashMap<>();
         attributes.putAll(execution.constraints());
         attributes.putAll(execution.attributes());
+
+        // Workspace authority is an administrator-controlled agent constraint.
+        // Never allow a general per-execution attribute (which may be populated
+        // by adapters or request context) to replace or widen this boundary.
+        // Workspace tools additionally require the value to be a Path and
+        // canonicalize it before resolving any model-supplied relative path.
+        Object configuredWorkspace = execution.constraints().get("andalus.workspace.root");
+        attributes.remove("andalus.workspace.root");
+        if (configuredWorkspace instanceof java.nio.file.Path workspaceRoot) {
+            attributes.put("andalus.workspace.root", workspaceRoot);
+        }
+
         attributes.put("andalus.execution.id", execution.executionId());
         attributes.put("andalus.agent.id", execution.agentId());
         if (execution.tenantId() != null) attributes.put("andalus.tenant.id", execution.tenantId());
