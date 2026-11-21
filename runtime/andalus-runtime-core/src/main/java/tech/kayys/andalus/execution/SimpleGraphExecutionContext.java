@@ -37,11 +37,6 @@ public final class SimpleGraphExecutionContext implements GraphExecutionContext 
      * The request content is stored under {@link #PROMPT_KEY}.
      */
     public static SimpleGraphExecutionContext fromRequest(AgentRequest request) {
-        UUID id = UUID.randomUUID();
-        Map<String, Object> vars = new ConcurrentHashMap<>();
-        if (request != null && request.content() != null) {
-            vars.put(PROMPT_KEY.name(), request.content());
-        }
         return fromRequest(request, ExecutionCallerContext.anonymous());
     }
 
