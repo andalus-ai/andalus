@@ -406,9 +406,10 @@ public class DefaultAgentExecution implements AgentExecution {
                 if (snapshot == null) {
                     return;
                 }
-                if (stateStore != null) {
-                    stateStore.checkpoint(execId, snapshot);
-                }
+                // Persist lifecycle metadata (tenant, user, agent and principal)
+                // with the authoritative checkpoint before updating the legacy
+                // AgentContext-only compatibility store.
+                checkpoint(execId, snapshot);
                 if (checkpointStore != null) {
                     checkpointStore.save(execId, snapshot);
                 }
