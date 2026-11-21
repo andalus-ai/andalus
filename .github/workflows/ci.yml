@@ -129,6 +129,20 @@ jobs:
           -am install
           -Dmaven.test.skip=true
 
+      # Runtime Core consumes Framework artifacts that are not published to Maven Central.
+      # Install the direct dependency closure from the Framework reactor before building Runtime.
+      - name: Install Runtime Core Framework dependency closure
+        working-directory: _andalus-framework
+        run: >-
+          ./mvnw -B -ntp
+          -f framework/pom.xml
+          -pl andalus-agent,andalus-tool,andalus-execution-api,andalus-runtime-spi,
+          andalus-observability,andalus-resilience,andalus-engine,andalus-anp,
+          andalus-harness,andalus-a2a,andalus-memory
+          -am install
+          -Dmaven.test.skip=true
+
+
       # Exercise the isolated shadow-worker trust and transport path explicitly.
       # This runs after external repository contracts have been published to Maven Local.
       - name: Verify shadow worker protocol, codec, engine, and process transport
