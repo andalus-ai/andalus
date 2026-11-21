@@ -15,7 +15,9 @@ import java.util.Set;
 public class CapabilityLevelPolicy implements ToolPolicy {
 
     private static final Set<ToolCapabilityLevel> HIGH_RISK =
-        Set.of(ToolCapabilityLevel.SHELL, ToolCapabilityLevel.SYSTEM);
+        Set.of(ToolCapabilityLevel.EXECUTE, ToolCapabilityLevel.NETWORK,
+               ToolCapabilityLevel.FILESYSTEM, ToolCapabilityLevel.SHELL,
+               ToolCapabilityLevel.SYSTEM);
 
     @Override
     public String id() { return "capability-level-check"; }
