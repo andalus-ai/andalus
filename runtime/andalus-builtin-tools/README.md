@@ -53,8 +53,10 @@ host paths as output.
 
 - Listing is limited to 200 entries.
 - File reads and searchable files are limited to 1 MiB each.
-- Search walks at most 12 directory levels and scans at most 5,000 regular files.
-- Search returns at most 200 matches.
+- Search walks at most 12 directory levels, visits at most 20,000 entries, scans at most 5,000 regular files, and reads at most 32 MiB total per search.
+- Search returns at most 200 matches with line snippets capped at 1,000 characters.
+- Path inputs are capped at 4,096 characters; search queries at 1,024; glob patterns at 512.
+- Workspace tools are marked non-deterministic and are excluded from the runtime result cache to prevent cross-workspace cache leakage.
 - Symbolic links resolving outside the configured workspace are rejected/skipped.
 - No workspace root means no filesystem operation: execution is denied.
 
