@@ -233,6 +233,12 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
                 recoveryTask = hostScheduler.schedule(this::recover, delay, TimeUnit.MILLISECONDS);
             } catch (RuntimeException schedulerUnavailable) {
                 readiness.degraded();
+                try {
+                    downstreamObserver.onEvent(
+                            AgentRuntimeRegistrationObserver.Event.RECOVERY_SCHEDULING_REJECTED);
+                } catch (RuntimeException ignored) {
+                    // Telemetry must not affect fail-closed recovery state.
+                }
             }
         }
     }
