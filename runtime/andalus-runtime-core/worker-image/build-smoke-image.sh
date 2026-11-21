@@ -20,6 +20,7 @@ RUNTIME_JAR="$(find "${MODULE_DIR}/target" -maxdepth 1 -type f \
   echo "Run test-compile before building smoke image" >&2; exit 2;
 }
 
+rm -rf "${MODULE_DIR}/target/worker-smoke-lib"
 "${REPO_ROOT}/mvnw" -B -ntp -f "${MODULE_DIR}/pom.xml" dependency:copy-dependencies \
   -DincludeScope=runtime -DoutputDirectory="${MODULE_DIR}/target/worker-smoke-lib"
 
