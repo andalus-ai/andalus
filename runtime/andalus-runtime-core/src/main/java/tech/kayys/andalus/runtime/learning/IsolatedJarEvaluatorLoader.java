@@ -128,7 +128,7 @@ public final class IsolatedJarEvaluatorLoader
 
     private static boolean safeEntryName(String name) {
         if (name == null || name.isBlank() || name.startsWith("/") || name.startsWith("\\")
-                || name.contains("\\") || name.indexOf('\\0') >= 0) return false;
+                || name.contains("\\") || name.indexOf(0) >= 0) return false;
         for (String segment : name.split("/")) {
             if (segment.equals("..") || segment.equals(".")) return false;
         }
