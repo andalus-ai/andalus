@@ -522,3 +522,13 @@ this change. Keep `andalus.shadow-worker.image-validated` and
 `andalus.shadow-worker.daemon-validated` false until the exact pushed digest, trust bundle,
 worker protocol, resource limits, Docker daemon/socket, and host policy have been validated in
 the deployment environment.
+
+### Worker transport process-level verification
+
+`DockerShadowEvaluationWorkerTransportProcessTest` launches a local fake Docker executable that
+uses a child JVM to exercise the real transport process lifecycle and binary framing without
+requiring a Docker daemon. It covers a correlated worker failure response, malformed stdout,
+non-zero worker exit, request-ID mismatch, and timeout termination. This is a process/transport
+test only: it does not prove container isolation, Docker daemon policy, image integrity, or
+worker artifact execution. Those remain deployment integration checks against the exact
+published image digest.
