@@ -23,6 +23,7 @@ class PostgresAnpKeyStoreTest {
 
     private PostgresAnpKeyStore store;
     private DataSource dataSource;
+    private PrefixProtector protector;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -58,7 +59,8 @@ class PostgresAnpKeyStoreTest {
                     )
                     """);
         }
-        store = new PostgresAnpKeyStore(dataSource, new PrefixProtector());
+        protector = new PrefixProtector();
+        store = new PostgresAnpKeyStore(dataSource, protector);
     }
 
     @Test
@@ -99,6 +101,17 @@ class PostgresAnpKeyStoreTest {
     }
 
     @Test
+    void revokedKeyIdIsRejectedBeforeCallingProtector() {
+        String keyId = "did:wba:example#revoked-before-protect";
+        store.revokeKey(keyId);
+        int callsBefore = protector.protectCalls;
+        assertThrows(IllegalStateException.class, () ->
+                store.storeKey("did:wba:example", pair(keyId, "private-one")));
+        assertEquals(callsBefore, protector.protectCalls,
+                "A permanently revoked key ID must be rejected before KMS encryption");
+    }
+
+    @Test
     void databaseNeverReceivesPlaintextPrivateKeyBytes() throws Exception {
         byte[] privateBytes = "private-one".getBytes(StandardCharsets.UTF_8);
         store.storeKey("did:wba:example", new AnpIdentityKeyPair(
@@ -119,8 +132,11 @@ class PostgresAnpKeyStoreTest {
 
     /** Test double only; production must inject a KMS/HSM-backed authenticated protector. */
     private static final class PrefixProtector implements AnpKeyMaterialProtector {
+        private int protectCalls;
+
         @Override
         public byte[] protect(String agentId, String keyId, byte[] plaintext) {
+            protectCalls++;
             byte[] result = new byte[plaintext.length + 1];
             result[0] = 42;
             System.arraycopy(plaintext, 0, result, 1, plaintext.length);
