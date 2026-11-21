@@ -3,6 +3,7 @@ package tech.kayys.andalus.execution.snapshot;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.UUID;
 import tech.kayys.andalus.artifact.ArtifactFormat;
@@ -120,7 +121,7 @@ public final class ArtifactCheckpointCodec {
     private Map<String, Object> decodeObjectMap(Map<String, CheckpointValueCodec.CheckpointValue> source) {
         Map<String, Object> result = new LinkedHashMap<>();
         source.forEach((key, value) -> result.put(key, values.decode(value)));
-        return Map.copyOf(result);
+        return Collections.unmodifiableMap(result);
     }
 
     public record ArtifactValue(String kind, String id, String type, String format,
