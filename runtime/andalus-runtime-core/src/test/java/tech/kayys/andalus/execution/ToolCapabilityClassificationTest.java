@@ -84,6 +84,20 @@ class ToolCapabilityClassificationTest {
         assertEquals("trusted", context.getAttribute("run.option").orElseThrow());
     }
 
+
+    @Test
+    void resultCacheRequiresExplicitDeterministicProfile() {
+        ToolDescriptor nonDeterministic = DefaultToolDescriptor.builder(ToolId.of("workspace"), "workspace.read")
+                .executionProfile(new ToolExecutionProfile(false, true, true, Duration.ZERO, ToolKind.READ))
+                .build();
+        ToolDescriptor deterministic = DefaultToolDescriptor.builder(ToolId.of("pure"), "pure.lookup")
+                .executionProfile(new ToolExecutionProfile(true, true, true, Duration.ZERO, ToolKind.READ))
+                .build();
+
+        assertFalse(DefaultAgentToolExecutor.isCacheable(tool(nonDeterministic)));
+        assertTrue(DefaultAgentToolExecutor.isCacheable(tool(deterministic)));
+    }
+
     private ToolDescriptor descriptor(ToolKind kind, boolean readOnly) {
         return DefaultToolDescriptor.builder(ToolId.of("test-tool"), "innocent-looking-name")
                 .executionProfile(new ToolExecutionProfile(true, readOnly, true, Duration.ZERO, kind))
