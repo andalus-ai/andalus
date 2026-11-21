@@ -35,8 +35,12 @@ public class WorkspaceSearchTool extends WorkspaceToolSupport {
             String query = WorkspaceListTool.stringArg(invocation, "query", "");
             if (query.isBlank()) return CompletableFuture.completedFuture(
                     failure(invocation, "A non-empty query is required.", descriptor().name()));
+            if (query.length() > 1_024) return CompletableFuture.completedFuture(
+                    failure(invocation, "Search query exceeds the 1024-character limit.", descriptor().name()));
             var root = workspaceRoot(context);
             String glob = WorkspaceListTool.stringArg(invocation, "glob", "**/*");
+            if (glob.length() > 512) return CompletableFuture.completedFuture(
+                    failure(invocation, "Search glob exceeds the 512-character limit.", descriptor().name()));
             var matcher = FileSystems.getDefault().getPathMatcher("glob:" + glob);
             List<Map<String, Object>> matches = new ArrayList<>();
             int scanned = 0;
