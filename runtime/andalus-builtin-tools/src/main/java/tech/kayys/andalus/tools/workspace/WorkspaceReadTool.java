@@ -26,6 +26,8 @@ public class WorkspaceReadTool extends WorkspaceToolSupport {
             String requested = WorkspaceListTool.stringArg(invocation, "path", "");
             if (requested.isBlank()) return CompletableFuture.completedFuture(
                     failure(invocation, "A relative file path is required.", descriptor().name()));
+            if (requested.length() > 4_096) return CompletableFuture.completedFuture(
+                    failure(invocation, "Workspace path exceeds the 4096-character limit.", descriptor().name()));
             var root = workspaceRoot(context);
             var file = resolveExisting(context, requested);
             if (!Files.isRegularFile(file)) return CompletableFuture.completedFuture(
