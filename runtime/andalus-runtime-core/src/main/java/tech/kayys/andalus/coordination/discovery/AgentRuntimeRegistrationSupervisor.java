@@ -36,6 +36,7 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
     private volatile AgentRuntimeRegistrationSession session;
     private volatile ScheduledFuture<?> recoveryTask;
     private volatile boolean desiredAvailable;
+    private volatile boolean ownershipLost;
     private volatile boolean closed;
 
     public AgentRuntimeRegistrationSupervisor(
@@ -88,7 +89,7 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
     /** Begins registration. Returns true when a STARTING registration was acquired. */
     public synchronized boolean start() {
         if (closed) throw new IllegalStateException("supervisor is closed");
-        if (session != null) return true;
+        if (session != null && !ownershipLost) return true;
         readiness.starting();
         return acquireAndRestore();
     }
@@ -140,6 +141,7 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
         cancelRecovery();
         AgentRuntimeRegistrationSession previous = session;
         session = null;
+        ownershipLost = true;
         if (previous != null) {
             try {
                 previous.close();
@@ -160,10 +162,11 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
 
             AgentRuntimeRegistrationSession current = acquired.get();
             session = current;
-            recoveryAttempt.set(0);
+            ownershipLost = false;
             if (desiredAvailable) {
                 if (current.markAvailable()) {
                     readiness.ready();
+                    recoveryAttempt.set(0);
                     return true;
                 }
                 readiness.degraded();
@@ -174,6 +177,7 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
             }
 
             readiness.starting();
+            recoveryAttempt.set(0);
             return true;
         } catch (RuntimeException registrationFailure) {
             readiness.degraded();
@@ -207,10 +211,14 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
             // Host telemetry must not affect registration ownership.
         }
 
+        if (event == AgentRuntimeRegistrationObserver.Event.ACQUIRED) {
+            ownershipLost = false;
+        }
         if (event == AgentRuntimeRegistrationObserver.Event.RENEWAL_REJECTED
                 || event == AgentRuntimeRegistrationObserver.Event.RENEWAL_ERROR
                 || event == AgentRuntimeRegistrationObserver.Event.STATUS_REJECTED
                 || event == AgentRuntimeRegistrationObserver.Event.OPERATION_ERROR) {
+            ownershipLost = true;
             readiness.degraded();
             scheduleRecovery();
         }
@@ -251,6 +259,7 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
         if (closed) return;
         closed = true;
         desiredAvailable = false;
+        ownershipLost = true;
         cancelRecovery();
         AgentRuntimeRegistrationSession current = session;
         session = null;
