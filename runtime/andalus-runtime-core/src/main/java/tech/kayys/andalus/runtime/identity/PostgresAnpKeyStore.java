@@ -5,6 +5,7 @@ import tech.kayys.andalus.anp.identity.AnpKeyStore;
 
 import javax.sql.DataSource;
 import java.security.MessageDigest;
+import java.util.Arrays;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -74,15 +75,21 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
                         return Optional.empty();
                     }
                     String agentId = result.getString("agent_id");
-                    byte[] privateKey = protector.unprotect(agentId, keyId,
-                            result.getBytes("private_key_ciphertext"));
-                    if (privateKey == null || privateKey.length == 0) {
-                        throw new IllegalStateException("KMS returned empty ANP private key material");
+                    byte[] ciphertext = result.getBytes("private_key_ciphertext");
+                    byte[] privateKey = null;
+                    try {
+                        privateKey = protector.unprotect(agentId, keyId, ciphertext);
+                        if (privateKey == null || privateKey.length == 0) {
+                            throw new IllegalStateException("KMS returned empty ANP private key material");
+                        }
+                        AnpIdentityKeyPair pair = new AnpIdentityKeyPair(keyId, result.getString("algorithm"),
+                                privateKey, result.getBytes("public_key_bytes"));
+                        connection.commit();
+                        return Optional.of(pair);
+                    } finally {
+                        wipe(privateKey);
+                        wipe(ciphertext);
                     }
-                    AnpIdentityKeyPair pair = new AnpIdentityKeyPair(keyId, result.getString("algorithm"),
-                            privateKey, result.getBytes("public_key_bytes"));
-                    connection.commit();
-                    return Optional.of(pair);
                 }
             } catch (RuntimeException | SQLException exception) {
                 rollbackQuietly(connection, exception);
@@ -129,18 +136,22 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
         }
 
         byte[] privateKey = keyPair.privateKeyBytes();
-        byte[] ciphertext = protector.protect(agentId, keyPair.keyId(), privateKey);
-        if (ciphertext == null || ciphertext.length == 0) {
-            throw new IllegalStateException("KMS returned empty protected ANP key material");
-        }
+        byte[] ciphertext = null;
+        byte[] existingPrivate = null;
         try (Connection connection = dataSource.getConnection()) {
             boolean previousAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
             try {
+                // Check the permanent tombstone before invoking KMS. A revoked key ID
+                // must never trigger encryption or any attempt to recreate its row.
                 lockKeyId(connection, keyPair.keyId());
                 if (isRevoked(connection, keyPair.keyId())) {
                     throw new IllegalStateException("A revoked ANP key identifier cannot be reactivated: "
                             + keyPair.keyId());
+                }
+                ciphertext = protector.protect(agentId, keyPair.keyId(), privateKey);
+                if (ciphertext == null || ciphertext.length == 0) {
+                    throw new IllegalStateException("KMS returned empty protected ANP key material");
                 }
                 try (PreparedStatement insert = connection.prepareStatement(INSERT_KEY)) {
                     insert.setString(1, keyPair.keyId());
@@ -164,10 +175,14 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
                                 || !MessageDigest.isEqual(keyPair.publicKeyBytes(), result.getBytes("public_key_bytes"))) {
                             throw new SecurityException("ANP key ID is already bound to different key material");
                         }
-                        byte[] existingPrivate = protector.unprotect(agentId, keyPair.keyId(),
-                                result.getBytes("private_key_ciphertext"));
-                        if (!MessageDigest.isEqual(privateKey, existingPrivate)) {
-                            throw new SecurityException("ANP key ID is already bound to different private material");
+                        byte[] storedCiphertext = result.getBytes("private_key_ciphertext");
+                        try {
+                            existingPrivate = protector.unprotect(agentId, keyPair.keyId(), storedCiphertext);
+                            if (!MessageDigest.isEqual(privateKey, existingPrivate)) {
+                                throw new SecurityException("ANP key ID is already bound to different private material");
+                            }
+                        } finally {
+                            wipe(storedCiphertext);
                         }
                     }
                 }
@@ -182,76 +197,17 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
                 rollbackQuietly(connection, exception);
                 throw exception;
             } finally {
-                connection.setAutoCommit(previousAutoCommit);
+                try {
+                    connection.setAutoCommit(previousAutoCommit);
+                } finally {
+                    wipe(privateKey);
+                    wipe(ciphertext);
+                    wipe(existingPrivate);
+                }
             }
         } catch (SQLException exception) {
+            wipe(privateKey);
+            wipe(ciphertext);
+            wipe(existingPrivate);
             throw new IllegalStateException("Unable to persist ANP signing key", exception);
         }
-    }
-
-    @Override
-    public void revokeKey(String keyId) {
-        if (keyId == null || keyId.isBlank()) throw new IllegalArgumentException("keyId must not be blank");
-        try (Connection connection = dataSource.getConnection()) {
-            boolean previousAutoCommit = connection.getAutoCommit();
-            connection.setAutoCommit(false);
-            try {
-                lockKeyId(connection, keyId);
-                try (PreparedStatement tombstone = connection.prepareStatement("""
-                        INSERT INTO andalus_anp_revoked_key_ids (key_id)
-                        VALUES (?) ON CONFLICT (key_id) DO NOTHING
-                        """)) {
-                    tombstone.setString(1, keyId);
-                    tombstone.executeUpdate();
-                }
-                try (PreparedStatement revoke = connection.prepareStatement("""
-                        UPDATE andalus_anp_signing_keys
-                        SET revoked_at = COALESCE(revoked_at, CURRENT_TIMESTAMP)
-                        WHERE key_id = ?
-                        """)) {
-                    revoke.setString(1, keyId);
-                    revoke.executeUpdate();
-                }
-                try (PreparedStatement clear = connection.prepareStatement(
-                        "DELETE FROM andalus_anp_agent_signing_keys WHERE key_id = ?")) {
-                    clear.setString(1, keyId);
-                    clear.executeUpdate();
-                }
-                connection.commit();
-            } catch (RuntimeException | SQLException exception) {
-                rollbackQuietly(connection, exception);
-                throw exception;
-            } finally {
-                connection.setAutoCommit(previousAutoCommit);
-            }
-        } catch (SQLException exception) {
-            throw new IllegalStateException("Unable to revoke ANP signing key", exception);
-        }
-    }
-
-    private static void lockKeyId(Connection connection, String keyId) throws SQLException {
-        try (PreparedStatement lock = connection.prepareStatement(
-                "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))")) {
-            lock.setString(1, keyId);
-            lock.execute();
-        }
-    }
-
-    private static boolean isRevoked(Connection connection, String keyId) throws SQLException {
-        try (PreparedStatement query = connection.prepareStatement(
-                "SELECT 1 FROM andalus_anp_revoked_key_ids WHERE key_id = ?")) {
-            query.setString(1, keyId);
-            try (ResultSet result = query.executeQuery()) {
-                return result.next();
-            }
-        }
-    }
-
-    private static void rollbackQuietly(Connection connection, Exception original) {
-        try {
-            connection.rollback();
-        } catch (SQLException rollbackFailure) {
-            original.addSuppressed(rollbackFailure);
-        }
-    }
-}
