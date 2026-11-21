@@ -179,7 +179,7 @@ public class DefaultAgentToolExecutor implements AgentToolExecutor, AgentToolExe
         // --- 3. Policy evaluation with complete identity; no wildcard role ---
         ToolPermissionContext permission = new ToolPermissionContext(
                 execution.tenantId(), execution.userId(), execution.executionId(),
-                java.util.List.copyOf(execution.roles()), toolName, resolveCapabilityLevel(toolName));
+                java.util.List.copyOf(execution.roles()), toolName, resolveCapabilityLevel(tool));
         var policyContext = PolicyEvaluationContexts.builder(permission, invocation)
                 .tenantId(execution.tenantId())
                 .userId(execution.userId())
