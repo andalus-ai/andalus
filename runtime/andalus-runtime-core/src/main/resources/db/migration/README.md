@@ -488,3 +488,37 @@ provision the read-only trust bundle, and verify the actual Docker daemon/host p
 configuration attestations `image-validated` and `daemon-validated` must remain false until
 that validation is complete. Unit tests for trust-bundle loading and artifact rejection are
 authored; they have not been executed in this environment.
+
+
+### Building the worker container image
+
+The worker image build context is `runtime/andalus-runtime-core/worker-image`. It contains a minimal
+Dockerfile and `build-worker-image.sh`; generated `target/`, `lib/`, and `trust/` content is
+git-ignored. The script requires:
+
+- `JRE_IMAGE`: a Java 25 JRE reference pinned with `@sha256:<64 lowercase hex>`;
+- `ANDALUS_SHADOW_TRUST_BUNDLE`: a regular, non-symlink public-key bundle in the format above;
+- optional `IMAGE_TAG`: local build tag (defaults to `andalus-shadow-worker:local`).
+
+Install the matching `andalus-framework` reactor artifacts into the builder's local Maven
+repository first, then run the script from any directory:
+
+```bash
+JRE_IMAGE='registry.example/java25-jre@sha256:<verified-base-image-digest>' \
+ANDALUS_SHADOW_TRUST_BUNDLE='/secure/path/trusted-signers.ed25519' \
+bash runtime/andalus-runtime-core/worker-image/build-worker-image.sh
+```
+
+The script installs the runtime-core Maven reactor with tests skipped, copies runtime-scope
+dependencies into the image context, stages the runtime JAR and public trust bundle, and builds
+the image as UID/GID 10001. The Dockerfile has no mutable base-image default; a digest-pinned
+Java 25 JRE is mandatory. The resulting local tag is **not** the immutable reference expected by
+the runtime adapter. Push it to the deployment registry, resolve the registry's published
+manifest digest, and set `andalus.shadow-worker.image` to that exact
+`registry/repository@sha256:...` value.
+
+This recipe is not an image validation attestation. No image has been built, pushed, or tested by
+this change. Keep `andalus.shadow-worker.image-validated` and
+`andalus.shadow-worker.daemon-validated` false until the exact pushed digest, trust bundle,
+worker protocol, resource limits, Docker daemon/socket, and host policy have been validated in
+the deployment environment.
