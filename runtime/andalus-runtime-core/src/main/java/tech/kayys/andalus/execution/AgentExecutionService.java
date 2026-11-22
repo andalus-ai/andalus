@@ -184,21 +184,7 @@ public class AgentExecutionService {
                 .map(ExecutionCheckpoint::metadata)
                 .orElse(java.util.Map.of());
 
-        // Identity-aware resume is fail-closed: older checkpoints without owner
-        // metadata remain usable only through the legacy anonymous overload.
-        boolean authenticatedResume = (tenantId != null && !tenantId.isBlank())
-                || (userId != null && !userId.isBlank());
-        if (checkpointMetadata.isEmpty()) {
-            if (authenticatedResume) {
-                throw new SecurityException("Execution checkpoint has no ownership metadata");
-            }
-        } else if (!java.util.Objects.equals(tenantId, checkpointMetadata.get("tenantId"))
-                || !java.util.Objects.equals(userId, checkpointMetadata.get("userId"))
-                || !java.util.Objects.equals(
-                        userId != null && !userId.isBlank() ? "USER" : "ANONYMOUS",
-                        checkpointMetadata.get("principalType"))) {
-            throw new SecurityException("Execution belongs to a different caller or tenant");
-        }
+        verifyResumeIdentity(checkpointMetadata, tenantId, userId);
 
         String checkpointAgentId = (String) checkpointMetadata.getOrDefault("agentId", "unknown-agent");
         ExecutionIdentity identity = new ExecutionIdentity(executionId, executionId, null);
@@ -234,6 +220,35 @@ public class AgentExecutionService {
         AgentExecution execution = resume(executionId, tenantId, userId, roles);
         if (decision instanceof AgentDecision.WaitForApproval) {
             execution.execute();
+        }
+    }
+
+    /**
+     * Verifies that a resume request presents the exact owner recorded by the
+     * authoritative lifecycle checkpoint. Legacy metadata-free checkpoints
+     * remain accessible only through the anonymous compatibility path.
+     */
+    static void verifyResumeIdentity(
+            java.util.Map<String, Object> checkpointMetadata, String tenantId, String userId) {
+        java.util.Map<String, Object> metadata = checkpointMetadata != null
+                ? checkpointMetadata : java.util.Map.of();
+        boolean authenticatedResume = (tenantId != null && !tenantId.isBlank())
+                || (userId != null && !userId.isBlank());
+
+        if (metadata.isEmpty()) {
+            if (authenticatedResume) {
+                throw new SecurityException("Execution checkpoint has no ownership metadata");
+            }
+            return;
+        }
+
+        String expectedPrincipalType = userId != null && !userId.isBlank() ? "USER" : "ANONYMOUS";
+        String expectedPrincipalId = "USER".equals(expectedPrincipalType) ? userId : null;
+        if (!java.util.Objects.equals(tenantId, metadata.get("tenantId"))
+                || !java.util.Objects.equals(userId, metadata.get("userId"))
+                || !java.util.Objects.equals(expectedPrincipalType, metadata.get("principalType"))
+                || !java.util.Objects.equals(expectedPrincipalId, metadata.get("principalId"))) {
+            throw new SecurityException("Execution belongs to a different caller or tenant");
         }
     }
 
