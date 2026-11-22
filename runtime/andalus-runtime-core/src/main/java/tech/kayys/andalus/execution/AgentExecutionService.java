@@ -217,10 +217,20 @@ public class AgentExecutionService {
 
     public void approve(String executionId, AgentDecision decision, String tenantId,
                         String userId, java.util.Set<String> roles) {
-        AgentExecution execution = resume(executionId, tenantId, userId, roles);
-        if (decision instanceof AgentDecision.WaitForApproval) {
-            execution.execute();
+        requireApprovalLifecycle(decision);
+    }
+
+    /**
+     * Approval is deliberately fail-closed until a pending tool invocation can
+     * be durably suspended, authorized, audited, and resumed exactly once.
+     * A normal execution resume is not an approval operation.
+     */
+    static void requireApprovalLifecycle(AgentDecision decision) {
+        if (!(decision instanceof AgentDecision.WaitForApproval)) {
+            throw new IllegalArgumentException("Approval requires a WaitForApproval decision");
         }
+        throw new UnsupportedOperationException(
+                "Human approval lifecycle is not available; the pending tool invocation was not resumed or executed");
     }
 
     /**
