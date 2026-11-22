@@ -130,6 +130,12 @@ The supervisor does not own threads, shut down the scheduler, perform process li
 
 
 
+## Recovery scheduler failure observability (Phase 5.1.16)
+
+The observer event `RECOVERY_SCHEDULING_REJECTED` distinguishes rejection of the supervisor's recovery task from heartbeat scheduling failure (`SCHEDULING_ERROR`) and registration-store failures (`RENEWAL_ERROR` / `RENEWAL_REJECTED`). `AgentRuntimeRegistrationTelemetry` counts this event and updates its last-failure timestamp, allowing hosts to alert specifically when the host-owned scheduler cannot accept recovery work.
+
+A recovery scheduling rejection leaves readiness DEGRADED and the lost generation unavailable through `token()`. The runtime does not create a replacement scheduler or start background threads. The embedding host must restore scheduler availability and explicitly reconcile/restart the supervisor according to its lifecycle policy. Observer exceptions are isolated and cannot change registration ownership or readiness.
+
 ## Multi-agent PostgreSQL recovery validation (Phase 5.1.12)
 
 `AgentRuntimeRegistrationGroupPostgresTest` exercises the multi-agent group
