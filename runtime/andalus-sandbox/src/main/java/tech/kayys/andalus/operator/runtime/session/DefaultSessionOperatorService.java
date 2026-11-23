@@ -2,6 +2,7 @@ package tech.kayys.andalus.operator.runtime.session;
 
 import tech.kayys.andalus.operator.runtime.DenyAllOperatorAuthorization;
 import tech.kayys.andalus.spi.operator.OperatorAuthorization;
+import tech.kayys.andalus.spi.operator.OperatorAuthorizationException;
 import tech.kayys.andalus.spi.operator.OperatorContext;
 import tech.kayys.andalus.spi.operator.OperatorResult;
 import tech.kayys.andalus.spi.operator.OperatorService;
@@ -53,7 +54,7 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
     public OperatorResult<List<SessionInfo>> list(OperatorContext context, SessionQuery query) {
         try {
             authorization.require(context, SessionOperatorPermissions.READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -69,7 +70,7 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
     public OperatorResult<SessionInfo> inspect(OperatorContext context, SessionId sessionId) {
         try {
             authorization.require(context, SessionOperatorPermissions.INSPECT);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -92,7 +93,7 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
     public OperatorResult<Void> suspend(OperatorContext context, SessionId sessionId) {
         try {
             authorization.require(context, SessionOperatorPermissions.SUSPEND);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -103,7 +104,7 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
     public OperatorResult<Void> resume(OperatorContext context, SessionId sessionId) {
         try {
             authorization.require(context, SessionOperatorPermissions.RESUME);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -114,7 +115,7 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
     public OperatorResult<Void> close(OperatorContext context, SessionId sessionId) {
         try {
             authorization.require(context, SessionOperatorPermissions.CLOSE);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
