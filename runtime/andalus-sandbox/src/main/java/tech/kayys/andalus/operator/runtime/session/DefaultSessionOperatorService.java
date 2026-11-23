@@ -1,6 +1,6 @@
 package tech.kayys.andalus.operator.runtime.session;
 
-import tech.kayys.andalus.operator.runtime.PermissiveOperatorAuthorization;
+import tech.kayys.andalus.operator.runtime.DenyAllOperatorAuthorization;
 import tech.kayys.andalus.spi.operator.OperatorAuthorization;
 import tech.kayys.andalus.spi.operator.OperatorContext;
 import tech.kayys.andalus.spi.operator.OperatorResult;
@@ -24,7 +24,7 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
     private final OperatorAuthorization authorization;
 
     public DefaultSessionOperatorService(SessionManager sessionManager) {
-        this(sessionManager, new PermissiveOperatorAuthorization());
+        this(sessionManager, new DenyAllOperatorAuthorization());
     }
 
     public DefaultSessionOperatorService(
