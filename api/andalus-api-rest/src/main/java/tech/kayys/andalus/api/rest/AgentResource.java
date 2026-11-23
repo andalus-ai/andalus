@@ -69,6 +69,8 @@ public class AgentResource {
                     .onItem().transform(runResponseMapper::streamData)
                     .onFailure().recoverWithItem(runResponseMapper::streamError)
                     .toMulti();
+        } catch (SecurityException error) {
+            throw error;
         } catch (RuntimeException error) {
             return Multi.createFrom().item(runResponseMapper.streamError(error));
         }
