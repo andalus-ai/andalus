@@ -1,6 +1,6 @@
 package tech.kayys.andalus.operator.runtime.plugin;
 
-import tech.kayys.andalus.operator.runtime.PermissiveOperatorAuthorization;
+import tech.kayys.andalus.operator.runtime.DenyAllOperatorAuthorization;
 import tech.kayys.andalus.spi.operator.OperatorAuthorization;
 import tech.kayys.andalus.spi.operator.OperatorContext;
 import tech.kayys.andalus.spi.operator.OperatorResult;
@@ -23,7 +23,7 @@ public class DefaultPluginOperatorService implements PluginOperatorService, Oper
     private final OperatorAuthorization authorization;
 
     public DefaultPluginOperatorService(PluginManager pluginManager) {
-        this(pluginManager, new PermissiveOperatorAuthorization());
+        this(pluginManager, new DenyAllOperatorAuthorization());
     }
 
     public DefaultPluginOperatorService(PluginManager pluginManager, OperatorAuthorization authorization) {
