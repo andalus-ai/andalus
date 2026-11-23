@@ -1,6 +1,6 @@
 package tech.kayys.andalus.operator.runtime.tool;
 
-import tech.kayys.andalus.operator.runtime.PermissiveOperatorAuthorization;
+import tech.kayys.andalus.operator.runtime.DenyAllOperatorAuthorization;
 import tech.kayys.andalus.spi.capability.Capability;
 import tech.kayys.andalus.spi.capability.CapabilityRegistry;
 import tech.kayys.andalus.spi.operator.OperatorAuthorization;
@@ -30,7 +30,7 @@ public class DefaultToolCapabilityOperatorService implements ToolCapabilityOpera
     public DefaultToolCapabilityOperatorService(
             CapabilityRegistry capabilityRegistry,
             ToolRegistry toolRegistry) {
-        this(capabilityRegistry, toolRegistry, new PermissiveOperatorAuthorization());
+        this(capabilityRegistry, toolRegistry, new DenyAllOperatorAuthorization());
     }
 
     public DefaultToolCapabilityOperatorService(
