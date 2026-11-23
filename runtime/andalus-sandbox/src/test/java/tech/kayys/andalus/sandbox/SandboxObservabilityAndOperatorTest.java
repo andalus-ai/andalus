@@ -122,4 +122,20 @@ class SandboxObservabilityAndOperatorTest {
         assertTrue(destroyResult instanceof OperatorResult.Success);
         assertFalse(sandboxManager.find("sb-obs-1").isPresent());
     }
+
+    @Test
+    void tenantCannotInspectOrMutateAnotherTenantsSandbox() {
+        OperatorContext foreignTenant = new OperatorContext("tenant-2", "user-2", "corr-2", "req-2", Map.of());
+
+        assertEquals("SANDBOX_NOT_FOUND", ((OperatorResult.Failure<?>) operatorService.inspect(foreignTenant, "sb-obs-1")).code());
+        assertEquals("SANDBOX_NOT_FOUND", ((OperatorResult.Failure<?>) operatorService.health(foreignTenant, "sb-obs-1")).code());
+        assertEquals("SANDBOX_NOT_FOUND", ((OperatorResult.Failure<?>) operatorService.metrics(foreignTenant, "sb-obs-1")).code());
+        assertEquals("SANDBOX_NOT_FOUND", ((OperatorResult.Failure<?>) operatorService.diagnostics(foreignTenant, "sb-obs-1")).code());
+        assertEquals("SANDBOX_NOT_FOUND", ((OperatorResult.Failure<?>) operatorService.stop(foreignTenant, "sb-obs-1")).code());
+        assertEquals("SANDBOX_NOT_FOUND", ((OperatorResult.Failure<?>) operatorService.destroy(foreignTenant, "sb-obs-1")).code());
+
+        Sandbox sandbox = sandboxManager.find("sb-obs-1").orElseThrow();
+        assertEquals(SandboxState.RUNNING, sandbox.state());
+    }
+
 }
