@@ -34,14 +34,32 @@ public class OperatorGrpcContextResolver {
         if (protoCtx != null) {
             protoCtx.getAttributesMap().forEach((key, value) -> {
                 if (!"tenantId".equals(key) && !"userId".equals(key) && !"roles".equals(key)
-                        && !"principalId".equals(key) && !"principalType".equals(key)) {
+                        && !"principalId".equals(key) && !"principalType".equals(key)
+                        && !"permissions".equals(key)) {
                     attributes.put(key, value);
                 }
             });
         }
         attributes.put("authenticated", authenticated);
         attributes.put("roles", authenticated ? Set.copyOf(identity.getRoles()) : Set.of());
+        attributes.put("permissions", authenticated ? trustedPermissions(identity) : Set.of());
         return new OperatorContext(tenantId, userId, correlationId, requestId, attributes);
+    }
+
+    private Set<String> trustedPermissions(SecurityIdentity identity) {
+        Object value = identity.getAttribute("permissions");
+        if (value == null) return Set.of();
+        if (!(value instanceof Set<?> grants)) {
+            throw new SecurityException("Authenticated identity contains invalid permissions");
+        }
+        java.util.HashSet<String> permissions = new java.util.HashSet<>();
+        for (Object grant : grants) {
+            if (!(grant instanceof String permission) || permission.isBlank() || "*".equals(permission)) {
+                throw new SecurityException("Authenticated identity contains invalid permissions");
+            }
+            permissions.add(permission);
+        }
+        return Set.copyOf(permissions);
     }
 
     private String trustedTenant(SecurityIdentity identity) {
