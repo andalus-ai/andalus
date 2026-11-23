@@ -5,6 +5,7 @@ import tech.kayys.andalus.spi.execution.ExecutionControl;
 import tech.kayys.andalus.spi.execution.ExecutionInfo;
 import tech.kayys.andalus.spi.execution.ExecutionQuery;
 import tech.kayys.andalus.spi.operator.OperatorAuthorization;
+import tech.kayys.andalus.spi.operator.OperatorAuthorizationException;
 import tech.kayys.andalus.spi.operator.OperatorContext;
 import tech.kayys.andalus.spi.operator.OperatorResult;
 import tech.kayys.andalus.spi.operator.OperatorService;
@@ -52,7 +53,7 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
     public OperatorResult<List<ExecutionInfo>> list(OperatorContext context, ExecutionQuery query) {
         try {
             authorization.require(context, ExecutionOperatorPermissions.READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -68,7 +69,7 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
     public OperatorResult<ExecutionInfo> inspect(OperatorContext context, String executionId) {
         try {
             authorization.require(context, ExecutionOperatorPermissions.INSPECT);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -91,7 +92,7 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
     public OperatorResult<Void> pause(OperatorContext context, String executionId) {
         try {
             authorization.require(context, ExecutionOperatorPermissions.PAUSE);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -102,7 +103,7 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
     public OperatorResult<Void> resume(OperatorContext context, String executionId) {
         try {
             authorization.require(context, ExecutionOperatorPermissions.RESUME);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -113,7 +114,7 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
     public OperatorResult<Void> cancel(OperatorContext context, String executionId) {
         try {
             authorization.require(context, ExecutionOperatorPermissions.CANCEL);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -124,7 +125,7 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
     public OperatorResult<Void> retry(OperatorContext context, String executionId) {
         try {
             authorization.require(context, ExecutionOperatorPermissions.RETRY);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
