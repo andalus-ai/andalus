@@ -2,6 +2,7 @@ package tech.kayys.andalus.operator.runtime.sandbox;
 
 import tech.kayys.andalus.operator.runtime.DenyAllOperatorAuthorization;
 import tech.kayys.andalus.spi.operator.OperatorAuthorization;
+import tech.kayys.andalus.spi.operator.OperatorAuthorizationException;
 import tech.kayys.andalus.spi.operator.OperatorContext;
 import tech.kayys.andalus.spi.operator.OperatorResult;
 import tech.kayys.andalus.spi.operator.OperatorService;
@@ -48,7 +49,7 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
     public OperatorResult<List<SandboxSummary>> list(OperatorContext context) {
         try {
             authorization.require(context, SandboxOperatorPermissions.READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -72,7 +73,7 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
     public OperatorResult<SandboxSummary> inspect(OperatorContext context, String sandboxId) {
         try {
             authorization.require(context, SandboxOperatorPermissions.READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -96,7 +97,7 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
     public OperatorResult<SandboxHealthSummary> health(OperatorContext context, String sandboxId) {
         try {
             authorization.require(context, SandboxOperatorPermissions.HEALTH);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -114,7 +115,7 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
     public OperatorResult<SandboxMetricsSummary> metrics(OperatorContext context, String sandboxId) {
         try {
             authorization.require(context, SandboxOperatorPermissions.METRICS);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -132,7 +133,7 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
     public OperatorResult<SandboxDiagnosticsSummary> diagnostics(OperatorContext context, String sandboxId) {
         try {
             authorization.require(context, SandboxOperatorPermissions.DIAGNOSTICS);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -150,7 +151,7 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
     public OperatorResult<Void> stop(OperatorContext context, String sandboxId) {
         try {
             authorization.require(context, SandboxOperatorPermissions.STOP);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -169,7 +170,7 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
     public OperatorResult<Void> destroy(OperatorContext context, String sandboxId) {
         try {
             authorization.require(context, SandboxOperatorPermissions.DESTROY);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
