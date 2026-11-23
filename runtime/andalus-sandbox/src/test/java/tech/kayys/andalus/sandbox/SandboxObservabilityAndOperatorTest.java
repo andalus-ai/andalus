@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import tech.kayys.andalus.operator.runtime.DefaultOperatorServiceRegistry;
+import tech.kayys.andalus.operator.runtime.PermissiveOperatorAuthorization;
 import tech.kayys.andalus.operator.runtime.sandbox.DefaultSandboxOperatorService;
 import tech.kayys.andalus.sandbox.process.ProcessSandboxProvider;
 import tech.kayys.andalus.sandbox.runtime.DefaultSandboxManager;
@@ -41,7 +42,7 @@ class SandboxObservabilityAndOperatorTest {
         sandboxManager = new DefaultSandboxManager(registry);
         obsManager = new DefaultSandboxObservabilityManager(null, sandboxManager);
         diagnostics = new DefaultSandboxDiagnostics(sandboxManager);
-        operatorService = new DefaultSandboxOperatorService(sandboxManager);
+        operatorService = new DefaultSandboxOperatorService(sandboxManager, new PermissiveOperatorAuthorization());
 
         SandboxRequest request = new SandboxRequest(
                 "sb-obs-1",
