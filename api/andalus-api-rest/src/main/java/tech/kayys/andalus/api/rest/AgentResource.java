@@ -8,6 +8,7 @@ import java.security.Principal;
 import java.util.HashMap;
 import java.util.Set;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -52,7 +53,7 @@ public class AgentResource {
             return agentClient.execute(agentRequest)
                     .map(runResponseMapper::ok)
                     .onFailure().recoverWithItem(runResponseMapper::serverError);
-        } catch (SecurityException error) {
+        } catch (ForbiddenException error) {
             return Uni.createFrom().item(Response.status(Response.Status.FORBIDDEN)
                     .entity(Map.of("error", error.getMessage())).build());
         } catch (RuntimeException error) {
@@ -69,7 +70,7 @@ public class AgentResource {
                     .onItem().transform(runResponseMapper::streamData)
                     .onFailure().recoverWithItem(runResponseMapper::streamError)
                     .toMulti();
-        } catch (SecurityException error) {
+        } catch (ForbiddenException error) {
             throw error;
         } catch (RuntimeException error) {
             return Multi.createFrom().item(runResponseMapper.streamError(error));
@@ -95,7 +96,7 @@ public class AgentResource {
             userId = principal.getName();
             Object tenant = identity.getAttribute("tenantId");
             if (!(tenant instanceof String value) || value.isBlank()) {
-                throw new SecurityException("Authenticated agent requests require a trusted tenantId");
+                throw new ForbiddenException("Authenticated agent requests require a trusted tenantId");
             }
             tenantId = value;
         }
