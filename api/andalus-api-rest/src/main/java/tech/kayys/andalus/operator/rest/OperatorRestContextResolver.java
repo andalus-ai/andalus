@@ -25,7 +25,7 @@ public class OperatorRestContextResolver {
 
     public OperatorContext resolve() {
         SecurityIdentity identity = securityIdentity;
-        boolean authenticated = identity != null && !identity.isAnonymous();
+        boolean authenticated = identity != null && !identity.isAnonymous() && identity.getPrincipal() != null;
         Principal principal = authenticated ? identity.getPrincipal() : null;
         String userId = principal != null ? principal.getName() : null;
         String tenantId = authenticated ? trustedTenant(identity) : null;
