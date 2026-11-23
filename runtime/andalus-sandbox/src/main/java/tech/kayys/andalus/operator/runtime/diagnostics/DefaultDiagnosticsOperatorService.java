@@ -1,6 +1,6 @@
 package tech.kayys.andalus.operator.runtime.diagnostics;
 
-import tech.kayys.andalus.operator.runtime.PermissiveOperatorAuthorization;
+import tech.kayys.andalus.operator.runtime.DenyAllOperatorAuthorization;
 import tech.kayys.andalus.spi.diagnostics.*;
 import tech.kayys.andalus.spi.operator.OperatorAuthorization;
 import tech.kayys.andalus.spi.operator.OperatorContext;
@@ -23,7 +23,7 @@ public class DefaultDiagnosticsOperatorService implements DiagnosticsOperatorSer
     private final OperatorAuthorization authorization;
 
     public DefaultDiagnosticsOperatorService(DefaultDiagnosticService diagnosticService) {
-        this(diagnosticService, new PermissiveOperatorAuthorization());
+        this(diagnosticService, new DenyAllOperatorAuthorization());
     }
 
     public DefaultDiagnosticsOperatorService(
