@@ -351,6 +351,7 @@ class OperatorGrpcServiceTest {
                 .putAttributes("roles", "admin")
                 .putAttributes("principalId", "admin")
                 .putAttributes("principalType", "USER")
+                .putAttributes("permissions", "operator.plugins.enable")
                 .build();
 
         var ctx = resolver.resolve(protoCtx);
@@ -364,6 +365,8 @@ class OperatorGrpcServiceTest {
         assertFalse(ctx.attributes().containsKey("userId"));
         assertFalse(ctx.attributes().containsKey("principalId"));
         assertFalse(ctx.attributes().containsKey("principalType"));
+        assertEquals(java.util.Set.of(), ctx.attributes().get("permissions"),
+                "protobuf attributes must not establish operator permissions");
     }
 
     @Test
@@ -376,7 +379,11 @@ class OperatorGrpcServiceTest {
                             case "isAnonymous" -> false;
                             case "getPrincipal" -> (java.security.Principal) () -> "verified-user";
                             case "getRoles" -> java.util.Set.of("operator");
-                            case "getAttribute" -> "tenantId".equals(args[0]) ? "verified-tenant" : null;
+                            case "getAttribute" -> switch ((String) args[0]) {
+                                case "tenantId" -> "verified-tenant";
+                                case "permissions" -> java.util.Set.of("operator.plugins.read");
+                                default -> null;
+                            };
                             default -> null;
                         });
 
@@ -391,6 +398,7 @@ class OperatorGrpcServiceTest {
         assertEquals("verified-tenant", context.tenantId());
         assertEquals("verified-user", context.userId());
         assertEquals(java.util.Set.of("operator"), context.attributes().get("roles"));
+        assertEquals(java.util.Set.of("operator.plugins.read"), context.attributes().get("permissions"));
         assertEquals(Boolean.TRUE, context.attributes().get("authenticated"));
     }
 
