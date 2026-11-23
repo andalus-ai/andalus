@@ -59,7 +59,9 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
 
         try {
             ExecutionQuery effectiveQuery = (query == null) ? ExecutionQuery.all() : query;
-            return OperatorResult.success(executionControl.list(effectiveQuery));
+            return OperatorResult.success(executionControl.list(effectiveQuery).stream()
+                    .filter(info -> belongsToTenant(context, info))
+                    .toList());
         } catch (Exception e) {
             return OperatorResult.failure("EXECUTION_LIST_FAILED", e.getMessage());
         }
@@ -79,7 +81,7 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
 
         try {
             Optional<ExecutionInfo> info = executionControl.find(executionId);
-            if (info.isEmpty()) {
+            if (info.isEmpty() || !belongsToTenant(context, info.get())) {
                 return OperatorResult.failure("EXECUTION_NOT_FOUND", "No execution found with ID: " + executionId);
             }
             return OperatorResult.success(info.get());
@@ -142,6 +144,10 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
         }
 
         try {
+            Optional<ExecutionInfo> execution = executionControl.find(executionId);
+            if (execution.isEmpty() || !belongsToTenant(context, execution.get())) {
+                return OperatorResult.failure("EXECUTION_NOT_FOUND", "No execution found with ID: " + executionId);
+            }
             operation.accept(executionId);
             return OperatorResult.success(null);
         } catch (Exception e) {
