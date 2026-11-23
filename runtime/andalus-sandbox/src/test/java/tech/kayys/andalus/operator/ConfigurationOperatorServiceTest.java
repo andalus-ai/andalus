@@ -15,6 +15,7 @@ import tech.kayys.andalus.spi.operator.configuration.ConfigurationSummary;
 import tech.kayys.andalus.spi.operator.configuration.ConfigurationUpdateRequest;
 
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,7 +34,14 @@ class ConfigurationOperatorServiceTest {
         auditService = new DefaultOperatorAuditService(new DefaultOperatorAuditRedactor());
 
         service = new DefaultConfigurationOperatorService(authorization, auditService);
-        context = new OperatorContext("tenant-a", "user-1", "corr-1", "req-1", Map.of());
+        context = new OperatorContext("tenant-a", "user-1", "corr-1", "req-1", Map.of(
+                "permissions", Set.of(
+                        "operator.configuration.read",
+                        "operator.configuration.inspect",
+                        "operator.configuration.update",
+                        "operator.configuration.activate"
+                )
+        ));
     }
 
     @Test
