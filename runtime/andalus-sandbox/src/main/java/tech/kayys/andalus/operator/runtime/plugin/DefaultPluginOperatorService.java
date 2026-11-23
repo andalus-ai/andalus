@@ -50,7 +50,7 @@ public class DefaultPluginOperatorService implements PluginOperatorService, Oper
     @Override
     public OperatorResult<List<PluginSummary>> list(OperatorContext context) {
         try {
-            authorization.require(context, PluginOperatorPermissions.READ);
+            authorization.requirePlatform(context, PluginOperatorPermissions.READ);
         } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
@@ -69,7 +69,7 @@ public class DefaultPluginOperatorService implements PluginOperatorService, Oper
     @Override
     public OperatorResult<PluginSummary> inspect(OperatorContext context, String pluginId) {
         try {
-            authorization.require(context, PluginOperatorPermissions.READ);
+            authorization.requirePlatform(context, PluginOperatorPermissions.READ);
         } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
@@ -91,7 +91,7 @@ public class DefaultPluginOperatorService implements PluginOperatorService, Oper
     @Override
     public OperatorResult<Void> enable(OperatorContext context, String pluginId) {
         try {
-            authorization.require(context, PluginOperatorPermissions.ENABLE);
+            authorization.requirePlatform(context, PluginOperatorPermissions.ENABLE);
         } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
@@ -110,7 +110,7 @@ public class DefaultPluginOperatorService implements PluginOperatorService, Oper
     @Override
     public OperatorResult<Void> disable(OperatorContext context, String pluginId) {
         try {
-            authorization.require(context, PluginOperatorPermissions.DISABLE);
+            authorization.requirePlatform(context, PluginOperatorPermissions.DISABLE);
         } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
@@ -129,7 +129,7 @@ public class DefaultPluginOperatorService implements PluginOperatorService, Oper
     @Override
     public OperatorResult<Void> unload(OperatorContext context, String pluginId) {
         try {
-            authorization.require(context, PluginOperatorPermissions.UNLOAD);
+            authorization.requirePlatform(context, PluginOperatorPermissions.UNLOAD);
         } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
