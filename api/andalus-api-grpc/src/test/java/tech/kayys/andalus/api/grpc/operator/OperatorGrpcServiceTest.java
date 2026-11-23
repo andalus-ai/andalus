@@ -366,6 +366,34 @@ class OperatorGrpcServiceTest {
         assertFalse(ctx.attributes().containsKey("principalType"));
     }
 
+    @Test
+    void trustedSecurityIdentityOverridesForgedGrpcClaims() {
+        io.quarkus.security.identity.SecurityIdentity identity =
+                (io.quarkus.security.identity.SecurityIdentity) Proxy.newProxyInstance(
+                        getClass().getClassLoader(),
+                        new Class<?>[]{io.quarkus.security.identity.SecurityIdentity.class},
+                        (proxy, method, args) -> switch (method.getName()) {
+                            case "isAnonymous" -> false;
+                            case "getPrincipal" -> (java.security.Principal) () -> "verified-user";
+                            case "getRoles" -> java.util.Set.of("operator");
+                            case "getAttribute" -> "tenantId".equals(args[0]) ? "verified-tenant" : null;
+                            default -> null;
+                        });
+
+        OperatorRequestContext protoCtx = OperatorRequestContext.newBuilder()
+                .putAttributes("tenantId", "forged-tenant")
+                .putAttributes("userId", "forged-user")
+                .putAttributes("roles", "admin")
+                .build();
+
+        var context = new OperatorGrpcContextResolver().resolve(protoCtx, identity);
+
+        assertEquals("verified-tenant", context.tenantId());
+        assertEquals("verified-user", context.userId());
+        assertEquals(java.util.Set.of("operator"), context.attributes().get("roles"));
+        assertEquals(Boolean.TRUE, context.attributes().get("authenticated"));
+    }
+
     // Helper mock Instance implementation
     static class SimpleInstance<T> implements Instance<T> {
         private final T value;
