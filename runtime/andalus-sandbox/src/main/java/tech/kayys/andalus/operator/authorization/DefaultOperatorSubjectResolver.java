@@ -20,8 +20,8 @@ public class DefaultOperatorSubjectResolver implements OperatorSubjectResolver {
     private final Set<String> defaultPermissions = ConcurrentHashMap.newKeySet();
 
     /**
-     * Adds an explicit deployment-level role grant.
-     * Prefer request-scoped roles for multi-tenant deployments.
+     * Adds an explicit deployment-level permission grant.
+     * Prefer request-scoped permissions for multi-tenant deployments.
      */
     public void grantPermission(String permission) {
         if (permission == null || permission.isBlank() || "*".equals(permission)) {
