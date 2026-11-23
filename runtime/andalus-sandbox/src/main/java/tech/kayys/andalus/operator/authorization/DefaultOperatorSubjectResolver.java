@@ -5,43 +5,61 @@ import tech.kayys.andalus.spi.operator.authorization.OperatorSubjectResolver;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Default subject resolver extracting identity, roles, and permissions from OperatorContext.
+ * Resolves operator identity claims from the request context.
+ *
+ * <p>No role or permission is granted by default. Deployments may register
+ * explicit static grants, while request-scoped grants must be populated by a
+ * trusted authentication/authorization integration.</p>
  */
 public class DefaultOperatorSubjectResolver implements OperatorSubjectResolver {
 
-    private final Set<String> defaultRoles = new HashSet<>();
-    private final Set<String> defaultPermissions = new HashSet<>();
+    private final Set<String> defaultRoles = ConcurrentHashMap.newKeySet();
+    private final Set<String> defaultPermissions = ConcurrentHashMap.newKeySet();
 
-    public DefaultOperatorSubjectResolver() {
-        defaultRoles.add("andalus-platform-admin");
-        defaultRoles.add("andalus-operator");
-    }
-
+    /**
+     * Adds an explicit deployment-level role grant.
+     * Prefer request-scoped roles for multi-tenant deployments.
+     */
     public void grantPermission(String permission) {
+        if (permission == null || permission.isBlank() || "*".equals(permission)) {
+            throw new IllegalArgumentException("A concrete operator permission is required");
+        }
         defaultPermissions.add(permission);
     }
 
+    /**
+     * Adds an explicit deployment-level role grant.
+     * Prefer request-scoped roles for multi-tenant deployments.
+     */
     public void grantRole(String role) {
+        if (role == null || role.isBlank() || "*".equals(role)) {
+            throw new IllegalArgumentException("A concrete operator role is required");
+        }
         defaultRoles.add(role);
     }
 
     @Override
     public String subject(OperatorContext context) {
-        return context != null && context.userId() != null ? context.userId() : "anonymous-operator";
+        return context != null && context.userId() != null && !context.userId().isBlank()
+                ? context.userId()
+                : "anonymous-operator";
     }
 
     @Override
     public Set<String> roles(OperatorContext context) {
         if (context != null) {
             var attr = context.attribute("roles");
-            if (attr.isPresent() && attr.get() instanceof Set<?> r) {
-                Set<String> res = new HashSet<>();
-                for (Object obj : r) {
-                    if (obj != null) res.add(obj.toString());
+            if (attr.isPresent() && attr.get() instanceof Set<?> roles) {
+                Set<String> resolved = new HashSet<>();
+                for (Object role : roles) {
+                    if (role != null && !role.toString().isBlank()) {
+                        resolved.add(role.toString());
+                    }
                 }
-                return res;
+                return Set.copyOf(resolved);
             }
         }
         return Set.copyOf(defaultRoles);
@@ -51,14 +69,17 @@ public class DefaultOperatorSubjectResolver implements OperatorSubjectResolver {
     public Set<String> permissions(OperatorContext context) {
         if (context != null) {
             var attr = context.attribute("permissions");
-            if (attr.isPresent() && attr.get() instanceof Set<?> p) {
-                Set<String> res = new HashSet<>();
-                for (Object obj : p) {
-                    if (obj != null) res.add(obj.toString());
+            if (attr.isPresent() && attr.get() instanceof Set<?> permissions) {
+                Set<String> resolved = new HashSet<>();
+                for (Object permission : permissions) {
+                    if (permission != null && !permission.toString().isBlank()
+                            && !"*".equals(permission.toString())) {
+                        resolved.add(permission.toString());
+                    }
                 }
-                return res;
+                return Set.copyOf(resolved);
             }
         }
-        return defaultPermissions.isEmpty() ? Set.of("*") : Set.copyOf(defaultPermissions);
+        return Set.copyOf(defaultPermissions);
     }
 }
