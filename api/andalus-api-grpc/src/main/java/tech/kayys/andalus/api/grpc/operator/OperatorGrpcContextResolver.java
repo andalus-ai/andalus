@@ -20,7 +20,7 @@ public class OperatorGrpcContextResolver {
     }
 
     public OperatorContext resolve(OperatorRequestContext protoCtx, SecurityIdentity identity) {
-        boolean authenticated = identity != null && !identity.isAnonymous();
+        boolean authenticated = identity != null && !identity.isAnonymous() && identity.getPrincipal() != null;
         Principal principal = authenticated ? identity.getPrincipal() : null;
         String userId = principal != null ? principal.getName() : null;
         String tenantId = authenticated ? trustedTenant(identity) : null;
