@@ -348,6 +348,9 @@ class OperatorGrpcServiceTest {
                 .setRequestId("r-456")
                 .putAttributes("tenantId", "tenant-xyz")
                 .putAttributes("userId", "user-abc")
+                .putAttributes("roles", "admin")
+                .putAttributes("principalId", "admin")
+                .putAttributes("principalType", "USER")
                 .build();
 
         var ctx = resolver.resolve(protoCtx);
@@ -359,6 +362,8 @@ class OperatorGrpcServiceTest {
         assertEquals(java.util.Set.of(), ctx.attributes().get("roles"));
         assertFalse(ctx.attributes().containsKey("tenantId"));
         assertFalse(ctx.attributes().containsKey("userId"));
+        assertFalse(ctx.attributes().containsKey("principalId"));
+        assertFalse(ctx.attributes().containsKey("principalType"));
     }
 
     // Helper mock Instance implementation
