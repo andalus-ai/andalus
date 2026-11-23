@@ -2,6 +2,7 @@ package tech.kayys.andalus.operator.runtime.plugin;
 
 import tech.kayys.andalus.operator.runtime.DenyAllOperatorAuthorization;
 import tech.kayys.andalus.spi.operator.OperatorAuthorization;
+import tech.kayys.andalus.spi.operator.OperatorAuthorizationException;
 import tech.kayys.andalus.spi.operator.OperatorContext;
 import tech.kayys.andalus.spi.operator.OperatorResult;
 import tech.kayys.andalus.spi.operator.OperatorService;
@@ -50,7 +51,7 @@ public class DefaultPluginOperatorService implements PluginOperatorService, Oper
     public OperatorResult<List<PluginSummary>> list(OperatorContext context) {
         try {
             authorization.require(context, PluginOperatorPermissions.READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -69,7 +70,7 @@ public class DefaultPluginOperatorService implements PluginOperatorService, Oper
     public OperatorResult<PluginSummary> inspect(OperatorContext context, String pluginId) {
         try {
             authorization.require(context, PluginOperatorPermissions.READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -91,7 +92,7 @@ public class DefaultPluginOperatorService implements PluginOperatorService, Oper
     public OperatorResult<Void> enable(OperatorContext context, String pluginId) {
         try {
             authorization.require(context, PluginOperatorPermissions.ENABLE);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -110,7 +111,7 @@ public class DefaultPluginOperatorService implements PluginOperatorService, Oper
     public OperatorResult<Void> disable(OperatorContext context, String pluginId) {
         try {
             authorization.require(context, PluginOperatorPermissions.DISABLE);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -129,7 +130,7 @@ public class DefaultPluginOperatorService implements PluginOperatorService, Oper
     public OperatorResult<Void> unload(OperatorContext context, String pluginId) {
         try {
             authorization.require(context, PluginOperatorPermissions.UNLOAD);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
