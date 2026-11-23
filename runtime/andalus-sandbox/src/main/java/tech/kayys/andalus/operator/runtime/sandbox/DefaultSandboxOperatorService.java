@@ -1,6 +1,6 @@
 package tech.kayys.andalus.operator.runtime.sandbox;
 
-import tech.kayys.andalus.operator.runtime.PermissiveOperatorAuthorization;
+import tech.kayys.andalus.operator.runtime.DenyAllOperatorAuthorization;
 import tech.kayys.andalus.spi.operator.OperatorAuthorization;
 import tech.kayys.andalus.spi.operator.OperatorContext;
 import tech.kayys.andalus.spi.operator.OperatorResult;
@@ -21,7 +21,7 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
     private final OperatorAuthorization authorization;
 
     public DefaultSandboxOperatorService(SandboxManager sandboxManager) {
-        this(sandboxManager, new PermissiveOperatorAuthorization());
+        this(sandboxManager, new DenyAllOperatorAuthorization());
     }
 
     public DefaultSandboxOperatorService(SandboxManager sandboxManager, OperatorAuthorization authorization) {
