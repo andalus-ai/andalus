@@ -353,8 +353,12 @@ class OperatorGrpcServiceTest {
         var ctx = resolver.resolve(protoCtx);
         assertEquals("c-123", ctx.correlationId());
         assertEquals("r-456", ctx.requestId());
-        assertEquals("tenant-xyz", ctx.tenantId());
-        assertEquals("user-abc", ctx.userId());
+        assertNull(ctx.tenantId(), "protobuf attributes must not establish tenant identity");
+        assertNull(ctx.userId(), "protobuf attributes must not establish user identity");
+        assertEquals(Boolean.FALSE, ctx.attributes().get("authenticated"));
+        assertEquals(java.util.Set.of(), ctx.attributes().get("roles"));
+        assertFalse(ctx.attributes().containsKey("tenantId"));
+        assertFalse(ctx.attributes().containsKey("userId"));
     }
 
     // Helper mock Instance implementation
