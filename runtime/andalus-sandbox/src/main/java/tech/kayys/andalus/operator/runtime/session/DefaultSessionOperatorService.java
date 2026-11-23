@@ -99,7 +99,7 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
-        return perform(sessionId, "SESSION_SUSPEND_FAILED", sessionManager::suspend);
+        return perform(context, sessionId, "SESSION_SUSPEND_FAILED", sessionManager::suspend);
     }
 
     @Override
@@ -110,7 +110,7 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
-        return perform(sessionId, "SESSION_RESUME_FAILED", sessionManager::resume);
+        return perform(context, sessionId, "SESSION_RESUME_FAILED", sessionManager::resume);
     }
 
     @Override
@@ -121,10 +121,11 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
-        return perform(sessionId, "SESSION_CLOSE_FAILED", sessionManager::close);
+        return perform(context, sessionId, "SESSION_CLOSE_FAILED", sessionManager::close);
     }
 
     private OperatorResult<Void> perform(
+            OperatorContext context,
             SessionId sessionId,
             String errorCode,
             ThrowingSessionOperation operation) {
@@ -143,6 +144,11 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
         } catch (Exception e) {
             return OperatorResult.failure(errorCode, e.getMessage());
         }
+    }
+
+    private boolean belongsToTenant(OperatorContext context, SessionInfo session) {
+        return context != null && context.tenantId() != null && !context.tenantId().isBlank()
+                && session.tenantId() != null && session.tenantId().equals(context.tenantId());
     }
 
     @FunctionalInterface
