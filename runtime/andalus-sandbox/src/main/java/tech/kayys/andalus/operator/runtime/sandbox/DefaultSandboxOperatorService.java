@@ -100,7 +100,8 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
         if (sb.isEmpty()) {
             return OperatorResult.failure("SANDBOX_NOT_FOUND", "No sandbox found with ID: " + sandboxId);
         }
-        if (!belongsToTenant(context, sb.get())) return notFound(sandboxId);\n        return OperatorResult.success(SandboxSummaryMapper.mapHealth(sb.get()));
+        if (!belongsToTenant(context, sb.get())) return notFound(sandboxId);
+        return OperatorResult.success(SandboxSummaryMapper.mapHealth(sb.get()));
     }
 
     @Override
@@ -118,7 +119,8 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
         if (sb.isEmpty()) {
             return OperatorResult.failure("SANDBOX_NOT_FOUND", "No sandbox found with ID: " + sandboxId);
         }
-        if (!belongsToTenant(context, sb.get())) return notFound(sandboxId);\n        return OperatorResult.success(SandboxSummaryMapper.mapMetrics(sb.get()));
+        if (!belongsToTenant(context, sb.get())) return notFound(sandboxId);
+        return OperatorResult.success(SandboxSummaryMapper.mapMetrics(sb.get()));
     }
 
     @Override
@@ -136,7 +138,8 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
         if (sb.isEmpty()) {
             return OperatorResult.failure("SANDBOX_NOT_FOUND", "No sandbox found with ID: " + sandboxId);
         }
-        if (!belongsToTenant(context, sb.get())) return notFound(sandboxId);\n        return OperatorResult.success(SandboxSummaryMapper.mapDiagnostics(sb.get()));
+        if (!belongsToTenant(context, sb.get())) return notFound(sandboxId);
+        return OperatorResult.success(SandboxSummaryMapper.mapDiagnostics(sb.get()));
     }
 
     @Override
@@ -151,7 +154,9 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
             return OperatorResult.failure("INVALID_ARGUMENT", "sandboxId must not be blank");
         }
         try {
-            Sandbox sandbox = sandboxManager.find(sandboxId).orElse(null);\n            if (sandbox == null || !belongsToTenant(context, sandbox)) return notFound(sandboxId);\n            sandboxManager.stop(sandboxId);
+            Sandbox sandbox = sandboxManager.find(sandboxId).orElse(null);
+            if (sandbox == null || !belongsToTenant(context, sandbox)) return notFound(sandboxId);
+            sandboxManager.stop(sandboxId);
             return OperatorResult.success(null);
         } catch (Exception e) {
             return OperatorResult.failure("SANDBOX_STOP_FAILED", e.getMessage());
@@ -170,10 +175,21 @@ public class DefaultSandboxOperatorService implements SandboxOperatorService, Op
             return OperatorResult.failure("INVALID_ARGUMENT", "sandboxId must not be blank");
         }
         try {
-            Sandbox sandbox = sandboxManager.find(sandboxId).orElse(null);\n            if (sandbox == null || !belongsToTenant(context, sandbox)) return notFound(sandboxId);\n            sandboxManager.destroy(sandboxId);
+            Sandbox sandbox = sandboxManager.find(sandboxId).orElse(null);
+            if (sandbox == null || !belongsToTenant(context, sandbox)) return notFound(sandboxId);
+            sandboxManager.destroy(sandboxId);
             return OperatorResult.success(null);
         } catch (Exception e) {
             return OperatorResult.failure("SANDBOX_DESTROY_FAILED", e.getMessage());
         }
+    }
+
+    private boolean belongsToTenant(OperatorContext context, Sandbox sandbox) {
+        return context != null && context.tenantId() != null && !context.tenantId().isBlank()
+                && sandbox.context().tenantId().map(context.tenantId()::equals).orElse(false);
+    }
+
+    private <T> OperatorResult<T> notFound(String sandboxId) {
+        return OperatorResult.failure("SANDBOX_NOT_FOUND", "No sandbox found with ID: " + sandboxId);
     }
 }
