@@ -1,6 +1,6 @@
 package tech.kayys.andalus.operator.runtime.execution;
 
-import tech.kayys.andalus.operator.runtime.PermissiveOperatorAuthorization;
+import tech.kayys.andalus.operator.runtime.DenyAllOperatorAuthorization;
 import tech.kayys.andalus.spi.execution.ExecutionControl;
 import tech.kayys.andalus.spi.execution.ExecutionInfo;
 import tech.kayys.andalus.spi.execution.ExecutionQuery;
@@ -23,7 +23,7 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
     private final OperatorAuthorization authorization;
 
     public DefaultExecutionOperatorService(ExecutionControl executionControl) {
-        this(executionControl, new PermissiveOperatorAuthorization());
+        this(executionControl, new DenyAllOperatorAuthorization());
     }
 
     public DefaultExecutionOperatorService(
