@@ -60,7 +60,9 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
 
         try {
             SessionQuery effectiveQuery = (query == null) ? SessionQuery.all() : query;
-            return OperatorResult.success(sessionManager.list(effectiveQuery));
+            return OperatorResult.success(sessionManager.list(effectiveQuery).stream()
+                    .filter(session -> belongsToTenant(context, session))
+                    .toList());
         } catch (Exception e) {
             return OperatorResult.failure("SESSION_LIST_FAILED", e.getMessage());
         }
@@ -80,7 +82,7 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
 
         try {
             Optional<SessionInfo> session = sessionManager.find(sessionId);
-            if (session.isEmpty()) {
+            if (session.isEmpty() || !belongsToTenant(context, session.get())) {
                 return OperatorResult.failure("SESSION_NOT_FOUND", "No session found with ID: " + sessionId);
             }
             return OperatorResult.success(session.get());
@@ -132,6 +134,10 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
         }
 
         try {
+            Optional<SessionInfo> session = sessionManager.find(sessionId);
+            if (session.isEmpty() || !belongsToTenant(context, session.get())) {
+                return OperatorResult.failure("SESSION_NOT_FOUND", "No session found with ID: " + sessionId);
+            }
             operation.accept(sessionId);
             return OperatorResult.success(null);
         } catch (Exception e) {
