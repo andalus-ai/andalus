@@ -33,6 +33,7 @@ public class OperatorRestContextResolver {
         Map<String, Object> attributes = new HashMap<>();
         attributes.put("authenticated", authenticated);
         attributes.put("roles", authenticated ? Set.copyOf(identity.getRoles()) : Set.of());
+        attributes.put("permissions", authenticated ? trustedPermissions(identity) : Set.of());
         if (headers != null) {
             String userAgent = headers.getHeaderString("User-Agent");
             if (userAgent != null) attributes.put("userAgent", userAgent);
@@ -43,6 +44,22 @@ public class OperatorRestContextResolver {
         return new OperatorContext(tenantId, userId,
                 getHeader("X-Correlation-ID", UUID.randomUUID().toString()),
                 getHeader("X-Request-ID", UUID.randomUUID().toString()), attributes);
+    }
+
+    private Set<String> trustedPermissions(SecurityIdentity identity) {
+        Object value = identity.getAttribute("permissions");
+        if (value == null) return Set.of();
+        if (!(value instanceof Set<?> grants)) {
+            throw new SecurityException("Authenticated identity contains invalid permissions");
+        }
+        java.util.HashSet<String> permissions = new java.util.HashSet<>();
+        for (Object grant : grants) {
+            if (!(grant instanceof String permission) || permission.isBlank() || "*".equals(permission)) {
+                throw new SecurityException("Authenticated identity contains invalid permissions");
+            }
+            permissions.add(permission);
+        }
+        return Set.copyOf(permissions);
     }
 
     private String trustedTenant(SecurityIdentity identity) {
