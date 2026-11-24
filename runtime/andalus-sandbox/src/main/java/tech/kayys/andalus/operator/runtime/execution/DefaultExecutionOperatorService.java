@@ -59,7 +59,9 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
 
         try {
             ExecutionQuery effectiveQuery = (query == null) ? ExecutionQuery.all() : query;
-            return OperatorResult.success(executionControl.list(effectiveQuery));
+            return OperatorResult.success(executionControl.list(effectiveQuery).stream()
+                    .filter(info -> belongsToTenant(context, info))
+                    .toList());
         } catch (Exception e) {
             return OperatorResult.failure("EXECUTION_LIST_FAILED", e.getMessage());
         }
@@ -79,7 +81,7 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
 
         try {
             Optional<ExecutionInfo> info = executionControl.find(executionId);
-            if (info.isEmpty()) {
+            if (info.isEmpty() || !belongsToTenant(context, info.get())) {
                 return OperatorResult.failure("EXECUTION_NOT_FOUND", "No execution found with ID: " + executionId);
             }
             return OperatorResult.success(info.get());
@@ -96,7 +98,7 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
-        return executeControl(executionId, "EXECUTION_PAUSE_FAILED", executionControl::pause);
+        return executeControl(context, executionId, "EXECUTION_PAUSE_FAILED", executionControl::pause);
     }
 
     @Override
@@ -107,7 +109,7 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
-        return executeControl(executionId, "EXECUTION_RESUME_FAILED", executionControl::resume);
+        return executeControl(context, executionId, "EXECUTION_RESUME_FAILED", executionControl::resume);
     }
 
     @Override
@@ -118,7 +120,7 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
-        return executeControl(executionId, "EXECUTION_CANCEL_FAILED", executionControl::cancel);
+        return executeControl(context, executionId, "EXECUTION_CANCEL_FAILED", executionControl::cancel);
     }
 
     @Override
@@ -129,10 +131,11 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
-        return executeControl(executionId, "EXECUTION_RETRY_FAILED", executionControl::retry);
+        return executeControl(context, executionId, "EXECUTION_RETRY_FAILED", executionControl::retry);
     }
 
     private OperatorResult<Void> executeControl(
+            OperatorContext context,
             String executionId,
             String errorCode,
             ThrowingConsumer<String> operation) {
@@ -142,11 +145,20 @@ public class DefaultExecutionOperatorService implements ExecutionOperatorService
         }
 
         try {
+            Optional<ExecutionInfo> execution = executionControl.find(executionId);
+            if (execution.isEmpty() || !belongsToTenant(context, execution.get())) {
+                return OperatorResult.failure("EXECUTION_NOT_FOUND", "No execution found with ID: " + executionId);
+            }
             operation.accept(executionId);
             return OperatorResult.success(null);
         } catch (Exception e) {
             return OperatorResult.failure(errorCode, e.getMessage());
         }
+    }
+
+    private boolean belongsToTenant(OperatorContext context, ExecutionInfo execution) {
+        return context != null && context.tenantId() != null && !context.tenantId().isBlank()
+                && execution.tenantId() != null && execution.tenantId().equals(context.tenantId());
     }
 
     @FunctionalInterface

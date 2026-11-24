@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import tech.kayys.andalus.operator.runtime.DefaultOperatorServiceRegistry;
+import tech.kayys.andalus.operator.runtime.PermissiveOperatorAuthorization;
 import tech.kayys.andalus.operator.runtime.sandbox.DefaultSandboxOperatorService;
 import tech.kayys.andalus.sandbox.process.ProcessSandboxProvider;
 import tech.kayys.andalus.sandbox.runtime.DefaultSandboxManager;
@@ -41,7 +42,7 @@ class SandboxObservabilityAndOperatorTest {
         sandboxManager = new DefaultSandboxManager(registry);
         obsManager = new DefaultSandboxObservabilityManager(null, sandboxManager);
         diagnostics = new DefaultSandboxDiagnostics(sandboxManager);
-        operatorService = new DefaultSandboxOperatorService(sandboxManager);
+        operatorService = new DefaultSandboxOperatorService(sandboxManager, new PermissiveOperatorAuthorization());
 
         SandboxRequest request = new SandboxRequest(
                 "sb-obs-1",
@@ -121,4 +122,20 @@ class SandboxObservabilityAndOperatorTest {
         assertTrue(destroyResult instanceof OperatorResult.Success);
         assertFalse(sandboxManager.find("sb-obs-1").isPresent());
     }
+
+    @Test
+    void tenantCannotInspectOrMutateAnotherTenantsSandbox() {
+        OperatorContext foreignTenant = new OperatorContext("tenant-2", "user-2", "corr-2", "req-2", Map.of());
+
+        assertEquals("SANDBOX_NOT_FOUND", ((OperatorResult.Failure<?>) operatorService.inspect(foreignTenant, "sb-obs-1")).code());
+        assertEquals("SANDBOX_NOT_FOUND", ((OperatorResult.Failure<?>) operatorService.health(foreignTenant, "sb-obs-1")).code());
+        assertEquals("SANDBOX_NOT_FOUND", ((OperatorResult.Failure<?>) operatorService.metrics(foreignTenant, "sb-obs-1")).code());
+        assertEquals("SANDBOX_NOT_FOUND", ((OperatorResult.Failure<?>) operatorService.diagnostics(foreignTenant, "sb-obs-1")).code());
+        assertEquals("SANDBOX_NOT_FOUND", ((OperatorResult.Failure<?>) operatorService.stop(foreignTenant, "sb-obs-1")).code());
+        assertEquals("SANDBOX_NOT_FOUND", ((OperatorResult.Failure<?>) operatorService.destroy(foreignTenant, "sb-obs-1")).code());
+
+        Sandbox sandbox = sandboxManager.find("sb-obs-1").orElseThrow();
+        assertEquals(SandboxState.RUNNING, sandbox.state());
+    }
+
 }
