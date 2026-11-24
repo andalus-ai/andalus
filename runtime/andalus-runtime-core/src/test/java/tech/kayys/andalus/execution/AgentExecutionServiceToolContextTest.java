@@ -98,4 +98,47 @@ class AgentExecutionServiceToolContextTest {
         assertTrue(toolContext.getAttribute("andalus.workspace.root").isEmpty());
     }
 
+    @Test
+    void trustedCallerContextCarriesRolesAndPermissionsIntoToolExecution() {
+        AgentExecutionService service = new AgentExecutionService();
+        AgentCallerContext caller = AgentCallerContext.user(
+                "tenant-a", "user-a", java.util.Set.of("agent:run"),
+                java.util.Set.of("tools:read"));
+
+        AgentToolExecutionContext context = service.createToolExecutionContext(
+                new ExecutionIdentity("exec-trusted", "corr-trusted", null),
+                null, caller, ExecutionBudget.balanced());
+
+        assertEquals("tenant-a", context.tenantId());
+        assertEquals("user-a", context.userId());
+        assertEquals(AgentToolExecutionContext.PrincipalType.USER, context.principalType());
+        assertTrue(context.roles().contains("agent:run"));
+        assertTrue(context.permissions().contains("tools:read"));
+    }
+
+    @Test
+    void resumeUsesCurrentCallerClaimsRatherThanCheckpointedGrants() {
+        AgentExecutionService service = new AgentExecutionService();
+        java.util.Map<String, Object> ownership = java.util.Map.of(
+                "tenantId", "tenant-a",
+                "userId", "user-a",
+                "principalType", "USER",
+                "principalId", "user-a");
+
+        AgentCallerContext currentCaller = AgentCallerContext.user(
+                "tenant-a", "user-a", java.util.Set.of("agent:resume"),
+                java.util.Set.of("tools:read"));
+
+        assertDoesNotThrow(() -> AgentExecutionService.verifyResumeIdentity(ownership, currentCaller));
+
+        AgentToolExecutionContext resumed = service.createToolExecutionContext(
+                new ExecutionIdentity("exec-resume", "corr-resume", null),
+                null, currentCaller, ExecutionBudget.balanced());
+
+        assertEquals(java.util.Set.of("agent:resume"), resumed.roles());
+        assertEquals(java.util.Set.of("tools:read"), resumed.permissions());
+        assertFalse(resumed.roles().contains("admin"));
+        assertFalse(resumed.permissions().contains("tools:write"));
+    }
+
 }
