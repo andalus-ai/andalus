@@ -1,8 +1,9 @@
 package tech.kayys.andalus.operator.runtime.diagnostics;
 
-import tech.kayys.andalus.operator.runtime.PermissiveOperatorAuthorization;
+import tech.kayys.andalus.operator.runtime.DenyAllOperatorAuthorization;
 import tech.kayys.andalus.spi.diagnostics.*;
 import tech.kayys.andalus.spi.operator.OperatorAuthorization;
+import tech.kayys.andalus.spi.operator.OperatorAuthorizationException;
 import tech.kayys.andalus.spi.operator.OperatorContext;
 import tech.kayys.andalus.spi.operator.OperatorResult;
 import tech.kayys.andalus.spi.operator.OperatorService;
@@ -23,7 +24,7 @@ public class DefaultDiagnosticsOperatorService implements DiagnosticsOperatorSer
     private final OperatorAuthorization authorization;
 
     public DefaultDiagnosticsOperatorService(DefaultDiagnosticService diagnosticService) {
-        this(diagnosticService, new PermissiveOperatorAuthorization());
+        this(diagnosticService, new DenyAllOperatorAuthorization());
     }
 
     public DefaultDiagnosticsOperatorService(
@@ -52,7 +53,7 @@ public class DefaultDiagnosticsOperatorService implements DiagnosticsOperatorSer
     public OperatorResult<DiagnosticReport> diagnoseAll(OperatorContext context) {
         try {
             authorization.require(context, DiagnosticsOperatorPermissions.READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -70,7 +71,7 @@ public class DefaultDiagnosticsOperatorService implements DiagnosticsOperatorSer
     public OperatorResult<DiagnosticResult> diagnose(OperatorContext context, DiagnosticComponent component) {
         try {
             authorization.require(context, DiagnosticsOperatorPermissions.INSPECT);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -89,7 +90,7 @@ public class DefaultDiagnosticsOperatorService implements DiagnosticsOperatorSer
     public OperatorResult<List<DiagnosticResult>> diagnoseType(OperatorContext context, DiagnosticComponentType type) {
         try {
             authorization.require(context, DiagnosticsOperatorPermissions.READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 

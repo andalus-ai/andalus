@@ -1,7 +1,8 @@
 package tech.kayys.andalus.operator.runtime.session;
 
-import tech.kayys.andalus.operator.runtime.PermissiveOperatorAuthorization;
+import tech.kayys.andalus.operator.runtime.DenyAllOperatorAuthorization;
 import tech.kayys.andalus.spi.operator.OperatorAuthorization;
+import tech.kayys.andalus.spi.operator.OperatorAuthorizationException;
 import tech.kayys.andalus.spi.operator.OperatorContext;
 import tech.kayys.andalus.spi.operator.OperatorResult;
 import tech.kayys.andalus.spi.operator.OperatorService;
@@ -24,7 +25,7 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
     private final OperatorAuthorization authorization;
 
     public DefaultSessionOperatorService(SessionManager sessionManager) {
-        this(sessionManager, new PermissiveOperatorAuthorization());
+        this(sessionManager, new DenyAllOperatorAuthorization());
     }
 
     public DefaultSessionOperatorService(
@@ -53,13 +54,15 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
     public OperatorResult<List<SessionInfo>> list(OperatorContext context, SessionQuery query) {
         try {
             authorization.require(context, SessionOperatorPermissions.READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
         try {
             SessionQuery effectiveQuery = (query == null) ? SessionQuery.all() : query;
-            return OperatorResult.success(sessionManager.list(effectiveQuery));
+            return OperatorResult.success(sessionManager.list(effectiveQuery).stream()
+                    .filter(session -> belongsToTenant(context, session))
+                    .toList());
         } catch (Exception e) {
             return OperatorResult.failure("SESSION_LIST_FAILED", e.getMessage());
         }
@@ -69,7 +72,7 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
     public OperatorResult<SessionInfo> inspect(OperatorContext context, SessionId sessionId) {
         try {
             authorization.require(context, SessionOperatorPermissions.INSPECT);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -79,7 +82,7 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
 
         try {
             Optional<SessionInfo> session = sessionManager.find(sessionId);
-            if (session.isEmpty()) {
+            if (session.isEmpty() || !belongsToTenant(context, session.get())) {
                 return OperatorResult.failure("SESSION_NOT_FOUND", "No session found with ID: " + sessionId);
             }
             return OperatorResult.success(session.get());
@@ -92,36 +95,37 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
     public OperatorResult<Void> suspend(OperatorContext context, SessionId sessionId) {
         try {
             authorization.require(context, SessionOperatorPermissions.SUSPEND);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
-        return perform(sessionId, "SESSION_SUSPEND_FAILED", sessionManager::suspend);
+        return perform(context, sessionId, "SESSION_SUSPEND_FAILED", sessionManager::suspend);
     }
 
     @Override
     public OperatorResult<Void> resume(OperatorContext context, SessionId sessionId) {
         try {
             authorization.require(context, SessionOperatorPermissions.RESUME);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
-        return perform(sessionId, "SESSION_RESUME_FAILED", sessionManager::resume);
+        return perform(context, sessionId, "SESSION_RESUME_FAILED", sessionManager::resume);
     }
 
     @Override
     public OperatorResult<Void> close(OperatorContext context, SessionId sessionId) {
         try {
             authorization.require(context, SessionOperatorPermissions.CLOSE);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
-        return perform(sessionId, "SESSION_CLOSE_FAILED", sessionManager::close);
+        return perform(context, sessionId, "SESSION_CLOSE_FAILED", sessionManager::close);
     }
 
     private OperatorResult<Void> perform(
+            OperatorContext context,
             SessionId sessionId,
             String errorCode,
             ThrowingSessionOperation operation) {
@@ -131,11 +135,20 @@ public class DefaultSessionOperatorService implements SessionOperatorService, Op
         }
 
         try {
+            Optional<SessionInfo> session = sessionManager.find(sessionId);
+            if (session.isEmpty() || !belongsToTenant(context, session.get())) {
+                return OperatorResult.failure("SESSION_NOT_FOUND", "No session found with ID: " + sessionId);
+            }
             operation.accept(sessionId);
             return OperatorResult.success(null);
         } catch (Exception e) {
             return OperatorResult.failure(errorCode, e.getMessage());
         }
+    }
+
+    private boolean belongsToTenant(OperatorContext context, SessionInfo session) {
+        return context != null && context.tenantId() != null && !context.tenantId().isBlank()
+                && session.tenantId() != null && session.tenantId().equals(context.tenantId());
     }
 
     @FunctionalInterface
