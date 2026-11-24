@@ -46,7 +46,7 @@ public class ObservabilityPublisherHealthCheck {
                     .withData("worker.alive", workerAlive)
                     .withData("queue.size", async.queueSize())
                     .withData("queue.capacity", async.queueCapacity())
-                    .withData("queue.utilization", utilization)
+                    .withData("queue.utilization", String.format(java.util.Locale.ROOT, "%.4f", utilization))
                     .withData("events.accepted", async.acceptedCount())
                     .withData("events.delivered", async.deliveredCount())
                     .withData("events.dropped", async.droppedCount())

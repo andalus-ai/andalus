@@ -82,7 +82,7 @@ public final class SimpleGraphExecutionContext implements GraphExecutionContext 
     @Override public Optional<GraphExecutionContext> parent() { return Optional.empty(); }
 
     @Override public ExecutionMetadata metadata() {
-        return ExecutionMetadata.empty();
+        return new ExecutionMetadata(null, null, null, null, null, Map.of(), Map.of());
     }
 
     @Override
