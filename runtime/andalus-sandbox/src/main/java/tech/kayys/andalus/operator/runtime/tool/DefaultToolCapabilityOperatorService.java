@@ -1,9 +1,10 @@
 package tech.kayys.andalus.operator.runtime.tool;
 
-import tech.kayys.andalus.operator.runtime.PermissiveOperatorAuthorization;
+import tech.kayys.andalus.operator.runtime.DenyAllOperatorAuthorization;
 import tech.kayys.andalus.spi.capability.Capability;
 import tech.kayys.andalus.spi.capability.CapabilityRegistry;
 import tech.kayys.andalus.spi.operator.OperatorAuthorization;
+import tech.kayys.andalus.spi.operator.OperatorAuthorizationException;
 import tech.kayys.andalus.spi.operator.OperatorContext;
 import tech.kayys.andalus.spi.operator.OperatorResult;
 import tech.kayys.andalus.spi.operator.OperatorService;
@@ -30,7 +31,7 @@ public class DefaultToolCapabilityOperatorService implements ToolCapabilityOpera
     public DefaultToolCapabilityOperatorService(
             CapabilityRegistry capabilityRegistry,
             ToolRegistry toolRegistry) {
-        this(capabilityRegistry, toolRegistry, new PermissiveOperatorAuthorization());
+        this(capabilityRegistry, toolRegistry, new DenyAllOperatorAuthorization());
     }
 
     public DefaultToolCapabilityOperatorService(
@@ -61,7 +62,7 @@ public class DefaultToolCapabilityOperatorService implements ToolCapabilityOpera
     public OperatorResult<List<CapabilitySummary>> listCapabilities(OperatorContext context) {
         try {
             authorization.require(context, ToolCapabilityOperatorPermissions.CAPABILITIES_READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -79,7 +80,7 @@ public class DefaultToolCapabilityOperatorService implements ToolCapabilityOpera
     public OperatorResult<CapabilitySummary> inspectCapability(OperatorContext context, String capabilityId) {
         try {
             authorization.require(context, ToolCapabilityOperatorPermissions.CAPABILITY_INSPECT);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -102,7 +103,7 @@ public class DefaultToolCapabilityOperatorService implements ToolCapabilityOpera
     public OperatorResult<List<CapabilitySummary>> findCapabilitiesByType(OperatorContext context, String type) {
         try {
             authorization.require(context, ToolCapabilityOperatorPermissions.CAPABILITIES_READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -128,7 +129,7 @@ public class DefaultToolCapabilityOperatorService implements ToolCapabilityOpera
     public OperatorResult<List<CapabilitySummary>> findCapabilitiesByTag(OperatorContext context, String tag) {
         try {
             authorization.require(context, ToolCapabilityOperatorPermissions.CAPABILITIES_READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -161,7 +162,7 @@ public class DefaultToolCapabilityOperatorService implements ToolCapabilityOpera
     public OperatorResult<List<ToolSummary>> listTools(OperatorContext context) {
         try {
             authorization.require(context, ToolCapabilityOperatorPermissions.TOOLS_READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -179,7 +180,7 @@ public class DefaultToolCapabilityOperatorService implements ToolCapabilityOpera
     public OperatorResult<ToolSummary> inspectTool(OperatorContext context, String toolName) {
         try {
             authorization.require(context, ToolCapabilityOperatorPermissions.TOOL_INSPECT);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
@@ -202,7 +203,7 @@ public class DefaultToolCapabilityOperatorService implements ToolCapabilityOpera
     public OperatorResult<List<ToolSummary>> findToolsByCapability(OperatorContext context, String capabilityId) {
         try {
             authorization.require(context, ToolCapabilityOperatorPermissions.TOOLS_READ);
-        } catch (SecurityException se) {
+        } catch (OperatorAuthorizationException se) {
             return OperatorResult.failure("PERMISSION_DENIED", se.getMessage());
         }
 
