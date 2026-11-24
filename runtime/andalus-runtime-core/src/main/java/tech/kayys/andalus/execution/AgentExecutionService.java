@@ -249,52 +249,76 @@ public class AgentExecutionService {
      */
     static void verifyResumeIdentity(
             java.util.Map<String, Object> checkpointMetadata, String tenantId, String userId) {
+        verifyResumeIdentity(checkpointMetadata, legacyCallerContext(tenantId, userId, java.util.Set.of()));
+    }
+
+    static void verifyResumeIdentity(
+            java.util.Map<String, Object> checkpointMetadata, AgentCallerContext caller) {
         java.util.Map<String, Object> metadata = checkpointMetadata != null
                 ? checkpointMetadata : java.util.Map.of();
-        boolean authenticatedResume = (tenantId != null && !tenantId.isBlank())
-                || (userId != null && !userId.isBlank());
+        boolean authenticatedOrTenantScoped = caller.principalType() != AgentCallerContext.PrincipalType.ANONYMOUS
+                || (caller.tenantId() != null && !caller.tenantId().isBlank());
 
         if (metadata.isEmpty()) {
-            if (authenticatedResume) {
+            if (authenticatedOrTenantScoped) {
                 throw new SecurityException("Execution checkpoint has no ownership metadata");
             }
             return;
         }
 
-        String expectedPrincipalType = userId != null && !userId.isBlank() ? "USER" : "ANONYMOUS";
-        String expectedPrincipalId = "USER".equals(expectedPrincipalType) ? userId : null;
-        if (!java.util.Objects.equals(tenantId, metadata.get("tenantId"))
-                || !java.util.Objects.equals(userId, metadata.get("userId"))
+        String expectedPrincipalType = caller.principalType().name();
+        String expectedPrincipalId = caller.principalId();
+        if (!java.util.Objects.equals(caller.tenantId(), metadata.get("tenantId"))
+                || !java.util.Objects.equals(caller.userId(), metadata.get("userId"))
                 || !java.util.Objects.equals(expectedPrincipalType, metadata.get("principalType"))
                 || !java.util.Objects.equals(expectedPrincipalId, metadata.get("principalId"))) {
             throw new SecurityException("Execution belongs to a different caller or tenant");
         }
     }
 
+    private static AgentCallerContext legacyCallerContext(
+            String tenantId, String userId, java.util.Set<String> roles) {
+        if (userId == null || userId.isBlank()) {
+            if (roles != null && !roles.isEmpty()) {
+                throw new IllegalArgumentException("roles require an authenticated userId");
+            }
+            return AgentCallerContext.anonymous(tenantId);
+        }
+        return AgentCallerContext.user(tenantId, userId, roles, java.util.Set.of());
+    }
+
     AgentToolExecutionContext createToolExecutionContext(
             ExecutionIdentity identity, AgentDefinition agent, String tenantId,
             String userId, java.util.Set<String> roles, ExecutionBudget executionBudget) {
+        return createToolExecutionContext(identity, agent,
+                legacyCallerContext(tenantId, userId, roles), executionBudget);
+    }
+
+    AgentToolExecutionContext createToolExecutionContext(
+            ExecutionIdentity identity, AgentDefinition agent,
+            AgentCallerContext caller, ExecutionBudget executionBudget) {
         String agentId = agent != null ? agent.id().value().asString() : "unknown-agent";
-        return createToolExecutionContext(identity, agent, agentId, tenantId, userId, roles, executionBudget);
+        return createToolExecutionContext(identity, agent, agentId, caller, executionBudget);
     }
 
     private AgentToolExecutionContext createToolExecutionContext(
-            ExecutionIdentity identity, AgentDefinition agent, String agentId, String tenantId,
-            String userId, java.util.Set<String> roles, ExecutionBudget executionBudget) {
-        PrincipalType principalType = userId != null && !userId.isBlank()
-                ? PrincipalType.USER : PrincipalType.ANONYMOUS;
+            ExecutionIdentity identity, AgentDefinition agent, String agentId,
+            AgentCallerContext caller, ExecutionBudget executionBudget) {
+        AgentToolExecutionContext.PrincipalType principalType =
+                AgentToolExecutionContext.PrincipalType.valueOf(caller.principalType().name());
         ToolBudget configured = toolBudgetLedger != null
-                ? toolBudgetLedger.budgetFor(tenantId, userId)
+                ? toolBudgetLedger.budgetFor(caller.tenantId(), caller.userId())
                 : ToolBudget.unlimited();
         ToolBudget executionBudgetForTools = new ToolBudget(
-                tenantId, userId, configured.maxCalls(), configured.maxCostUsd(), configured.maxDurationMs());
+                caller.tenantId(), caller.userId(), configured.maxCalls(),
+                configured.maxCostUsd(), configured.maxDurationMs());
         return new AgentToolExecutionContext(
                 identity.executionId(), identity.correlationId(), identity.parentExecutionId(),
-                tenantId, userId, agentId, principalType,
-                principalType == PrincipalType.USER ? userId : null,
-                roles != null ? roles : java.util.Set.of(), executionBudget, executionBudgetForTools,
+                caller.tenantId(), caller.userId(), agentId, principalType,
+                caller.principalId(), caller.roles(), caller.permissions(),
+                executionBudget, executionBudgetForTools,
                 agent != null ? agent.constraints() : java.util.Map.of(),
-                java.util.Map.of(), java.time.Instant.now());
+                caller.attributes(), java.time.Instant.now());
     }
 
     // ------------------------------------------------------------------
