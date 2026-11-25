@@ -118,6 +118,11 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
 
     @Override
     public void storeKey(String agentId, AnpIdentityKeyPair keyPair) {
+        storeKey(agentId, keyPair, null);
+    }
+
+    /** Activates a rotation key only while the corresponding journal fence is current. */
+    public void storeKey(String agentId, AnpIdentityKeyPair keyPair, AnpKeyRotationFence fence) {
         if (agentId == null || agentId.isBlank()) throw new IllegalArgumentException("agentId must not be blank");
         Objects.requireNonNull(keyPair, "keyPair");
         if (keyPair.keyId().isBlank()) throw new IllegalArgumentException("keyId must not be blank");
@@ -137,6 +142,9 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
             boolean previousAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
             try {
+                if (fence != null) {
+                    PostgresAnpKeyRotationFenceGuard.requireCurrent(connection, fence);
+                }
                 lockKeyId(connection, keyPair.keyId());
                 if (isRevoked(connection, keyPair.keyId())) {
                     throw new IllegalStateException("A revoked ANP key identifier cannot be reactivated: "
@@ -191,11 +199,19 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
 
     @Override
     public void revokeKey(String keyId) {
+        revokeKey(keyId, null);
+    }
+
+    /** Revokes a rotation key only while the corresponding journal fence is current. */
+    public void revokeKey(String keyId, AnpKeyRotationFence fence) {
         if (keyId == null || keyId.isBlank()) throw new IllegalArgumentException("keyId must not be blank");
         try (Connection connection = dataSource.getConnection()) {
             boolean previousAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
             try {
+                if (fence != null) {
+                    PostgresAnpKeyRotationFenceGuard.requireCurrent(connection, fence);
+                }
                 lockKeyId(connection, keyId);
                 try (PreparedStatement tombstone = connection.prepareStatement("""
                         INSERT INTO andalus_anp_revoked_key_ids (key_id)
