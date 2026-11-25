@@ -1,7 +1,6 @@
 package tech.kayys.andalus.runtime.learning;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.UUID;
 
 /** Child-process fixture launched by DockerShadowEvaluationWorkerTransportProcessTest. */
@@ -19,7 +18,7 @@ public final class DockerShadowEvaluationTransportFixture {
         if ("tree-timeout".equals(mode)) {
             String marker = System.getenv("WORKER_CHILD_PID_FILE");
             if (marker == null || marker.isBlank()) throw new IllegalStateException("missing child PID file");
-            new ProcessBuilder("/bin/sh", "-c", "echo $$ > " + shellQuote(marker) + "; sleep 30")
+            new ProcessBuilder("/bin/sh", "-c", "echo $$ > " + shellQuote(marker) + "; exec sleep 30")
                     .start();
             Thread.sleep(30_000);
             return;
