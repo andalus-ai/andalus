@@ -165,6 +165,45 @@ class PostgresAnpKeyRotationCoordinatorTest {
     }
 
     @Test
+    void staleFenceCannotWriteTrustedDidOrSigningKeys() throws Exception {
+        journal.findOrPrepare(request("rotation-atomic-fence"));
+        assertTrue(queue.claimOperation("rotation-atomic-fence", "worker-old", Duration.ofMinutes(1)));
+        long oldGeneration = queue.leaseGeneration("rotation-atomic-fence", "worker-old");
+        try (Connection connection = dataSource.getConnection();
+             var statement = connection.prepareStatement("""
+                     UPDATE andalus_anp_key_rotations SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second'
+                     WHERE operation_id = ?
+                     """)) {
+            statement.setString(1, "rotation-atomic-fence");
+            statement.executeUpdate();
+        }
+        assertTrue(queue.claimOperation("rotation-atomic-fence", "worker-new", Duration.ofMinutes(1)));
+
+        AnpKeyRotationFence stalePrepared = new AnpKeyRotationFence(
+                "rotation-atomic-fence", "worker-old", oldGeneration, "PREPARED");
+        assertThrows(SecurityException.class, () -> didStore.register(candidate, stalePrepared));
+        assertEquals(initial, didStore.find(DID).orElseThrow());
+
+        assertEquals(PostgresAnpKeyRotationJournal.RotationState.PREPARED,
+                journal.find("rotation-atomic-fence").orElseThrow().state());
+        journal.advance("rotation-atomic-fence",
+                PostgresAnpKeyRotationJournal.RotationState.PREPARED,
+                PostgresAnpKeyRotationJournal.RotationState.DID_DOCUMENT_UPDATED);
+        AnpKeyRotationFence staleActivation = new AnpKeyRotationFence(
+                "rotation-atomic-fence", "worker-old", oldGeneration, "DID_DOCUMENT_UPDATED");
+        assertThrows(SecurityException.class, () -> keyStore.storeKey(DID, newPair, staleActivation));
+        assertTrue(keyStore.getActiveKey(NEW_ID).isEmpty());
+
+        journal.advance("rotation-atomic-fence",
+                PostgresAnpKeyRotationJournal.RotationState.DID_DOCUMENT_UPDATED,
+                PostgresAnpKeyRotationJournal.RotationState.NEW_KEY_ACTIVATED);
+        AnpKeyRotationFence staleRevocation = new AnpKeyRotationFence(
+                "rotation-atomic-fence", "worker-old", oldGeneration, "NEW_KEY_ACTIVATED");
+        assertThrows(SecurityException.class, () -> keyStore.revokeKey(OLD_ID, staleRevocation));
+        assertTrue(keyStore.getActiveKey(OLD_ID).isPresent());
+    }
+
+    @Test
     void recoveryWorkerCompletesPreparedOperationUsingProtectedMaterialProvider() {
         journal.findOrPrepare(request("rotation-recovery"));
         AnpKeyRotationMaterialProvider provider = ignored ->
