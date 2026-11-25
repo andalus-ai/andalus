@@ -125,6 +125,22 @@ class PostgresAnpKeyRotationCoordinatorTest {
     }
 
     @Test
+    void foregroundResumeCannotBypassAnExistingRecoveryLease() {
+        journal.findOrPrepare(request("rotation-lease-conflict"));
+        assertTrue(queue.claimOperation("rotation-lease-conflict", "recovery-owner", Duration.ofMinutes(2)));
+
+        PostgresAnpKeyRotationCoordinator coordinator = coordinator(keyStore, (actor, did) -> { });
+        assertThrows(IllegalStateException.class, () -> coordinator.resume("rotation-lease-conflict"));
+
+        assertEquals(PostgresAnpKeyRotationJournal.RotationState.PREPARED,
+                journal.find("rotation-lease-conflict").orElseThrow().state());
+        assertEquals(initial, didStore.find(DID).orElseThrow());
+        assertTrue(keyStore.getActiveKey(OLD_ID).isPresent());
+        assertFalse(queue.claimOperation("rotation-lease-conflict", "second-worker", Duration.ofMinutes(2)));
+        assertTrue(queue.ownsLease("rotation-lease-conflict", "recovery-owner"));
+    }
+
+    @Test
     void recoveryWorkerCompletesPreparedOperationUsingProtectedMaterialProvider() {
         journal.findOrPrepare(request("rotation-recovery"));
         AnpKeyRotationMaterialProvider provider = ignored ->
