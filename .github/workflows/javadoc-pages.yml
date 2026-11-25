@@ -41,6 +41,11 @@ jobs:
           path: _andalus-framework
           ref: main
 
+      - name: Install FAISS native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenblas-dev
+
       # Framework provider modules consume AQLI/Aljabr and Gamelan artifacts
       # that are not published to Maven Central. Reproduce the same source bootstrap
       # used by the main CI workflow before installing the Framework reactor.
