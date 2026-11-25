@@ -205,7 +205,7 @@ public class PostgresAnpKeyRotationCoordinator {
     }
 
     private void assertLease(String operationId, String owner) {
-        if (!recoveryQueue.ownsLease(operationId, owner)) {
+        if (!recoveryQueue.renewLease(operationId, owner, Duration.ofMinutes(5))) {
             throw new IllegalStateException("ANP key rotation lease was lost; refusing further side effects");
         }
     }
