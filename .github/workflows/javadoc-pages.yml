@@ -49,6 +49,16 @@ jobs:
           path: _aqli
           ref: main
 
+      - name: Checkout Suling (AQLI audio dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: bhangun/suling
+          path: _aqli/suling
+          ref: main
+
+      - name: Install Suling audio API to Maven Local
+        run: mvn --batch-mode --no-transfer-progress -f _aqli/suling/pom.xml -DskipTests install
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
