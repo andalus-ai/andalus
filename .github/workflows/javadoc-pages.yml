@@ -61,13 +61,23 @@ jobs:
         run: |
           TASKS=(
             :spi:aqli-spi:publishToMavenLocal
+            :spi:aqli-spi-audio:publishToMavenLocal
+            :spi:aqli-spi-image:publishToMavenLocal
             :spi:aqli-spi-inference:publishToMavenLocal
             :spi:aqli-spi-multimodal:publishToMavenLocal
             :spi:aqli-spi-plugin:publishToMavenLocal
+            :spi:aqli-spi-runtime:publishToMavenLocal
             :sdk:aqli-sdk-api:publishToMavenLocal
             :sdk:aqli-sdk-protobuf:publishToMavenLocal
             :sdk:aqli-sdk-core:publishToMavenLocal
             :sdk:aqli-sdk:publishToMavenLocal
+            :sdk:aqli-sdk-local:publishToMavenLocal
+            :core:aqli-core:publishToMavenLocal
+            :tokenizer:aqli-tokenizer-core:publishToMavenLocal
+            :repository:aqli-model-repo-common:publishToMavenLocal
+            :repository:aqli-model-repo-local:publishToMavenLocal
+            :repository:aqli-model-database:publishToMavenLocal
+            :plugin:aqli-plugin-kernel-core:publishToMavenLocal
           )
           gradle "${TASKS[@]}" --no-daemon -x test --parallel
 
