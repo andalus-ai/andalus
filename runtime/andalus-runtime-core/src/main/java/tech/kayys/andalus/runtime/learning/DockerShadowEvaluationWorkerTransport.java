@@ -4,6 +4,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +27,7 @@ import java.util.regex.Pattern;
 public final class DockerShadowEvaluationWorkerTransport {
     private static final Pattern IMAGE_DIGEST =
             Pattern.compile("[a-zA-Z0-9][a-zA-Z0-9._/:@-]*@sha256:[a-f0-9]{64}");
+    private static final Pattern CONTAINER_ID = Pattern.compile("[a-f0-9]{12,64}");
 
     public record Limits(long memoryMiB, double cpus, int pids, int tmpfsMiB,
                          Duration timeout, int maxStderrBytes) {
@@ -49,7 +52,7 @@ public final class DockerShadowEvaluationWorkerTransport {
     private final Limits limits;
 
     public DockerShadowEvaluationWorkerTransport(String dockerExecutable, String workerImage, Limits limits) {
-        if (dockerExecutable == null || !java.nio.file.Path.of(dockerExecutable).isAbsolute()) {
+        if (dockerExecutable == null || !Path.of(dockerExecutable).isAbsolute()) {
             throw new IllegalArgumentException("a fixed Docker executable is required");
         }
         if (workerImage == null || !IMAGE_DIGEST.matcher(workerImage).matches()) {
@@ -60,11 +63,10 @@ public final class DockerShadowEvaluationWorkerTransport {
         this.limits = Objects.requireNonNull(limits, "limits");
     }
 
-    /** Runs a single frame and returns the worker's stdout frame; stderr is never returned to callers. */
+    /** Runs one request frame; timeout cleanup also asks the Docker daemon to remove its container. */
     public byte[] exchange(byte[] requestFrame) throws IOException, InterruptedException {
         Objects.requireNonNull(requestFrame, "requestFrame");
-        if (requestFrame.length == 0
-                || requestFrame.length > ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES) {
+        if (requestFrame.length == 0 || requestFrame.length > ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES) {
             throw new IllegalArgumentException("invalid shadow worker request frame size");
         }
         ShadowEvaluationWorkerProtocol.Frame decoded = ShadowEvaluationWorkerProtocol.decode(requestFrame);
@@ -72,17 +74,22 @@ public final class DockerShadowEvaluationWorkerTransport {
             throw new IllegalArgumentException("only execute request frames may be sent to the worker");
         }
 
-        ProcessBuilder builder = new ProcessBuilder(command());
-        builder.environment().clear();
-        Process process = builder.start();
-        long deadline = System.nanoTime() + limits.timeout().toNanos();
+        Path cidDirectory = Files.createTempDirectory("andalus-shadow-worker-");
+        Path cidFile = cidDirectory.resolve("container.id");
+        Process process = null;
         var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
         CompletableFuture<Void> writer = null;
         CompletableFuture<byte[]> stdout = null;
         CompletableFuture<byte[]> stderr = null;
         try {
+            ProcessBuilder builder = new ProcessBuilder(command(cidFile));
+            builder.environment().clear();
+            Process worker = builder.start();
+            process = worker;
+            long deadline = System.nanoTime() + limits.timeout().toNanos();
+
             writer = CompletableFuture.runAsync(() -> {
-                try (OutputStream out = process.getOutputStream()) {
+                try (OutputStream out = worker.getOutputStream()) {
                     out.write(requestFrame);
                     out.flush();
                 } catch (IOException e) {
@@ -90,19 +97,17 @@ public final class DockerShadowEvaluationWorkerTransport {
                 }
             }, executor);
             stdout = CompletableFuture.supplyAsync(
-                    () -> readBounded(process.getInputStream(),
-                            ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES), executor);
+                    () -> readBounded(worker.getInputStream(), ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES),
+                    executor);
             stderr = CompletableFuture.supplyAsync(
-                    () -> readBounded(process.getErrorStream(), limits.maxStderrBytes()), executor);
+                    () -> readBounded(worker.getErrorStream(), limits.maxStderrBytes()), executor);
 
-            if (!process.waitFor(remainingNanos(deadline), TimeUnit.NANOSECONDS)) {
-                throw timeoutFailure();
-            }
+            if (!worker.waitFor(remainingNanos(deadline), TimeUnit.NANOSECONDS)) throw timeoutFailure();
             await(writer, "worker request delivery failed", deadline);
             byte[] response = await(stdout, "worker response could not be read", deadline);
             await(stderr, "worker diagnostics could not be read", deadline);
-            if (process.exitValue() != 0) {
-                throw new IOException("shadow worker exited with status " + process.exitValue());
+            if (worker.exitValue() != 0) {
+                throw new IOException("shadow worker exited with status " + worker.exitValue());
             }
             ShadowEvaluationWorkerProtocol.Frame responseFrame = ShadowEvaluationWorkerProtocol.decode(response);
             if (!responseFrame.requestId().equals(decoded.requestId())) {
@@ -114,18 +119,29 @@ public final class DockerShadowEvaluationWorkerTransport {
             }
             return response;
         } catch (RuntimeException | IOException | InterruptedException failure) {
-            terminate(process);
+            if (process != null) terminate(process);
             throw failure;
         } finally {
             if (writer != null) writer.cancel(true);
             if (stdout != null) stdout.cancel(true);
             if (stderr != null) stderr.cancel(true);
             executor.shutdownNow();
-            if (process.isAlive()) terminate(process);
+            if (process != null && process.isAlive()) terminate(process);
+            removeContainer(cidFile);
+            try {
+                Files.deleteIfExists(cidFile);
+                Files.deleteIfExists(cidDirectory);
+            } catch (IOException ignored) {
+                // Temporary cleanup is best-effort; the container cleanup attempt has already run.
+            }
         }
     }
 
     List<String> command() {
+        return command(null);
+    }
+
+    List<String> command(Path cidFile) {
         List<String> args = new ArrayList<>(List.of(
                 dockerExecutable, "run", "--rm", "--interactive",
                 "--pull=never",
@@ -138,26 +154,46 @@ public final class DockerShadowEvaluationWorkerTransport {
                 "--cap-drop=ALL",
                 "--security-opt=no-new-privileges",
                 "--log-driver=none",
-                "--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=" + limits.tmpfsMiB() + "m",
-                workerImage));
+                "--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=" + limits.tmpfsMiB() + "m"));
+        if (cidFile != null) {
+            args.add("--cidfile");
+            args.add(cidFile.toAbsolutePath().toString());
+        }
+        args.add(workerImage);
         return List.copyOf(args);
+    }
+
+    private void removeContainer(Path cidFile) {
+        try {
+            if (!Files.isRegularFile(cidFile)) return;
+            String containerId = Files.readString(cidFile).trim();
+            if (!CONTAINER_ID.matcher(containerId).matches()) return;
+            Process cleanup = new ProcessBuilder(dockerExecutable, "rm", "--force", containerId)
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start();
+            cleanup.waitFor(5, TimeUnit.SECONDS);
+            if (cleanup.isAlive()) {
+                cleanup.destroyForcibly();
+                cleanup.waitFor(1, TimeUnit.SECONDS);
+            }
+        } catch (IOException ignored) {
+            // Do not mask the original worker result; --rm remains the normal-exit fallback.
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static byte[] readBounded(InputStream input, int maximum) {
         try (input; ByteArrayOutputStream output = new ByteArrayOutputStream(Math.min(maximum, 8192))) {
             byte[] buffer = new byte[8192];
             int total = 0;
-            boolean exceeded = false;
             int count;
             while ((count = input.read(buffer)) != -1) {
-                if (total < maximum) {
-                    int retained = Math.min(count, maximum - total);
-                    output.write(buffer, 0, retained);
-                }
+                if (total < maximum) output.write(buffer, 0, Math.min(count, maximum - total));
                 total = Math.min(maximum + 1, total + count);
-                if (total > maximum) exceeded = true;
+                if (total > maximum) throw new IOException("worker stream exceeded configured limit");
             }
-            if (exceeded) throw new IOException("worker stream exceeded configured limit");
             return output.toByteArray();
         } catch (IOException e) {
             throw new java.util.concurrent.CompletionException(e);
