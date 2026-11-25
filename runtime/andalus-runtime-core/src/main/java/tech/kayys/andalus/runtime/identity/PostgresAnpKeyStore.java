@@ -82,14 +82,14 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
                         if (privateKey == null || privateKey.length == 0) {
                             throw new IllegalStateException("KMS returned empty ANP private key material");
                         }
-                        // The key-pair value owns the bytes needed by the caller; ciphertext is always transient.
+                        // Give the returned value its own copy, then wipe the KMS plaintext buffer.
                         AnpIdentityKeyPair pair = new AnpIdentityKeyPair(keyId, result.getString("algorithm"),
-                                privateKey, result.getBytes("public_key_bytes"));
+                                Arrays.copyOf(privateKey, privateKey.length), result.getBytes("public_key_bytes"));
                         connection.commit();
                         return Optional.of(pair);
                     } finally {
                         wipe(ciphertext);
-                        // privateKey is transferred to the returned key-pair value and must remain usable.
+                        wipe(privateKey);
                     }
                 }
             } catch (RuntimeException | SQLException exception) {
