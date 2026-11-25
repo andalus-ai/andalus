@@ -29,7 +29,7 @@
     <properties>
         <maven.compiler.release>25</maven.compiler.release>
         <aqli.version>0.1.0-SNAPSHOT</aqli.version>
-        <gamelan.version>0.1.1</gamelan.version>
+        <gamelan.version>1.0.0-SNAPSHOT</gamelan.version>
         <andalus-aqli-sdk.version>1.0.0-SNAPSHOT</andalus-aqli-sdk.version>
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
         <jandex.maven.plugin.version>3.2.7</jandex.maven.plugin.version>
