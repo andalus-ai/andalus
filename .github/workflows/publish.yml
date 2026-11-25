@@ -37,15 +37,34 @@ jobs:
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
 
-      # ── Aqli SPI/SDK Bootstrap ────────────────────────────────────────────
-      - name: Checkout aqli (SPI/SDK bootstrap)
+      # ── AQLI + Aljabr composite-build bootstrap ────────────────────────────
+      - name: Checkout AQLI (SPI/SDK bootstrap)
         uses: actions/checkout@v4
         with:
-          repository: bhangun/aqli
+          repository: andalus-ai/aqli
           path: _aqli
           ref: main
 
-      - name: Cache Gradle packages (aqli)
+      - name: Checkout Aljabr (AQLI source dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/aljabr
+          path: _aqli/aljabr
+          ref: main
+
+      - name: Checkout Suling (AQLI audio dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: bhangun/suling
+          path: _aqli/suling
+          ref: main
+
+      - name: Setup Gradle for AQLI
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.4.0"
+
+      - name: Cache Gradle packages (AQLI and Aljabr)
         uses: actions/cache@v4
         with:
           path: |
