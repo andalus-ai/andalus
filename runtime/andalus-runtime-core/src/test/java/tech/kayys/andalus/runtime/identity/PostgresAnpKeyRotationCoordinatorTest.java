@@ -137,7 +137,8 @@ class PostgresAnpKeyRotationCoordinatorTest {
         assertEquals(initial, didStore.find(DID).orElseThrow());
         assertTrue(keyStore.getActiveKey(OLD_ID).isPresent());
         assertFalse(queue.claimOperation("rotation-lease-conflict", "second-worker", Duration.ofMinutes(2)));
-        assertTrue(queue.ownsLease("rotation-lease-conflict", "recovery-owner"));
+        long generation = queue.leaseGeneration("rotation-lease-conflict", "recovery-owner");
+        assertTrue(queue.ownsLease("rotation-lease-conflict", "recovery-owner", generation));
     }
 
     @Test
