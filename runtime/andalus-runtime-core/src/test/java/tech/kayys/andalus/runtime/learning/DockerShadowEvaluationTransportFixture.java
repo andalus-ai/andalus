@@ -1,6 +1,5 @@
 package tech.kayys.andalus.runtime.learning;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 /** Child-process fixture launched by DockerShadowEvaluationWorkerTransportProcessTest. */
@@ -16,6 +15,16 @@ public final class DockerShadowEvaluationTransportFixture {
         if ("malformed".equals(mode)) {
             System.out.write("not-a-worker-frame".getBytes(StandardCharsets.UTF_8));
             System.out.flush();
+            return;
+        }
+        if ("stdout-oversize".equals(mode)) {
+            System.out.write(new byte[ShadowEvaluationWorkerProtocol.MAX_PAYLOAD_BYTES + 65]);
+            System.out.flush();
+            return;
+        }
+        if ("stderr-oversize".equals(mode)) {
+            System.err.write(new byte[8193]);
+            System.err.flush();
             return;
         }
         if ("nonzero".equals(mode)) System.exit(7);
