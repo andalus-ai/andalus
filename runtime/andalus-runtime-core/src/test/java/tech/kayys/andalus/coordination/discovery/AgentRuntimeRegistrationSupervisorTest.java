@@ -48,10 +48,8 @@ class AgentRuntimeRegistrationSupervisorTest {
                 .thenReturn(Optional.of(lease(SECOND, AgentRuntimeStatus.AVAILABLE)));
         when(store.renew(FIRST, TTL)).thenThrow(new IllegalStateException("database unavailable"));
         when(store.revoke(SECOND)).thenReturn(true);
-        when(scheduler.scheduleWithFixedDelay(heartbeatTasks.capture(), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(firstHeartbeat, secondHeartbeat);
-        when(scheduler.schedule(retryTask.capture(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(retryFuture);
+        doReturn(firstHeartbeat, secondHeartbeat).when(scheduler).scheduleWithFixedDelay(heartbeatTasks.capture(), anyLong(), anyLong(), any(TimeUnit.class));
+        doReturn(retryFuture).when(scheduler).schedule(retryTask.capture(), anyLong(), any(TimeUnit.class));
 
         AgentRuntimeRegistrationReadiness readiness = new AgentRuntimeRegistrationReadiness();
         AgentRuntimeRegistrationSupervisor supervisor = new AgentRuntimeRegistrationSupervisor(
@@ -105,8 +103,7 @@ class AgentRuntimeRegistrationSupervisorTest {
         AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
         ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
         when(store.acquire(any())).thenReturn(Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING)));
-        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(mock(ScheduledFuture.class));
+        doReturn(mock(ScheduledFuture.class)).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class));
 
         AgentRuntimeRegistrationSupervisor supervisor = new AgentRuntimeRegistrationSupervisor(
                 lifecycle, scheduler, new AgentRuntimeRegistrationReadiness(),
@@ -132,9 +129,10 @@ class AgentRuntimeRegistrationSupervisorTest {
         when(store.publishStatus(FIRST, AgentRuntimeStatus.AVAILABLE, TTL))
                 .thenReturn(Optional.of(lease(FIRST, AgentRuntimeStatus.AVAILABLE)));
         when(store.renew(FIRST, TTL)).thenThrow(new IllegalStateException("database unavailable"));
-        when(scheduler.scheduleWithFixedDelay(heartbeatTask.capture(), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(heartbeat);
-        when(scheduler.schedule(any(Runnable.class), anyLong(), any(TimeUnit.class)))
+        doReturn(heartbeat).when(scheduler).scheduleWithFixedDelay(heartbeatTask.capture(), anyLong(), anyLong(), any(TimeUnit.class));
+        doReturn(
+                Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING)),
+                Optional.of(lease(SECOND, AgentRuntimeStatus.STARTING))).when(scheduler).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class)))
                 .thenThrow(new IllegalStateException("scheduler stopping"));
 
         AgentRuntimeRegistrationSupervisor supervisor = new AgentRuntimeRegistrationSupervisor(
@@ -162,17 +160,14 @@ class AgentRuntimeRegistrationSupervisorTest {
         ArgumentCaptor<Runnable> heartbeatTasks = ArgumentCaptor.forClass(Runnable.class);
         java.util.List<AgentRuntimeRegistrationObserver.Event> events = new java.util.ArrayList<>();
 
-        when(store.acquire(any())).thenReturn(
-                Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING)),
-                Optional.of(lease(SECOND, AgentRuntimeStatus.STARTING)));
+        when(store.acquire(any());
         when(store.publishStatus(any(), eq(AgentRuntimeStatus.AVAILABLE), eq(TTL)))
                 .thenAnswer(invocation -> Optional.of(lease(
                         invocation.getArgument(0), AgentRuntimeStatus.AVAILABLE)));
         when(store.renew(FIRST, TTL)).thenThrow(new IllegalStateException("database unavailable"));
         when(store.revoke(SECOND)).thenReturn(true);
-        when(scheduler.scheduleWithFixedDelay(heartbeatTasks.capture(), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(firstHeartbeat, secondHeartbeat);
-        when(scheduler.schedule(any(Runnable.class), anyLong(), any(TimeUnit.class)))
+        doReturn(firstHeartbeat, secondHeartbeat).when(scheduler).scheduleWithFixedDelay(heartbeatTasks.capture(), anyLong(), anyLong(), any(TimeUnit.class));
+        doReturn(Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING))).when(scheduler).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class)))
                 .thenThrow(new IllegalStateException("scheduler temporarily unavailable"));
 
         AgentRuntimeRegistrationReadiness readiness = new AgentRuntimeRegistrationReadiness();
@@ -187,8 +182,7 @@ class AgentRuntimeRegistrationSupervisorTest {
         assertTrue(supervisor.token().isEmpty());
 
         // The host has restored the scheduler; reconciliation performs a fresh acquire.
-        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(secondHeartbeat);
+        doReturn(secondHeartbeat).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class));
         assertTrue(supervisor.reconcile());
         assertEquals(SECOND, supervisor.token().orElseThrow());
         assertEquals(AgentRuntimeRegistrationReadiness.State.READY, readiness.state());
@@ -205,9 +199,8 @@ class AgentRuntimeRegistrationSupervisorTest {
         AgentRuntimeRegistrationStore store = mock(AgentRuntimeRegistrationStore.class);
         AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
         ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
-        when(store.acquire(any())).thenReturn(Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING)));
-        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(mock(ScheduledFuture.class));
+        when(store.acquire(any());
+        doReturn(mock(ScheduledFuture.class)).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class));
 
         AgentRuntimeRegistrationSupervisor supervisor = new AgentRuntimeRegistrationSupervisor(
                 lifecycle, scheduler, new AgentRuntimeRegistrationReadiness(),
@@ -249,9 +242,9 @@ class AgentRuntimeRegistrationSupervisorTest {
         ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
         when(store.acquire(any())).thenReturn(Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING)));
         when(store.revoke(FIRST)).thenReturn(true);
-        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
+        doReturn(Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING))).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
                 .thenThrow(new IllegalStateException("scheduler stopping"));
-        when(scheduler.schedule(any(Runnable.class), anyLong(), any(TimeUnit.class)))
+        doReturn(true).when(scheduler).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class)))
                 .thenThrow(new IllegalStateException("scheduler stopping"));
 
         AgentRuntimeRegistrationReadiness readiness = new AgentRuntimeRegistrationReadiness();
@@ -274,12 +267,11 @@ class AgentRuntimeRegistrationSupervisorTest {
         ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
         ScheduledFuture<?> heartbeat = mock(ScheduledFuture.class);
         ArgumentCaptor<Runnable> heartbeatTask = ArgumentCaptor.forClass(Runnable.class);
-        when(store.acquire(any())).thenReturn(Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING)));
+        when(store.acquire(any());
         when(store.publishStatus(FIRST, AgentRuntimeStatus.AVAILABLE, TTL))
                 .thenReturn(Optional.of(lease(FIRST, AgentRuntimeStatus.AVAILABLE)));
         when(store.renew(FIRST, TTL)).thenThrow(new IllegalStateException("database unavailable"));
-        when(scheduler.scheduleWithFixedDelay(heartbeatTask.capture(), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(heartbeat);
+        doReturn(heartbeat).when(scheduler).scheduleWithFixedDelay(heartbeatTask.capture(), anyLong(), anyLong(), any(TimeUnit.class));
         when(scheduler.schedule(any(Runnable.class), anyLong(), any(TimeUnit.class)))
                 .thenThrow(new IllegalStateException("scheduler stopping"));
 
@@ -332,10 +324,9 @@ class AgentRuntimeRegistrationSupervisorTest {
         });
         when(store.renew(FIRST, TTL)).thenThrow(new IllegalStateException("database unavailable"));
         when(store.renew(planner, TTL)).thenReturn(Optional.of(lease(planner, AgentRuntimeStatus.AVAILABLE)));
-        when(store.revoke(any())).thenReturn(true);
-        when(scheduler.scheduleWithFixedDelay(heartbeatTasks.capture(), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(heartbeatA, heartbeatB, heartbeatARecovered);
-        when(scheduler.schedule(retryTasks.capture(), anyLong(), any(TimeUnit.class))).thenReturn(retryA);
+        when(store.revoke(any());
+        doReturn(heartbeatA, heartbeatB, heartbeatARecovered).when(scheduler).scheduleWithFixedDelay(heartbeatTasks.capture(), anyLong(), anyLong(), any(TimeUnit.class));
+        doReturn(retryA).when(scheduler).schedule(retryTasks.capture(), anyLong(), any(TimeUnit.class));
 
         AgentRuntimeRegistrationReadiness researchReadiness = new AgentRuntimeRegistrationReadiness();
         AgentRuntimeRegistrationReadiness plannerReadiness = new AgentRuntimeRegistrationReadiness();
