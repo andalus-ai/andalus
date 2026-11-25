@@ -64,7 +64,7 @@ public final class DockerShadowEvaluationWorkerTransport {
     public byte[] exchange(byte[] requestFrame) throws IOException, InterruptedException {
         Objects.requireNonNull(requestFrame, "requestFrame");
         if (requestFrame.length == 0
-                || requestFrame.length > ShadowEvaluationWorkerProtocol.MAX_PAYLOAD_BYTES + 64) {
+                || requestFrame.length > ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES) {
             throw new IllegalArgumentException("invalid shadow worker request frame size");
         }
         ShadowEvaluationWorkerProtocol.Frame decoded = ShadowEvaluationWorkerProtocol.decode(requestFrame);
@@ -91,7 +91,7 @@ public final class DockerShadowEvaluationWorkerTransport {
             }, executor);
             stdout = CompletableFuture.supplyAsync(
                     () -> readBounded(process.getInputStream(),
-                            ShadowEvaluationWorkerProtocol.MAX_PAYLOAD_BYTES + 64), executor);
+                            ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES), executor);
             stderr = CompletableFuture.supplyAsync(
                     () -> readBounded(process.getErrorStream(), limits.maxStderrBytes()), executor);
 
