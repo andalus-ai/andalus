@@ -68,7 +68,8 @@ public class PostgresAnpKeyRotationCoordinator {
             throw new IllegalStateException("ANP key rotation is already owned by another worker");
         }
         try {
-            return resumeWithLease(prepared.operationId(), candidate, newKeyPair, owner);
+            long generation = recoveryQueue.leaseGeneration(prepared.operationId(), owner);
+            return resumeWithLease(prepared.operationId(), candidate, newKeyPair, owner, generation);
         } finally {
             recoveryQueue.release(prepared.operationId(), owner);
         }
@@ -84,7 +85,8 @@ public class PostgresAnpKeyRotationCoordinator {
         List<RecoveryResult> results = new ArrayList<>(claimed.size());
         for (PostgresAnpKeyRotationJournal.Rotation rotation : claimed) {
             try {
-                PostgresAnpKeyRotationJournal.Rotation completed = resumeWithProviderLease(rotation.operationId(), workerId);
+                PostgresAnpKeyRotationJournal.Rotation completed = resumeWithProviderLease(rotation.operationId(), workerId,
+                        recoveryQueue.leaseGeneration(rotation.operationId(), workerId));
                 results.add(new RecoveryResult(rotation.operationId(), true,
                         completed.state().name(), null));
                 recoveryQueue.release(rotation.operationId(), workerId);
@@ -113,7 +115,7 @@ public class PostgresAnpKeyRotationCoordinator {
             throw new IllegalStateException("ANP key rotation is already owned by another worker");
         }
         try {
-            return resumeWithProviderLease(operationId, owner);
+            return resumeWithProviderLease(operationId, owner, recoveryQueue.leaseGeneration(operationId, owner));
         } finally {
             recoveryQueue.release(operationId, owner);
         }
@@ -136,30 +138,31 @@ public class PostgresAnpKeyRotationCoordinator {
             throw new IllegalStateException("ANP key rotation is already owned by another worker");
         }
         try {
-            return resumeWithLease(operationId, candidate, newKeyPair, owner);
+            return resumeWithLease(operationId, candidate, newKeyPair, owner,
+                    recoveryQueue.leaseGeneration(operationId, owner));
         } finally {
             recoveryQueue.release(operationId, owner);
         }
     }
 
-    private PostgresAnpKeyRotationJournal.Rotation resumeWithProviderLease(String operationId, String owner) {
+    private PostgresAnpKeyRotationJournal.Rotation resumeWithProviderLease(String operationId, String owner, long generation) {
         PostgresAnpKeyRotationJournal.Rotation rotation = journal.find(operationId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown rotation: " + operationId));
-        assertLease(operationId, owner);
+        assertLease(operationId, owner, generation);
         authorizer.authorize(rotation.actorId(), rotation.did());
         AnpKeyRotationMaterialProvider.RotationMaterial material = materialProvider.load(rotation);
-        return resumeWithLease(operationId, material.candidateDocument(), material.newKeyPair(), owner);
+        return resumeWithLease(operationId, material.candidateDocument(), material.newKeyPair(), owner, generation);
     }
 
     private PostgresAnpKeyRotationJournal.Rotation resumeWithLease(
-            String operationId, TrustedDidDocument candidate, AnpIdentityKeyPair newKeyPair, String owner) {
+            String operationId, TrustedDidDocument candidate, AnpIdentityKeyPair newKeyPair, String owner, long generation) {
         PostgresAnpKeyRotationJournal.Rotation rotation = journal.find(operationId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown rotation: " + operationId));
         authorizer.authorize(rotation.actorId(), rotation.did());
         validateCandidate(rotationRequest(rotation), candidate, newKeyPair);
 
         while (rotation.state() != PostgresAnpKeyRotationJournal.RotationState.COMPLETED) {
-            assertLease(operationId, owner);
+            assertLease(operationId, owner, generation);
             switch (rotation.state()) {
                 case PREPARED -> {
                     assertLease(operationId, owner);
@@ -204,8 +207,8 @@ public class PostgresAnpKeyRotationCoordinator {
         return rotation;
     }
 
-    private void assertLease(String operationId, String owner) {
-        if (!recoveryQueue.renewLease(operationId, owner, Duration.ofMinutes(5))) {
+    private void assertLease(String operationId, String owner, long generation) {
+        if (!recoveryQueue.renewLease(operationId, owner, generation, Duration.ofMinutes(5))) {
             throw new IllegalStateException("ANP key rotation lease was lost; refusing further side effects");
         }
     }
