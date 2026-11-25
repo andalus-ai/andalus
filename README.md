@@ -863,3 +863,25 @@ readiness.
 Observers can distinguish `RECONCILIATION_SUCCEEDED` and
 `RECONCILIATION_FAILED` from automatic recovery scheduling failures. The
 runtime still creates no scheduler threads and does not own scheduler recovery.
+
+
+## Agent runtime registration group reconciliation (Phase 5.1.18)
+
+Hosts embedding multiple logical agents can call
+`AgentRuntimeRegistrationGroup.reconcile(key)` to reconcile one registration
+after repairing the host scheduler or persistence dependency. The operation
+returns false for an unknown or detached key and does not disturb sibling
+registrations.
+
+Use `reconcileAll()` when the host wants to reconcile the current membership
+snapshot. It returns an immutable map of registration keys to independent
+success results. A failure or concurrent removal for one agent does not stop
+attempts for other agents. Each supervisor serializes its own operation against
+scheduled recovery and shutdown; group membership locks are not held while
+reconciliation performs persistence or scheduler work.
+
+A successful result means a current registration exists and the supervisor has
+restored its requested state. Healthy sessions are idempotent and are not
+reacquired. Lost sessions are acquired with a fresh fenced generation. The
+group does not create or repair schedulers, retry stale tokens, or bypass
+per-agent readiness checks.

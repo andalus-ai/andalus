@@ -114,6 +114,42 @@ public final class AgentRuntimeRegistrationGroup implements AutoCloseable {
         return true;
     }
 
+    /**
+     * Reconciles one selected registration without blocking group membership operations.
+     * A detached or unknown registration returns false.
+     */
+    public boolean reconcile(Key key) {
+        Entry entry = find(Objects.requireNonNull(key, "key must not be null"));
+        return entry != null && entry.supervisor().reconcile();
+    }
+
+    /**
+     * Reconciles a snapshot of all registrations independently.
+     *
+     * <p>Each supervisor serializes its own reconciliation with heartbeat recovery
+     * and shutdown. Failures for one agent do not prevent attempts for its siblings.
+     * Entries removed after the snapshot may return false because their supervisor
+     * has already been closed.</p>
+     *
+     * @return immutable per-registration reconciliation results
+     */
+    public Map<Key, Boolean> reconcileAll() {
+        Map<Key, Entry> snapshot;
+        synchronized (this) {
+            snapshot = new LinkedHashMap<>(entries);
+        }
+        Map<Key, Boolean> results = new LinkedHashMap<>();
+        snapshot.forEach((key, entry) -> {
+            try {
+                results.put(key, entry.supervisor().reconcile());
+            } catch (RuntimeException failure) {
+                // Keep the group operation independent; the affected agent remains fail-closed.
+                results.put(key, false);
+            }
+        });
+        return Map.copyOf(results);
+    }
+
     /** A group is ready only when it is non-empty and every registered agent is READY. */
     public boolean isReady() {
         List<Entry> snapshot;
