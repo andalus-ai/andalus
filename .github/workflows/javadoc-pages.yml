@@ -32,6 +32,65 @@ jobs:
           java-version: "25"
           cache: maven
 
+      # Framework provider modules consume AQLI/Aljabr and Gamelan artifacts
+      # that are not published to Maven Central. Reproduce the same source bootstrap
+      # used by the main CI workflow before installing the Framework reactor.
+      - name: Checkout Aljabr (AQLI composite dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/aljabr
+          path: aljabr
+          ref: main
+
+      - name: Checkout AQLI
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/aqli
+          path: _aqli
+          ref: main
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.4.0"
+
+      - name: Publish AQLI SPI and SDK dependencies to Maven Local
+        working-directory: _aqli
+        env:
+          GRADLE_OPTS: "-Xmx2G -Dorg.gradle.daemon=false"
+        run: |
+          TASKS=(
+            :spi:aqli-spi:publishToMavenLocal
+            :spi:aqli-spi-inference:publishToMavenLocal
+            :spi:aqli-spi-multimodal:publishToMavenLocal
+            :spi:aqli-spi-plugin:publishToMavenLocal
+            :sdk:aqli-sdk-api:publishToMavenLocal
+            :sdk:aqli-sdk-protobuf:publishToMavenLocal
+            :sdk:aqli-sdk-core:publishToMavenLocal
+            :sdk:aqli-sdk:publishToMavenLocal
+          )
+          gradle "${TASKS[@]}" --no-daemon -x test --parallel
+
+      - name: Checkout Gamelan
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/gamelan
+          path: gamelan
+          ref: main
+
+      - name: Publish Gamelan SPI and executor SDK dependencies to Maven Local
+        working-directory: gamelan
+        env:
+          GRADLE_OPTS: "-Xmx2G -Dorg.gradle.daemon=false"
+        run: |
+          gradle \
+            :gamelan-engine-spi:publishToMavenLocal \
+            :gamelan-plugin-spi:publishToMavenLocal \
+            :gamelan-sdk-executor-core:publishToMavenLocal \
+            --no-daemon -x test --parallel \
+            -Pgamelan.publish.enabled=true \
+            -Pgamelan.version=1.0.0-SNAPSHOT
+
       # The framework is a separate Maven reactor. Install the artifacts used by
       # this repository before asking the root reactor to resolve Javadoc classpaths.
       - name: Checkout Andalus Framework
