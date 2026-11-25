@@ -136,7 +136,7 @@ jobs:
         run: >-
           ./mvnw -B -ntp
           -f framework/pom.xml
-          -pl andalus-agent,andalus-tool,andalus-execution-api,andalus-runtime-spi,andalus-observability,andalus-resilience,andalus-engine,andalus-anp,andalus-harness,andalus-a2a,andalus-memory
+          -pl andalus-core,andalus-knowledge,andalus-agent,andalus-tool,andalus-execution-api,andalus-runtime-spi,andalus-observability,andalus-resilience,andalus-engine,andalus-anp,andalus-harness,andalus-a2a,andalus-memory
           -am install
           -Dmaven.test.skip=true
 
