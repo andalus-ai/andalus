@@ -141,7 +141,9 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
             throw new IllegalArgumentException("A complete Ed25519 key pair is required");
         }
 
-        byte[] privateKey = keyPair.privateKeyBytes();
+        byte[] suppliedPrivateKey = keyPair.privateKeyBytes();
+        byte[] privateKey = suppliedPrivateKey == null ? null
+                : Arrays.copyOf(suppliedPrivateKey, suppliedPrivateKey.length);
         byte[] ciphertext = null;
         try (Connection connection = dataSource.getConnection()) {
             boolean previousAutoCommit = connection.getAutoCommit();
