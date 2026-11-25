@@ -44,6 +44,7 @@ public class PostgresAnpKeyRotationRecoveryQueue {
             UPDATE andalus_anp_key_rotations AS rotation
             SET lease_owner = ?, lease_until = CURRENT_TIMESTAMP + (? * INTERVAL '1 second'),
                 recovery_attempts = recovery_attempts + 1,
+                lease_generation = lease_generation + 1,
                 updated_at = CURRENT_TIMESTAMP
             FROM candidates
             WHERE rotation.operation_id = candidates.operation_id
@@ -113,6 +114,110 @@ public class PostgresAnpKeyRotationRecoveryQueue {
             }
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to claim pending ANP key rotations", exception);
+        }
+    }
+
+    /**
+     * Claims one known operation so foreground and recovery entry points share
+     * the same durable, cross-node exclusion mechanism.
+     */
+    public boolean claimOperation(String operationId, String workerId, Duration leaseDuration) {
+        if (operationId == null || operationId.isBlank() || workerId == null || workerId.isBlank()) {
+            throw new IllegalArgumentException("operationId and workerId must not be blank");
+        }
+        long seconds = Objects.requireNonNull(leaseDuration, "leaseDuration").toSeconds();
+        if (seconds < 1 || seconds > 3600) {
+            throw new IllegalArgumentException("leaseDuration must be between 1 second and 1 hour");
+        }
+        String sql = """
+                UPDATE andalus_anp_key_rotations
+                SET lease_owner = ?, lease_until = CURRENT_TIMESTAMP + (? * INTERVAL '1 second'),
+                    recovery_attempts = recovery_attempts + 1, lease_generation = lease_generation + 1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE operation_id = ? AND state <> 'COMPLETED'
+                  AND (lease_until IS NULL OR lease_until <= CURRENT_TIMESTAMP)
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, workerId);
+            statement.setLong(2, seconds);
+            statement.setString(3, operationId);
+            return statement.executeUpdate() == 1;
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Unable to claim ANP key rotation", exception);
+        }
+    }
+
+    /** Returns the current fencing generation only to the live lease owner. */
+    public long leaseGeneration(String operationId, String workerId) {
+        String sql = """
+                SELECT lease_generation FROM andalus_anp_key_rotations
+                WHERE operation_id = ? AND lease_owner = ? AND lease_until > CURRENT_TIMESTAMP
+                  AND state <> 'COMPLETED'
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, operationId);
+            statement.setString(2, workerId);
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next()) {
+                    throw new IllegalStateException("No live ANP rotation lease for worker");
+                }
+                return rows.getLong(1);
+            }
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Unable to read ANP rotation fencing generation", exception);
+        }
+    }
+
+    /**
+     * Renews a live lease before work. An expired lease cannot be resurrected by
+     * its former owner after another worker has become eligible to claim it.
+     */
+    public boolean renewLease(String operationId, String workerId, long generation, Duration leaseDuration) {
+        if (operationId == null || operationId.isBlank() || workerId == null || workerId.isBlank()) {
+            throw new IllegalArgumentException("operationId and workerId must not be blank");
+        }
+        long seconds = Objects.requireNonNull(leaseDuration, "leaseDuration").toSeconds();
+        if (seconds < 1 || seconds > 3600) {
+            throw new IllegalArgumentException("leaseDuration must be between 1 second and 1 hour");
+        }
+        String sql = """
+                UPDATE andalus_anp_key_rotations
+                SET lease_until = CURRENT_TIMESTAMP + (? * INTERVAL '1 second'),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE operation_id = ? AND lease_owner = ? AND lease_generation = ?
+                  AND lease_until > CURRENT_TIMESTAMP AND state <> 'COMPLETED'
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, seconds);
+            statement.setString(2, operationId);
+            statement.setString(3, workerId);
+            statement.setLong(4, generation);
+            return statement.executeUpdate() == 1;
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Unable to renew ANP key rotation lease", exception);
+        }
+    }
+
+    /** Verifies lease ownership and expiry before a coordinator side effect. */
+    public boolean ownsLease(String operationId, String workerId, long generation) {
+        String sql = """
+                SELECT 1 FROM andalus_anp_key_rotations
+                WHERE operation_id = ? AND lease_owner = ? AND lease_generation = ?
+                  AND lease_until > CURRENT_TIMESTAMP AND state <> 'COMPLETED'
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, operationId);
+            statement.setString(2, workerId);
+            statement.setLong(3, generation);
+            try (ResultSet rows = statement.executeQuery()) {
+                return rows.next();
+            }
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Unable to verify ANP key rotation lease", exception);
         }
     }
 
