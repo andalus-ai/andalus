@@ -3,7 +3,7 @@ package tech.kayys.andalus.execution.snapshot;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -20,7 +20,7 @@ class ContextDataCheckpointCodecTest {
                 "ctx-1", "query", "original", List.of(new Document(
                         "doc-1", "body", "title", "source",
                         Map.of("rank", 2), List.of(0.25d, 0.75d))),
-                List.of(Map.of("memory", "value"), null),
+                Arrays.asList(Map.of("memory", "value"), null),
                 List.of("fact", 7), Map.of("nested", Map.of("enabled", true)),
                 Map.of("origin", "test"), 0.875d, 42L, "vector_rag");
 
