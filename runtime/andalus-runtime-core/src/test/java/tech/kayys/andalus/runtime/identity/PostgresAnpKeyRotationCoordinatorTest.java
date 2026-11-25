@@ -137,7 +137,31 @@ class PostgresAnpKeyRotationCoordinatorTest {
         assertEquals(initial, didStore.find(DID).orElseThrow());
         assertTrue(keyStore.getActiveKey(OLD_ID).isPresent());
         assertFalse(queue.claimOperation("rotation-lease-conflict", "second-worker", Duration.ofMinutes(2)));
-        assertTrue(queue.ownsLease("rotation-lease-conflict", "recovery-owner"));
+        long generation = queue.leaseGeneration("rotation-lease-conflict", "recovery-owner");
+        assertTrue(queue.ownsLease("rotation-lease-conflict", "recovery-owner", generation));
+    }
+
+    @Test
+    void reclaimedLeaseAdvancesGenerationAndRejectsStaleWorker() throws Exception {
+        journal.findOrPrepare(request("rotation-fenced"));
+        assertTrue(queue.claimOperation("rotation-fenced", "worker-old", Duration.ofMinutes(1)));
+        long oldGeneration = queue.leaseGeneration("rotation-fenced", "worker-old");
+        try (Connection connection = dataSource.getConnection();
+             var statement = connection.prepareStatement("""
+                     UPDATE andalus_anp_key_rotations SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second'
+                     WHERE operation_id = ?
+                     """)) {
+            statement.setString(1, "rotation-fenced");
+            statement.executeUpdate();
+        }
+
+        assertTrue(queue.claimOperation("rotation-fenced", "worker-new", Duration.ofMinutes(1)));
+        long newGeneration = queue.leaseGeneration("rotation-fenced", "worker-new");
+
+        assertTrue(newGeneration > oldGeneration);
+        assertFalse(queue.renewLease("rotation-fenced", "worker-old", oldGeneration, Duration.ofMinutes(1)));
+        assertFalse(queue.ownsLease("rotation-fenced", "worker-old", oldGeneration));
+        assertTrue(queue.ownsLease("rotation-fenced", "worker-new", newGeneration));
     }
 
     @Test
@@ -207,7 +231,8 @@ class PostgresAnpKeyRotationCoordinatorTest {
                         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         lease_owner VARCHAR(256), lease_until TIMESTAMPTZ,
-                        recovery_attempts BIGINT NOT NULL DEFAULT 0)
+                        recovery_attempts BIGINT NOT NULL DEFAULT 0,
+                        lease_generation BIGINT NOT NULL DEFAULT 0 CHECK (lease_generation >= 0))
                     """);
             sql.execute("""
                     CREATE TABLE andalus_anp_signing_keys (
