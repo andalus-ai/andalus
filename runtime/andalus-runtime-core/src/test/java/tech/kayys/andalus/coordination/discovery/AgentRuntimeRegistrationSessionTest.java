@@ -36,8 +36,7 @@ class AgentRuntimeRegistrationSessionTest {
         when(store.publishStatus(TOKEN, AgentRuntimeStatus.AVAILABLE, TTL))
                 .thenReturn(Optional.of(lease(AgentRuntimeStatus.AVAILABLE)));
         when(store.revoke(TOKEN)).thenReturn(true);
-        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(future);
+        doReturn(future).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class));
 
         AgentRuntimeRegistrationSession session = AgentRuntimeRegistrationSession.open(
                 lifecycle, scheduler, "tenant-a", "agent-a", "instance-a", "owner-a",
@@ -64,8 +63,7 @@ class AgentRuntimeRegistrationSessionTest {
         ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
         when(store.acquire(any())).thenReturn(Optional.of(lease(AgentRuntimeStatus.STARTING)));
         when(store.renew(TOKEN, TTL)).thenReturn(Optional.empty());
-        when(scheduler.scheduleWithFixedDelay(task.capture(), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(future);
+        doReturn(future).when(scheduler).scheduleWithFixedDelay(task.capture(), anyLong(), anyLong(), any(TimeUnit.class));
 
         AgentRuntimeRegistrationSession session = AgentRuntimeRegistrationSession.open(
                 lifecycle, scheduler, "tenant-a", "agent-a", "instance-a", "owner-a",
@@ -86,7 +84,7 @@ class AgentRuntimeRegistrationSessionTest {
         AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
         ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
         when(store.acquire(any())).thenReturn(Optional.of(lease(AgentRuntimeStatus.STARTING)));
-        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
+        doReturn(Optional.of(lease(AgentRuntimeStatus.STARTING))).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
                 .thenThrow(new IllegalStateException("scheduler stopping"));
         when(store.revoke(TOKEN)).thenReturn(true);
 
@@ -104,10 +102,9 @@ class AgentRuntimeRegistrationSessionTest {
         ScheduledFuture<?> future = mock(ScheduledFuture.class);
         ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
         java.util.List<AgentRuntimeRegistrationObserver.Event> events = new java.util.ArrayList<>();
-        when(store.acquire(any())).thenReturn(Optional.of(lease(AgentRuntimeStatus.STARTING)));
+        when(store.acquire(any());
         when(store.renew(TOKEN, TTL)).thenReturn(Optional.empty());
-        when(scheduler.scheduleWithFixedDelay(task.capture(), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(future);
+        doReturn(future).when(scheduler).scheduleWithFixedDelay(task.capture(), anyLong(), anyLong(), any(TimeUnit.class));
 
         AgentRuntimeRegistrationSession session = AgentRuntimeRegistrationSession.open(
                 lifecycle, scheduler, "tenant-a", "agent-a", "instance-a", "owner-a",
@@ -131,8 +128,7 @@ class AgentRuntimeRegistrationSessionTest {
         when(store.publishStatus(TOKEN, AgentRuntimeStatus.AVAILABLE, TTL))
                 .thenReturn(Optional.of(lease(AgentRuntimeStatus.AVAILABLE)));
         when(store.revoke(TOKEN)).thenReturn(true);
-        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(future);
+        doReturn(future).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class));
 
         AgentRuntimeRegistrationSession session = AgentRuntimeRegistrationSession.open(
                 lifecycle, scheduler, "tenant-a", "agent-a", "instance-a", "owner-a",
@@ -155,8 +151,7 @@ class AgentRuntimeRegistrationSessionTest {
         java.util.List<AgentRuntimeRegistrationObserver.Event> events = new java.util.ArrayList<>();
         when(store.acquire(any())).thenReturn(Optional.of(lease(AgentRuntimeStatus.STARTING)));
         when(store.renew(TOKEN, TTL)).thenThrow(new IllegalStateException("database unavailable"));
-        when(scheduler.scheduleWithFixedDelay(task.capture(), anyLong(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(future);
+        doReturn(future).when(scheduler).scheduleWithFixedDelay(task.capture(), anyLong(), anyLong(), any(TimeUnit.class));
 
         AgentRuntimeRegistrationSession session = AgentRuntimeRegistrationSession.open(
                 lifecycle, scheduler, "tenant-a", "agent-a", "instance-a", "owner-a",
