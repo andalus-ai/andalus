@@ -175,6 +175,35 @@ public final class AgentRuntimeRegistrationGroup implements AutoCloseable {
         return entries.size();
     }
 
+    /** Returns a point-in-time, low-cardinality count of current group readiness states. */
+    public GroupDiagnostics diagnostics() {
+        List<Entry> snapshot;
+        synchronized (this) {
+            snapshot = List.copyOf(entries.values());
+        }
+        int starting = 0;
+        int ready = 0;
+        int degraded = 0;
+        int stopped = 0;
+        for (Entry entry : snapshot) {
+            switch (entry.readiness().state()) {
+                case READY -> ready++;
+                case STARTING, NOT_CONFIGURED -> starting++;
+                case DEGRADED -> degraded++;
+                case STOPPED -> stopped++;
+            }
+        }
+        return new GroupDiagnostics(snapshot.size(), ready, starting, degraded, stopped);
+    }
+
+    /** Aggregate counts only; deliberately excludes tenant and agent identifiers. */
+    public record GroupDiagnostics(int total, int ready, int starting, int degraded, int stopped) {
+        public boolean isReady() {
+            return total > 0 && ready == total;
+        }
+    }
+
+
     /**
      * Stops accepting registrations and atomically detaches all current entries.
      * Each supervisor is closed outside the group monitor so slow persistence calls

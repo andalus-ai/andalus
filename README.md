@@ -885,3 +885,21 @@ restored its requested state. Healthy sessions are idempotent and are not
 reacquired. Lost sessions are acquired with a fresh fenced generation. The
 group does not create or repair schedulers, retry stale tokens, or bypass
 per-agent readiness checks.
+
+
+## Agent runtime registration group diagnostics (Phase 5.1.19)
+
+AgentRuntimeRegistrationGroup.diagnostics() returns a point-in-time aggregate
+of current membership: total, READY, STARTING, DEGRADED, and STOPPED registrations.
+The snapshot contains counts only and intentionally omits tenant, agent, instance,
+and owner identifiers. It is suitable for health summaries without introducing
+high-cardinality metric labels. An empty group is not considered ready.
+
+The registration observer now distinguishes scheduled recovery attempts and
+outcomes (RECOVERY_ATTEMPTED, RECOVERY_SUCCEEDED, and RECOVERY_FAILED)
+from recovery scheduler rejection. Explicit host reconciliation similarly emits
+RECONCILIATION_ATTEMPTED before its existing success/failure outcome events.
+AgentRuntimeRegistrationTelemetry aggregates these events and updates its
+last-success/last-failure timestamps. Hosts can export the low-cardinality
+snapshot through their existing metrics stack; the runtime adds no metrics
+vendor dependency and does not own metric export or alert policy.
