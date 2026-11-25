@@ -146,6 +146,36 @@ public class PostgresAnpKeyRotationRecoveryQueue {
         }
     }
 
+    /**
+     * Renews a live lease before work. An expired lease cannot be resurrected by
+     * its former owner after another worker has become eligible to claim it.
+     */
+    public boolean renewLease(String operationId, String workerId, Duration leaseDuration) {
+        if (operationId == null || operationId.isBlank() || workerId == null || workerId.isBlank()) {
+            throw new IllegalArgumentException("operationId and workerId must not be blank");
+        }
+        long seconds = Objects.requireNonNull(leaseDuration, "leaseDuration").toSeconds();
+        if (seconds < 1 || seconds > 3600) {
+            throw new IllegalArgumentException("leaseDuration must be between 1 second and 1 hour");
+        }
+        String sql = """
+                UPDATE andalus_anp_key_rotations
+                SET lease_until = CURRENT_TIMESTAMP + (? * INTERVAL '1 second'),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE operation_id = ? AND lease_owner = ?
+                  AND lease_until > CURRENT_TIMESTAMP AND state <> 'COMPLETED'
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, seconds);
+            statement.setString(2, operationId);
+            statement.setString(3, workerId);
+            return statement.executeUpdate() == 1;
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Unable to renew ANP key rotation lease", exception);
+        }
+    }
+
     /** Verifies lease ownership and expiry before a coordinator side effect. */
     public boolean ownsLease(String operationId, String workerId) {
         String sql = """
