@@ -16,8 +16,6 @@ import tech.kayys.andalus.anp.identity.TrustedDidDocumentStore;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.time.Duration;
@@ -167,7 +165,6 @@ class PostgresAnpKeyRotationCoordinatorTest {
 
     private static AnpIdentityKeyPair generatePair(String keyId) throws Exception {
         KeyPairGenerator generator = KeyPairGenerator.getInstance("Ed25519");
-        generator.initialize(255, new SecureRandom());
         KeyPair pair = generator.generateKeyPair();
         return new AnpIdentityKeyPair(keyId, "Ed25519",
                 pair.getPrivate().getEncoded(), pair.getPublic().getEncoded());
