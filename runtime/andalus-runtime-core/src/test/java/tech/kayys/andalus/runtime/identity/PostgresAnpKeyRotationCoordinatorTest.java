@@ -40,7 +40,7 @@ class PostgresAnpKeyRotationCoordinatorTest {
     private PGSimpleDataSource dataSource;
     private PostgresAnpKeyRotationJournal journal;
     private PostgresAnpKeyRotationRecoveryQueue queue;
-    private TrustedDidDocumentStore didStore;
+    private PostgresTrustedDidDocumentStore didStore;
     private PostgresAnpKeyStore keyStore;
     private TrustedDidDocument initial;
     private TrustedDidDocument candidate;
