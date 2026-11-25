@@ -8,6 +8,7 @@ public final class DockerShadowEvaluationTransportFixture {
 
     public static void main(String[] args) throws Exception {
         String mode = args.length == 0 ? "valid" : args[args.length - 1];
+        byte[] request = System.in.readAllBytes();
         if ("timeout".equals(mode)) {
             Thread.sleep(30_000);
             return;
@@ -29,7 +30,6 @@ public final class DockerShadowEvaluationTransportFixture {
         }
         if ("nonzero".equals(mode)) System.exit(7);
 
-        byte[] request = System.in.readAllBytes();
         var decoded = ShadowEvaluationWorkerProtocol.decode(request);
         if (decoded.type() != ShadowEvaluationWorkerProtocol.MessageType.EXECUTE_REQUEST) {
             System.exit(8);
