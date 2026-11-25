@@ -165,7 +165,7 @@ public class PostgresAnpKeyRotationCoordinator {
             assertLease(operationId, owner, generation);
             switch (rotation.state()) {
                 case PREPARED -> {
-                    assertLease(operationId, owner);
+                    assertLease(operationId, owner, generation);
                     TrustedDidDocument stored = didStore.register(candidate);
                     if (stored.revision() != rotation.targetRevision()
                             || !stored.document().equals(candidate.document())) {
@@ -176,7 +176,7 @@ public class PostgresAnpKeyRotationCoordinator {
                             PostgresAnpKeyRotationJournal.RotationState.DID_DOCUMENT_UPDATED);
                 }
                 case DID_DOCUMENT_UPDATED -> {
-                    assertLease(operationId, owner);
+                    assertLease(operationId, owner, generation);
                     keyStore.storeKey(rotation.did(), newKeyPair);
                     if (keyStore.getActiveKey(rotation.newKeyId()).isEmpty()) {
                         throw new SecurityException("Key store did not activate the proposed signing key");
@@ -189,7 +189,7 @@ public class PostgresAnpKeyRotationCoordinator {
                     if (keyStore.getActiveKey(rotation.newKeyId()).isEmpty()) {
                         throw new SecurityException("New signing key is not active; refusing to revoke old key");
                     }
-                    assertLease(operationId, owner);
+                    assertLease(operationId, owner, generation);
                     keyStore.revokeKey(rotation.oldKeyId());
                     if (keyStore.getActiveKey(rotation.oldKeyId()).isPresent()) {
                         throw new SecurityException("Old signing key remains active after revocation");
