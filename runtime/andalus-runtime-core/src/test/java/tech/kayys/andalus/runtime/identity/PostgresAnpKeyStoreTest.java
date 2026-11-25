@@ -123,6 +123,20 @@ class PostgresAnpKeyStoreTest {
     }
 
     @Test
+    void wipesDecryptedReadBufferButReturnsUsableKeyPair() {
+        PrefixProtector tracking = new PrefixProtector();
+        PostgresAnpKeyStore guarded = new PostgresAnpKeyStore(dataSource, tracking);
+        byte[] expected = "private-read".getBytes(StandardCharsets.UTF_8);
+        guarded.storeKey("did:wba:example", new AnpIdentityKeyPair(
+                "did:wba:example#key-read", "Ed25519", expected, new byte[]{1, 2, 3}));
+
+        AnpIdentityKeyPair loaded = guarded.getActiveKey("did:wba:example#key-read").orElseThrow();
+        assertArrayEquals(expected, loaded.privateKeyBytes());
+        assertNotNull(tracking.lastUnprotected);
+        assertArrayEquals(new byte[tracking.lastUnprotected.length], tracking.lastUnprotected);
+    }
+
+    @Test
     void databaseNeverReceivesPlaintextPrivateKeyBytes() throws Exception {
         byte[] privateBytes = "private-one".getBytes(StandardCharsets.UTF_8);
         store.storeKey("did:wba:example", new AnpIdentityKeyPair(
@@ -160,6 +174,7 @@ class PostgresAnpKeyStoreTest {
     private static final class PrefixProtector implements AnpKeyMaterialProtector {
         private byte[] lastPlaintext;
         private byte[] lastCiphertext;
+        private byte[] lastUnprotected;
 
         @Override
         public byte[] protect(String agentId, String keyId, byte[] plaintext) {
@@ -176,7 +191,8 @@ class PostgresAnpKeyStoreTest {
             if (ciphertext == null || ciphertext.length < 2 || ciphertext[0] != 42) {
                 throw new SecurityException("Invalid test ciphertext");
             }
-            return Arrays.copyOfRange(ciphertext, 1, ciphertext.length);
+            lastUnprotected = Arrays.copyOfRange(ciphertext, 1, ciphertext.length);
+            return lastUnprotected;
         }
     }
 }
