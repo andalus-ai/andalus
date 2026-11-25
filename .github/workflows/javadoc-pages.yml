@@ -32,6 +32,15 @@ jobs:
           java-version: "25"
           cache: maven
 
+      # The framework is a separate Maven reactor. Install the artifacts used by
+      # this repository before asking the root reactor to resolve Javadoc classpaths.
+      - name: Checkout Andalus Framework
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/andalus-framework
+          path: _andalus-framework
+          ref: main
+
       # Framework provider modules consume AQLI/Aljabr and Gamelan artifacts
       # that are not published to Maven Central. Reproduce the same source bootstrap
       # used by the main CI workflow before installing the Framework reactor.
@@ -115,15 +124,6 @@ jobs:
             --no-daemon -x test --parallel \
             -Pgamelan.publish.enabled=true \
             -Pgamelan.version=1.0.0-SNAPSHOT
-
-      # The framework is a separate Maven reactor. Install the artifacts used by
-      # this repository before asking the root reactor to resolve Javadoc classpaths.
-      - name: Checkout Andalus Framework
-        uses: actions/checkout@v4
-        with:
-          repository: andalus-ai/andalus-framework
-          path: _andalus-framework
-          ref: main
 
       - name: Install Framework dependency closure
         working-directory: _andalus-framework
