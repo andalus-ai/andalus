@@ -114,6 +114,7 @@ jobs:
         run: |
           gradle \
             :gamelan-engine-spi:publishToMavenLocal \
+            :gamelan-sdk-client-core:publishToMavenLocal \
             :gamelan-plugin-spi:publishToMavenLocal \
             :gamelan-sdk-executor-core:publishToMavenLocal \
             --no-daemon -x test --parallel \
