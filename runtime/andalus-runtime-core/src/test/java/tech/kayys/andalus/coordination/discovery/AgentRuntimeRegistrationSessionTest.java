@@ -84,7 +84,7 @@ class AgentRuntimeRegistrationSessionTest {
         AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
         ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
         when(store.acquire(any())).thenReturn(Optional.of(lease(AgentRuntimeStatus.STARTING)));
-        doReturn(Optional.of(lease(AgentRuntimeStatus.STARTING))).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
+        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
                 .thenThrow(new IllegalStateException("scheduler stopping"));
         when(store.revoke(TOKEN)).thenReturn(true);
 
@@ -102,7 +102,7 @@ class AgentRuntimeRegistrationSessionTest {
         ScheduledFuture<?> future = mock(ScheduledFuture.class);
         ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
         java.util.List<AgentRuntimeRegistrationObserver.Event> events = new java.util.ArrayList<>();
-        when(store.acquire(any());
+        when(store.acquire(any())).thenReturn(Optional.of(lease(AgentRuntimeStatus.STARTING)));
         when(store.renew(TOKEN, TTL)).thenReturn(Optional.empty());
         doReturn(future).when(scheduler).scheduleWithFixedDelay(task.capture(), anyLong(), anyLong(), any(TimeUnit.class));
 
