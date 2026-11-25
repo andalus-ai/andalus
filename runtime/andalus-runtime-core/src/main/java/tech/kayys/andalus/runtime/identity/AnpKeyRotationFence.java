@@ -1,7 +1,5 @@
 package tech.kayys.andalus.runtime.identity;
 
-import java.util.Objects;
-
 /** Durable PostgreSQL lease token carried to each rotation persistence boundary. */
 public record AnpKeyRotationFence(String operationId, String workerId, long generation,
                                   String expectedState) {
