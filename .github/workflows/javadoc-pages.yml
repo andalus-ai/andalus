@@ -64,6 +64,10 @@ jobs:
         with:
           gradle-version: "9.4.0"
 
+      - name: Publish Framework schema contracts to Maven Local
+        working-directory: _andalus-framework
+        run: ./mvnw -B -pl framework/andalus-schema-core -am install -DskipTests -q
+
       - name: Publish AQLI SPI and SDK dependencies to Maven Local
         working-directory: _aqli
         env:
