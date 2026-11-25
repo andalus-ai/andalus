@@ -12,7 +12,7 @@
     <description>andalus Agentic</description>
 
     <distributionManagement>
-        <!-- GitHub Packages: replace 'workkayys' and 'andalus' if your repo slug differs -->
+        <!-- Publish release and snapshot artifacts to this repository's GitHub Packages endpoint. -->
         <repository>
             <id>github</id>
             <name>GitHub Packages — Andalus (Release)</name>
@@ -21,7 +21,7 @@
         <snapshotRepository>
             <id>github</id>
             <name>GitHub Packages — Andalus (Snapshot)</name>
-            <url>https://maven.pkg.github.com/workkayys/andalus</url>
+            <url>https://maven.pkg.github.com/andalus-ai/andalus</url>
         </snapshotRepository>
     </distributionManagement>
 
