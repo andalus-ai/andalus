@@ -11,6 +11,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
 /**
@@ -32,6 +33,7 @@ public final class DockerShadowEvaluationWorkerTransport {
                     || pids < 1 || pids > 4096 || tmpfsMiB < 1 || tmpfsMiB > 1024
                     || timeout == null || timeout.isZero() || timeout.isNegative()
                     || timeout.compareTo(Duration.ofHours(1)) > 0
+                    || timeout.toNanos() < 1_000_000L
                     || maxStderrBytes < 0 || maxStderrBytes > 1_048_576) {
                 throw new IllegalArgumentException("invalid shadow worker resource limits");
             }
@@ -62,7 +64,7 @@ public final class DockerShadowEvaluationWorkerTransport {
     public byte[] exchange(byte[] requestFrame) throws IOException, InterruptedException {
         Objects.requireNonNull(requestFrame, "requestFrame");
         if (requestFrame.length == 0
-                || requestFrame.length > ShadowEvaluationWorkerProtocol.MAX_PAYLOAD_BYTES + 64) {
+                || requestFrame.length > ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES) {
             throw new IllegalArgumentException("invalid shadow worker request frame size");
         }
         ShadowEvaluationWorkerProtocol.Frame decoded = ShadowEvaluationWorkerProtocol.decode(requestFrame);
@@ -73,9 +75,13 @@ public final class DockerShadowEvaluationWorkerTransport {
         ProcessBuilder builder = new ProcessBuilder(command());
         builder.environment().clear();
         Process process = builder.start();
+        long deadline = System.nanoTime() + limits.timeout().toNanos();
         var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+        CompletableFuture<Void> writer = null;
+        CompletableFuture<byte[]> stdout = null;
+        CompletableFuture<byte[]> stderr = null;
         try {
-            CompletableFuture<Void> writer = CompletableFuture.runAsync(() -> {
+            writer = CompletableFuture.runAsync(() -> {
                 try (OutputStream out = process.getOutputStream()) {
                     out.write(requestFrame);
                     out.flush();
@@ -83,20 +89,18 @@ public final class DockerShadowEvaluationWorkerTransport {
                     throw new java.util.concurrent.CompletionException(e);
                 }
             }, executor);
-            CompletableFuture<byte[]> stdout = CompletableFuture.supplyAsync(
+            stdout = CompletableFuture.supplyAsync(
                     () -> readBounded(process.getInputStream(),
-                            ShadowEvaluationWorkerProtocol.MAX_PAYLOAD_BYTES + 64), executor);
-            CompletableFuture<byte[]> stderr = CompletableFuture.supplyAsync(
+                            ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES), executor);
+            stderr = CompletableFuture.supplyAsync(
                     () -> readBounded(process.getErrorStream(), limits.maxStderrBytes()), executor);
 
-            boolean exited = process.waitFor(limits.timeout().toMillis(), TimeUnit.MILLISECONDS);
-            if (!exited) {
-                terminate(process);
-                throw new IOException("shadow worker exceeded its execution timeout");
+            if (!process.waitFor(remainingNanos(deadline), TimeUnit.NANOSECONDS)) {
+                throw timeoutFailure();
             }
-            await(writer, "worker request delivery failed");
-            byte[] response = await(stdout, "worker response could not be read");
-            byte[] ignoredDiagnostics = await(stderr, "worker diagnostics could not be read");
+            await(writer, "worker request delivery failed", deadline);
+            byte[] response = await(stdout, "worker response could not be read", deadline);
+            await(stderr, "worker diagnostics could not be read", deadline);
             if (process.exitValue() != 0) {
                 throw new IOException("shadow worker exited with status " + process.exitValue());
             }
@@ -113,6 +117,9 @@ public final class DockerShadowEvaluationWorkerTransport {
             terminate(process);
             throw failure;
         } finally {
+            if (writer != null) writer.cancel(true);
+            if (stdout != null) stdout.cancel(true);
+            if (stderr != null) stderr.cancel(true);
             executor.shutdownNow();
             if (process.isAlive()) terminate(process);
         }
@@ -137,7 +144,7 @@ public final class DockerShadowEvaluationWorkerTransport {
     }
 
     private static byte[] readBounded(InputStream input, int maximum) {
-        try (input; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+        try (input; ByteArrayOutputStream output = new ByteArrayOutputStream(Math.min(maximum, 8192))) {
             byte[] buffer = new byte[8192];
             int total = 0;
             boolean exceeded = false;
@@ -157,9 +164,22 @@ public final class DockerShadowEvaluationWorkerTransport {
         }
     }
 
-    private static <T> T await(CompletableFuture<T> future, String message) throws IOException, InterruptedException {
+    private static long remainingNanos(long deadline) throws IOException {
+        long remaining = deadline - System.nanoTime();
+        if (remaining <= 0) throw timeoutFailure();
+        return remaining;
+    }
+
+    private static IOException timeoutFailure() {
+        return new IOException("shadow worker exceeded its execution timeout");
+    }
+
+    private static <T> T await(CompletableFuture<T> future, String message, long deadline)
+            throws IOException, InterruptedException {
         try {
-            return future.get();
+            return future.get(remainingNanos(deadline), TimeUnit.NANOSECONDS);
+        } catch (TimeoutException e) {
+            throw timeoutFailure();
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
             if (cause instanceof java.util.concurrent.CompletionException ce && ce.getCause() != null) {
