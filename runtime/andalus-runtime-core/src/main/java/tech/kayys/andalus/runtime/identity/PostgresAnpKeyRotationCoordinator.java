@@ -166,45 +166,85 @@ public class PostgresAnpKeyRotationCoordinator {
             switch (rotation.state()) {
                 case PREPARED -> {
                     assertLease(operationId, owner, generation);
-                    TrustedDidDocument stored = didStore.register(candidate);
+                    TrustedDidDocument stored = registerDidFenced(candidate, operationId, owner, generation);
                     if (stored.revision() != rotation.targetRevision()
                             || !stored.document().equals(candidate.document())) {
                         throw new SecurityException("Trusted DID store does not contain the proposed rotation snapshot");
                     }
-                    rotation = journal.advance(operationId,
+                    rotation = advanceFenced(operationId,
                             PostgresAnpKeyRotationJournal.RotationState.PREPARED,
-                            PostgresAnpKeyRotationJournal.RotationState.DID_DOCUMENT_UPDATED);
+                            PostgresAnpKeyRotationJournal.RotationState.DID_DOCUMENT_UPDATED, owner, generation);
                 }
                 case DID_DOCUMENT_UPDATED -> {
                     assertLease(operationId, owner, generation);
-                    keyStore.storeKey(rotation.did(), newKeyPair);
+                    storeKeyFenced(rotation.did(), newKeyPair, operationId, owner, generation);
                     if (keyStore.getActiveKey(rotation.newKeyId()).isEmpty()) {
                         throw new SecurityException("Key store did not activate the proposed signing key");
                     }
-                    rotation = journal.advance(operationId,
+                    rotation = advanceFenced(operationId,
                             PostgresAnpKeyRotationJournal.RotationState.DID_DOCUMENT_UPDATED,
-                            PostgresAnpKeyRotationJournal.RotationState.NEW_KEY_ACTIVATED);
+                            PostgresAnpKeyRotationJournal.RotationState.NEW_KEY_ACTIVATED, owner, generation);
                 }
                 case NEW_KEY_ACTIVATED -> {
                     if (keyStore.getActiveKey(rotation.newKeyId()).isEmpty()) {
                         throw new SecurityException("New signing key is not active; refusing to revoke old key");
                     }
                     assertLease(operationId, owner, generation);
-                    keyStore.revokeKey(rotation.oldKeyId());
+                    revokeKeyFenced(rotation.oldKeyId(), operationId, owner, generation);
                     if (keyStore.getActiveKey(rotation.oldKeyId()).isPresent()) {
                         throw new SecurityException("Old signing key remains active after revocation");
                     }
-                    rotation = journal.advance(operationId,
+                    rotation = advanceFenced(operationId,
                             PostgresAnpKeyRotationJournal.RotationState.NEW_KEY_ACTIVATED,
-                            PostgresAnpKeyRotationJournal.RotationState.OLD_KEY_REVOKED);
+                            PostgresAnpKeyRotationJournal.RotationState.OLD_KEY_REVOKED, owner, generation);
                 }
-                case OLD_KEY_REVOKED -> rotation = journal.advance(operationId,
+                case OLD_KEY_REVOKED -> rotation = advanceFenced(operationId,
                         PostgresAnpKeyRotationJournal.RotationState.OLD_KEY_REVOKED,
-                        PostgresAnpKeyRotationJournal.RotationState.COMPLETED);
+                        PostgresAnpKeyRotationJournal.RotationState.COMPLETED, owner, generation);
                 case COMPLETED -> { }
             }
         }
         return rotation;
+    }
+
+    private PostgresAnpKeyRotationJournal.Rotation advanceFenced(
+            String operationId, PostgresAnpKeyRotationJournal.RotationState expected,
+            PostgresAnpKeyRotationJournal.RotationState next, String owner, long generation) {
+        return journal.advance(operationId, expected, next,
+                fence(operationId, owner, generation, expected));
+    }
+
+    private TrustedDidDocument registerDidFenced(TrustedDidDocument candidate,
+                                                       String operationId, String owner, long generation) {
+        if (didStore instanceof PostgresTrustedDidDocumentStore postgresStore) {
+            return postgresStore.register(candidate, fence(operationId, owner, generation,
+                    PostgresAnpKeyRotationJournal.RotationState.PREPARED));
+        }
+        return didStore.register(candidate);
+    }
+
+    private void storeKeyFenced(String agentId, AnpIdentityKeyPair pair,
+                                String operationId, String owner, long generation) {
+        if (keyStore instanceof PostgresAnpKeyStore postgresStore) {
+            postgresStore.storeKey(agentId, pair, fence(operationId, owner, generation,
+                    PostgresAnpKeyRotationJournal.RotationState.DID_DOCUMENT_UPDATED));
+            return;
+        }
+        keyStore.storeKey(agentId, pair);
+    }
+
+    private void revokeKeyFenced(String keyId, String operationId, String owner, long generation) {
+        if (keyStore instanceof PostgresAnpKeyStore postgresStore) {
+            postgresStore.revokeKey(keyId, fence(operationId, owner, generation,
+                    PostgresAnpKeyRotationJournal.RotationState.NEW_KEY_ACTIVATED));
+            return;
+        }
+        keyStore.revokeKey(keyId);
+    }
+
+    private static AnpKeyRotationFence fence(String operationId, String owner, long generation,
+                                              PostgresAnpKeyRotationJournal.RotationState expectedState) {
+        return new AnpKeyRotationFence(operationId, owner, generation, expectedState.name());
     }
 
     private void assertLease(String operationId, String owner, long generation) {
