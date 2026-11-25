@@ -92,6 +92,12 @@ jobs:
             :sdk:aqli-sdk-core:publishToMavenLocal
             :sdk:aqli-sdk:publishToMavenLocal
             :sdk:aqli-sdk-local:publishToMavenLocal
+            :core:aqli-core:publishToMavenLocal
+            :tokenizer:aqli-tokenizer-core:publishToMavenLocal
+            :repository:aqli-model-repo-common:publishToMavenLocal
+            :repository:aqli-model-repo-local:publishToMavenLocal
+            :repository:aqli-model-database:publishToMavenLocal
+            :plugin:aqli-plugin-kernel-core:publishToMavenLocal
           )
           ./gradlew "${TASKS[@]}" --no-daemon -x test --parallel
       # ────────────────────────────────────────────────────────────────────────
