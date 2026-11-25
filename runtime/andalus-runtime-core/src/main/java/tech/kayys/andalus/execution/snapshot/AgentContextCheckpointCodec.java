@@ -8,7 +8,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import tech.kayys.andalus.agent.AgentContext;
 import tech.kayys.andalus.agent.AgentContextPhase;
 import tech.kayys.andalus.agent.AgentContextState;
@@ -127,6 +126,11 @@ public final class AgentContextCheckpointCodec {
 
     private AgentContext decode(AgentContextValue value, int depth) {
         requireSupportedVersion(value.schemaVersion());
+        if (value.historyTruncated()) {
+            throw new IllegalArgumentException("AgentContext history was truncated by the encoder; "
+                    + value.omittedHistoryEntries() + " direct history entries are unavailable. "
+                    + "Retry with a larger maxHistoryDepth before restoring this checkpoint.");
+        }
         ResourceId id = ResourceId.from(Id.fromString(value.idValue()), ResourceType.fromString(value.idType()));
 
         List<Artifact> decodedArtifacts = new ArrayList<>();
