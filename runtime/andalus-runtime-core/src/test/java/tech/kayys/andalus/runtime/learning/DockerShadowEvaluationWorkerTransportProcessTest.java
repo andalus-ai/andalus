@@ -88,14 +88,14 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
 
     private Path fakeExecutable(String mode) throws Exception {
         Path executable = temporaryDirectory.resolve("fake-docker");
-        String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        String javaExecutable = Path.of(System.getProperty("java.home"), "bin", "java").toString();
         String fixtureClasses = Path.of(DockerShadowEvaluationTransportFixture.class
                 .getProtectionDomain().getCodeSource().getLocation().toURI()).toString();
         String productionClasses = Path.of(ShadowEvaluationWorkerProtocol.class
                 .getProtectionDomain().getCodeSource().getLocation().toURI()).toString();
         String classpath = String.join(java.io.File.pathSeparator,
                 fixtureClasses, productionClasses, System.getProperty("java.class.path"));
-        String script = "#!/bin/sh\nexec " + shellQuote(java) + " -cp " + shellQuote(classpath)
+        String script = "#!/bin/sh\nexec " + shellQuote(javaExecutable) + " -cp " + shellQuote(classpath)
                 + " tech.kayys.andalus.runtime.learning.DockerShadowEvaluationTransportFixture "
                 + "\"$@\" " + shellQuote(mode) + "\n";
         Files.writeString(executable, script, StandardCharsets.UTF_8);
