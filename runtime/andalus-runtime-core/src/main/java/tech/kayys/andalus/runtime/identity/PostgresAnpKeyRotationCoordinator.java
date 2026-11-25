@@ -60,6 +60,9 @@ public class PostgresAnpKeyRotationCoordinator {
             }
         }
         PostgresAnpKeyRotationJournal.Rotation prepared = journal.findOrPrepare(request);
+        if (prepared.state() == PostgresAnpKeyRotationJournal.RotationState.COMPLETED) {
+            return prepared;
+        }
         String owner = "foreground-" + UUID.randomUUID();
         if (!recoveryQueue.claimOperation(prepared.operationId(), owner, Duration.ofMinutes(5))) {
             throw new IllegalStateException("ANP key rotation is already owned by another worker");
@@ -102,6 +105,9 @@ public class PostgresAnpKeyRotationCoordinator {
         PostgresAnpKeyRotationJournal.Rotation rotation = journal.find(operationId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown rotation: " + operationId));
         authorizer.authorize(rotation.actorId(), rotation.did());
+        if (rotation.state() == PostgresAnpKeyRotationJournal.RotationState.COMPLETED) {
+            return rotation;
+        }
         String owner = "foreground-" + UUID.randomUUID();
         if (!recoveryQueue.claimOperation(operationId, owner, Duration.ofMinutes(5))) {
             throw new IllegalStateException("ANP key rotation is already owned by another worker");
