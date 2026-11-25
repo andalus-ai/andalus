@@ -65,6 +65,7 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("status 7");
     }
+
     @Test
     void rejectsResponseWithDifferentRequestCorrelationId() throws Exception {
         Path executable = fakeExecutable("wrong-correlation");
@@ -74,6 +75,27 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("request ID mismatch");
     }
+
+    @Test
+    void rejectsStdoutLargerThanMaximumWorkerFrame() throws Exception {
+        Path executable = fakeExecutable("stdout-oversize");
+        var transport = transport(executable, Duration.ofSeconds(5));
+
+        assertThatThrownBy(() -> transport.exchange(request(UUID.randomUUID())))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("stream exceeded");
+    }
+
+    @Test
+    void rejectsStderrLargerThanConfiguredDiagnosticLimit() throws Exception {
+        Path executable = fakeExecutable("stderr-oversize");
+        var transport = transport(executable, Duration.ofSeconds(5));
+
+        assertThatThrownBy(() -> transport.exchange(request(UUID.randomUUID())))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("stream exceeded");
+    }
+
     private DockerShadowEvaluationWorkerTransport transport(Path executable, Duration timeout) {
         return new DockerShadowEvaluationWorkerTransport(executable.toString(), PINNED_IMAGE,
                 new DockerShadowEvaluationWorkerTransport.Limits(
