@@ -19,7 +19,9 @@ public interface AgentRuntimeRegistrationObserver {
         REVOCATION_REJECTED,
         OPERATION_ERROR,
         SCHEDULING_ERROR,
-        RECOVERY_SCHEDULING_REJECTED
+        RECOVERY_SCHEDULING_REJECTED,
+        RECONCILIATION_SUCCEEDED,
+        RECONCILIATION_FAILED
     }
 
     AgentRuntimeRegistrationObserver NOOP = event -> { };

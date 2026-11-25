@@ -841,3 +841,25 @@ uses `forgotten` and `not-found`.
 ## 🙏 Acknowledgments
 
 Built with ❤️ by [Bhangun](https://github.com/bhangun) at [kayys.tech](https://kayys.tech).
+
+## Agent runtime registration reconciliation (Phase 5.1.17)
+
+When the host scheduler has rejected a recovery task, restore the host-owned
+scheduler and call `AgentRuntimeRegistrationSupervisor.reconcile()`. The
+operation is serialized with scheduled recovery, startup, and shutdown. A
+healthy registration is left untouched; a lost registration is reacquired
+through the registration store and receives a new fenced generation. The
+supervisor never retries heartbeat or status publication with a stale token.
+
+The method returns `true` when a current registration exists. If the host has
+not requested availability, that registration remains `STARTING`; if
+availability was previously requested, the supervisor republishes
+`AVAILABLE` and returns only after readiness is restored. It returns
+`false` when the supervisor is closed or reconciliation cannot establish a
+registration. Hosts should invoke reconciliation after repairing the scheduler
+or persistence dependency, and continue to gate routing on registration
+readiness.
+
+Observers can distinguish `RECONCILIATION_SUCCEEDED` and
+`RECONCILIATION_FAILED` from automatic recovery scheduling failures. The
+runtime still creates no scheduler threads and does not own scheduler recovery.

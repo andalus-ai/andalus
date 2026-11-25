@@ -152,6 +152,92 @@ class AgentRuntimeRegistrationSupervisorTest {
         supervisor.close();
     }
 
+    @Test
+    void explicitReconciliationRecoversAfterRecoverySchedulerWasRestored() {
+        AgentRuntimeRegistrationStore store = mock(AgentRuntimeRegistrationStore.class);
+        AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
+        ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        ScheduledFuture<?> firstHeartbeat = mock(ScheduledFuture.class);
+        ScheduledFuture<?> secondHeartbeat = mock(ScheduledFuture.class);
+        ArgumentCaptor<Runnable> heartbeatTasks = ArgumentCaptor.forClass(Runnable.class);
+        java.util.List<AgentRuntimeRegistrationObserver.Event> events = new java.util.ArrayList<>();
+
+        when(store.acquire(any())).thenReturn(
+                Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING)),
+                Optional.of(lease(SECOND, AgentRuntimeStatus.STARTING)));
+        when(store.publishStatus(any(), eq(AgentRuntimeStatus.AVAILABLE), eq(TTL)))
+                .thenAnswer(invocation -> Optional.of(lease(
+                        invocation.getArgument(0), AgentRuntimeStatus.AVAILABLE)));
+        when(store.renew(FIRST, TTL)).thenThrow(new IllegalStateException("database unavailable"));
+        when(store.revoke(SECOND)).thenReturn(true);
+        when(scheduler.scheduleWithFixedDelay(heartbeatTasks.capture(), anyLong(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(firstHeartbeat, secondHeartbeat);
+        when(scheduler.schedule(any(Runnable.class), anyLong(), any(TimeUnit.class)))
+                .thenThrow(new IllegalStateException("scheduler temporarily unavailable"));
+
+        AgentRuntimeRegistrationReadiness readiness = new AgentRuntimeRegistrationReadiness();
+        AgentRuntimeRegistrationSupervisor supervisor = new AgentRuntimeRegistrationSupervisor(
+                lifecycle, scheduler, readiness, "tenant-a", "agent-a", "instance-a", "owner-a",
+                HEARTBEAT, Duration.ofMillis(100), Duration.ofSeconds(2), events::add);
+
+        assertTrue(supervisor.start());
+        assertTrue(supervisor.markAvailable());
+        heartbeatTasks.getAllValues().get(0).run();
+        assertEquals(AgentRuntimeRegistrationReadiness.State.DEGRADED, readiness.state());
+        assertTrue(supervisor.token().isEmpty());
+
+        // The host has restored the scheduler; reconciliation performs a fresh acquire.
+        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(secondHeartbeat);
+        assertTrue(supervisor.reconcile());
+        assertEquals(SECOND, supervisor.token().orElseThrow());
+        assertEquals(AgentRuntimeRegistrationReadiness.State.READY, readiness.state());
+        assertTrue(supervisor.isReady());
+        assertTrue(events.contains(AgentRuntimeRegistrationObserver.Event.RECONCILIATION_SUCCEEDED));
+        verify(store, times(2)).acquire(any());
+        verify(store, never()).publishStatus(FIRST, AgentRuntimeStatus.AVAILABLE, TTL);
+
+        supervisor.close();
+    }
+
+    @Test
+    void reconcilingHealthySessionIsIdempotentAndDoesNotAcquireAnotherGeneration() {
+        AgentRuntimeRegistrationStore store = mock(AgentRuntimeRegistrationStore.class);
+        AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
+        ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        when(store.acquire(any())).thenReturn(Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING)));
+        when(scheduler.scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(mock(ScheduledFuture.class));
+
+        AgentRuntimeRegistrationSupervisor supervisor = new AgentRuntimeRegistrationSupervisor(
+                lifecycle, scheduler, new AgentRuntimeRegistrationReadiness(),
+                "tenant-a", "agent-a", "instance-a", "owner-a",
+                HEARTBEAT, Duration.ofMillis(100), Duration.ofSeconds(2));
+
+        assertTrue(supervisor.start());
+        assertTrue(supervisor.reconcile());
+        assertEquals(FIRST, supervisor.token().orElseThrow());
+        verify(store, times(1)).acquire(any());
+        supervisor.close();
+    }
+
+    @Test
+    void reconciliationAfterCloseDoesNotAcquireOrExposeARegistration() {
+        AgentRuntimeRegistrationStore store = mock(AgentRuntimeRegistrationStore.class);
+        AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
+        ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        AgentRuntimeRegistrationSupervisor supervisor = new AgentRuntimeRegistrationSupervisor(
+                lifecycle, scheduler, new AgentRuntimeRegistrationReadiness(),
+                "tenant-a", "agent-a", "instance-a", "owner-a",
+                HEARTBEAT, Duration.ofMillis(100), Duration.ofSeconds(2));
+
+        supervisor.close();
+
+        assertFalse(supervisor.reconcile());
+        assertTrue(supervisor.token().isEmpty());
+        verify(store, never()).acquire(any());
+    }
+
     private static AgentRuntimeLease lease(AgentRuntimeLeaseToken token, AgentRuntimeStatus status) {
         return new AgentRuntimeLease(token, status, Instant.parse("2030-01-01T00:00:00Z"));
     }
