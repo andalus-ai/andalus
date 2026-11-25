@@ -87,6 +87,8 @@ jobs:
             :spi:aqli-spi-multimodal:publishToMavenLocal
             :spi:aqli-spi-plugin:publishToMavenLocal
             :spi:aqli-spi-runtime:publishToMavenLocal
+            :sdk:aqli-sdk-api:publishToMavenLocal
+            :sdk:aqli-sdk-protobuf:publishToMavenLocal
             :sdk:aqli-sdk-core:publishToMavenLocal
             :sdk:aqli-sdk:publishToMavenLocal
             :sdk:aqli-sdk-local:publishToMavenLocal
