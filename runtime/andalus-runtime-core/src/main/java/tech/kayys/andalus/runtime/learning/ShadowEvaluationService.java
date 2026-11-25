@@ -54,6 +54,9 @@ public class ShadowEvaluationService {
             throw new SecurityException("shadow execution is not authorized by the current proposal approval");
         }
 
+        if (dataSources == null || !dataSources.isResolvable() || dataSources.isAmbiguous()) {
+            throw new IllegalStateException("a unique durable datasource is required before shadow execution");
+        }
         if (executionBoundaries == null || !executionBoundaries.isResolvable()
                 || executionBoundaries.isAmbiguous()) {
             throw new IllegalStateException("a unique isolated shadow execution boundary is required");
