@@ -2,6 +2,11 @@ package tech.kayys.andalus.execution;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -35,6 +40,9 @@ import tech.kayys.andalus.provider.Provider;
 @ApplicationScoped
 public class AgentExecutionService {
 
+    private static final Logger LOG = Logger.getLogger(AgentExecutionService.class.getName());
+    private static final String WORKSPACE_ROOT = "andalus.workspace.root";
+
     @Inject
     CheckpointStore checkpointStore;
 
@@ -43,6 +51,10 @@ public class AgentExecutionService {
 
     @Inject
     ToolBudgetLedger toolBudgetLedger;
+
+    /** Optional application-owned identity-to-workspace resolver. */
+    @Inject
+    Instance<WorkspaceResolver> workspaceResolverInstances;
 
     /** All CDI-managed {@link Provider} beans discovered at startup. */
     @Inject
@@ -312,13 +324,36 @@ public class AgentExecutionService {
         ToolBudget executionBudgetForTools = new ToolBudget(
                 caller.tenantId(), caller.userId(), configured.maxCalls(),
                 configured.maxCostUsd(), configured.maxDurationMs());
+        java.util.Map<String, Object> constraints = new LinkedHashMap<>(
+                agent != null && agent.constraints() != null ? agent.constraints() : java.util.Map.of());
+
+        // The workspace resolver is the sole authority for runtime filesystem
+        // access. An agent definition or caller attribute cannot grant a path.
+        constraints.remove(WORKSPACE_ROOT);
+        resolveWorkspaceRoot(caller, agentId).ifPresent(path -> constraints.put(WORKSPACE_ROOT, path));
+
         return new AgentToolExecutionContext(
                 identity.executionId(), identity.correlationId(), identity.parentExecutionId(),
                 caller.tenantId(), caller.userId(), agentId, principalType,
                 caller.principalId(), caller.roles(), caller.permissions(),
                 executionBudget, executionBudgetForTools,
-                agent != null ? agent.constraints() : java.util.Map.of(),
-                caller.attributes(), java.time.Instant.now());
+                constraints, caller.attributes(), java.time.Instant.now());
+    }
+
+    private Optional<Path> resolveWorkspaceRoot(AgentCallerContext caller, String agentId) {
+        if (workspaceResolverInstances == null || workspaceResolverInstances.isUnsatisfied()) {
+            return Optional.empty();
+        }
+        try {
+            WorkspaceRequest request = new WorkspaceRequest(
+                    caller.principalType(), caller.tenantId(), caller.principalId(),
+                    caller.userId(), agentId);
+            return WorkspaceResolution.resolve(workspaceResolverInstances.get(), request);
+        } catch (RuntimeException e) {
+            // Workspace access is denied without taking down unrelated agent work.
+            LOG.log(Level.WARNING, "Workspace resolution failed; filesystem tools will remain unavailable", e);
+            return Optional.empty();
+        }
     }
 
     // ------------------------------------------------------------------
