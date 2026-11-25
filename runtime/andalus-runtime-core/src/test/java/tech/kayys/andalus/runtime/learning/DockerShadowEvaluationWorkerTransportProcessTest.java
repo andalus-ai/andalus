@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class DockerShadowEvaluationWorkerTransportProcessTest {
     private static final String PINNED_IMAGE =
             "registry.example.test/andalus/shadow-worker@sha256:" + "b".repeat(64);
+    private static final String FAKE_CONTAINER_ID = "c".repeat(64);
 
     @TempDir Path temporaryDirectory;
 
@@ -73,6 +74,7 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
                 .hasMessageContaining("timeout");
 
         assertThat(childPidFile).exists();
+        assertThat(Files.readString(cleanupLog())).contains("rm --force " + FAKE_CONTAINER_ID);
         long childPid = Long.parseLong(Files.readString(childPidFile).trim());
         for (int attempt = 0; attempt < 20 && ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false);
              attempt++) {
@@ -153,6 +155,10 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
             throw new IOException("could not mark fake Docker executable as executable");
         }
         return executable;
+    }
+
+    private Path cleanupLog() {
+        return temporaryDirectory.resolve("docker-cleanup.log");
     }
 
     private static String shellQuote(String value) {
