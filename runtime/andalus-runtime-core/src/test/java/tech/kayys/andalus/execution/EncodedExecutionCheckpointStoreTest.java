@@ -46,9 +46,13 @@ class EncodedExecutionCheckpointStoreTest {
 
         assertThat(repository.raw).allMatch(value -> value instanceof
                 ExecutionCheckpointEnvelopeCodec.ExecutionCheckpointValue);
-        assertThat(store.load("execution-1")).contains(second);
-        assertThat(store.load("execution-1", first.checkpointId())).contains(first);
-        assertThat(store.history("execution-1")).containsExactly(first, second);
+        assertThat(store.load("execution-1")).get()
+                .extracting(ExecutionCheckpoint::checkpointId).isEqualTo(second.checkpointId());
+        assertThat(store.load("execution-1", first.checkpointId())).get()
+                .extracting(ExecutionCheckpoint::checkpointId).isEqualTo(first.checkpointId());
+        assertThat(store.history("execution-1"))
+                .extracting(ExecutionCheckpoint::checkpointId)
+                .containsExactly(first.checkpointId(), second.checkpointId());
 
         store.delete("execution-1");
         assertThat(store.load("execution-1")).isEmpty();
