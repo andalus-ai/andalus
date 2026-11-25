@@ -183,6 +183,9 @@ class PostgresAnpKeyRotationCoordinatorTest {
                 "rotation-atomic-fence", "worker-old", oldGeneration, "PREPARED");
         assertThrows(SecurityException.class, () -> didStore.register(candidate, stalePrepared));
         assertEquals(initial, didStore.find(DID).orElseThrow());
+        assertThrows(SecurityException.class, () -> journal.advance("rotation-atomic-fence",
+                PostgresAnpKeyRotationJournal.RotationState.PREPARED,
+                PostgresAnpKeyRotationJournal.RotationState.DID_DOCUMENT_UPDATED, stalePrepared));
 
         assertEquals(PostgresAnpKeyRotationJournal.RotationState.PREPARED,
                 journal.find("rotation-atomic-fence").orElseThrow().state());
