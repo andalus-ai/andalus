@@ -99,6 +99,44 @@ class PostgresAnpKeyStoreTest {
     }
 
     @Test
+    void rejectsRevokedKeyBeforeCallingProtector() {
+        String keyId = "did:wba:example#revoked-before-kms";
+        store.revokeKey(keyId);
+        CountingProtector counting = new CountingProtector();
+        PostgresAnpKeyStore guarded = new PostgresAnpKeyStore(dataSource, counting);
+
+        assertThrows(IllegalStateException.class, () ->
+                guarded.storeKey("did:wba:example", pair(keyId, "private-one")));
+        assertEquals(0, counting.protectCalls);
+    }
+
+    @Test
+    void wipesTransientPlaintextAndCiphertextBuffersAfterStore() {
+        PrefixProtector tracking = new PrefixProtector();
+        PostgresAnpKeyStore guarded = new PostgresAnpKeyStore(dataSource, tracking);
+        guarded.storeKey("did:wba:example", pair("did:wba:example#key-wipe", "private-one"));
+
+        assertNotNull(tracking.lastPlaintext);
+        assertNotNull(tracking.lastCiphertext);
+        assertArrayEquals(new byte[tracking.lastPlaintext.length], tracking.lastPlaintext);
+        assertArrayEquals(new byte[tracking.lastCiphertext.length], tracking.lastCiphertext);
+    }
+
+    @Test
+    void wipesDecryptedReadBufferButReturnsUsableKeyPair() {
+        PrefixProtector tracking = new PrefixProtector();
+        PostgresAnpKeyStore guarded = new PostgresAnpKeyStore(dataSource, tracking);
+        byte[] expected = "private-read".getBytes(StandardCharsets.UTF_8);
+        guarded.storeKey("did:wba:example", new AnpIdentityKeyPair(
+                "did:wba:example#key-read", "Ed25519", expected, new byte[]{1, 2, 3}));
+
+        AnpIdentityKeyPair loaded = guarded.getActiveKey("did:wba:example#key-read").orElseThrow();
+        assertArrayEquals(expected, loaded.privateKeyBytes());
+        assertNotNull(tracking.lastUnprotected);
+        assertArrayEquals(new byte[tracking.lastUnprotected.length], tracking.lastUnprotected);
+    }
+
+    @Test
     void databaseNeverReceivesPlaintextPrivateKeyBytes() throws Exception {
         byte[] privateBytes = "private-one".getBytes(StandardCharsets.UTF_8);
         store.storeKey("did:wba:example", new AnpIdentityKeyPair(
@@ -117,13 +155,34 @@ class PostgresAnpKeyStoreTest {
                 privateText.getBytes(StandardCharsets.UTF_8), new byte[]{1, 2, 3, 4});
     }
 
-    /** Test double only; production must inject a KMS/HSM-backed authenticated protector. */
-    private static final class PrefixProtector implements AnpKeyMaterialProtector {
+    private static final class CountingProtector implements AnpKeyMaterialProtector {
+        private int protectCalls;
+
         @Override
         public byte[] protect(String agentId, String keyId, byte[] plaintext) {
+            protectCalls++;
+            return Arrays.copyOf(plaintext, plaintext.length);
+        }
+
+        @Override
+        public byte[] unprotect(String agentId, String keyId, byte[] ciphertext) {
+            return Arrays.copyOf(ciphertext, ciphertext.length);
+        }
+    }
+
+    /** Test double only; production must inject a KMS/HSM-backed authenticated protector. */
+    private static final class PrefixProtector implements AnpKeyMaterialProtector {
+        private byte[] lastPlaintext;
+        private byte[] lastCiphertext;
+        private byte[] lastUnprotected;
+
+        @Override
+        public byte[] protect(String agentId, String keyId, byte[] plaintext) {
+            lastPlaintext = plaintext;
             byte[] result = new byte[plaintext.length + 1];
             result[0] = 42;
             System.arraycopy(plaintext, 0, result, 1, plaintext.length);
+            lastCiphertext = result;
             return result;
         }
 
@@ -132,7 +191,8 @@ class PostgresAnpKeyStoreTest {
             if (ciphertext == null || ciphertext.length < 2 || ciphertext[0] != 42) {
                 throw new SecurityException("Invalid test ciphertext");
             }
-            return Arrays.copyOfRange(ciphertext, 1, ciphertext.length);
+            lastUnprotected = Arrays.copyOfRange(ciphertext, 1, ciphertext.length);
+            return lastUnprotected;
         }
     }
 }

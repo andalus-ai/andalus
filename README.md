@@ -863,3 +863,58 @@ readiness.
 Observers can distinguish `RECONCILIATION_SUCCEEDED` and
 `RECONCILIATION_FAILED` from automatic recovery scheduling failures. The
 runtime still creates no scheduler threads and does not own scheduler recovery.
+
+
+## Agent runtime registration group reconciliation (Phase 5.1.18)
+
+Hosts embedding multiple logical agents can call
+`AgentRuntimeRegistrationGroup.reconcile(key)` to reconcile one registration
+after repairing the host scheduler or persistence dependency. The operation
+returns false for an unknown or detached key and does not disturb sibling
+registrations.
+
+Use `reconcileAll()` when the host wants to reconcile the current membership
+snapshot. It returns an immutable map of registration keys to independent
+success results. A failure or concurrent removal for one agent does not stop
+attempts for other agents. Each supervisor serializes its own operation against
+scheduled recovery and shutdown; group membership locks are not held while
+reconciliation performs persistence or scheduler work.
+
+A successful result means a current registration exists and the supervisor has
+restored its requested state. Healthy sessions are idempotent and are not
+reacquired. Lost sessions are acquired with a fresh fenced generation. The
+group does not create or repair schedulers, retry stale tokens, or bypass
+per-agent readiness checks.
+
+
+## Agent runtime registration group diagnostics (Phase 5.1.19)
+
+AgentRuntimeRegistrationGroup.diagnostics() returns a point-in-time aggregate
+of current membership: total, READY, STARTING, DEGRADED, and STOPPED registrations.
+The snapshot contains counts only and intentionally omits tenant, agent, instance,
+and owner identifiers. It is suitable for health summaries without introducing
+high-cardinality metric labels. An empty group is not considered ready.
+
+The registration observer now distinguishes scheduled recovery attempts and
+outcomes (RECOVERY_ATTEMPTED, RECOVERY_SUCCEEDED, and RECOVERY_FAILED)
+from recovery scheduler rejection. Explicit host reconciliation similarly emits
+RECONCILIATION_ATTEMPTED before its existing success/failure outcome events.
+AgentRuntimeRegistrationTelemetry aggregates these events and updates its
+last-success/last-failure timestamps. Hosts can export the low-cardinality
+snapshot through their existing metrics stack; the runtime adds no metrics
+vendor dependency and does not own metric export or alert policy.
+
+
+## Registration lifecycle integration validation (Phase 5.1.20)
+
+The PostgreSQL Testcontainers suite now exercises takeover between two independent
+runtime groups backed by separate DataSource and JdbcAgentRuntimeRegistrationStore
+instances. It expires the original owner using PostgreSQL CURRENT_TIMESTAMP, lets a
+second runtime acquire a higher fencing generation, and verifies that shutdown of
+the stale runtime cannot revoke the successor registration. Both host-owned
+schedulers are shut down only after their groups close.
+
+This complements the existing multi-agent recovery test, which validates selective
+expiry and recovery while a healthy sibling retains its generation, and the tenant
+isolation test. The integration suite is Docker-dependent and is skipped when Docker
+is unavailable; CI must provide a Docker-capable runner to execute these scenarios.
