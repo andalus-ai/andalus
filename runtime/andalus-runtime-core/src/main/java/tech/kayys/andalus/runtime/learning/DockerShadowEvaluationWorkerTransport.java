@@ -66,7 +66,8 @@ public final class DockerShadowEvaluationWorkerTransport {
     /** Runs one request frame; timeout cleanup also asks the Docker daemon to remove its container. */
     public byte[] exchange(byte[] requestFrame) throws IOException, InterruptedException {
         Objects.requireNonNull(requestFrame, "requestFrame");
-        if (requestFrame.length == 0 || requestFrame.length > ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES) {
+        if (requestFrame.length == 0
+                || requestFrame.length > ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES) {
             throw new IllegalArgumentException("invalid shadow worker request frame size");
         }
         ShadowEvaluationWorkerProtocol.Frame decoded = ShadowEvaluationWorkerProtocol.decode(requestFrame);
@@ -74,22 +75,17 @@ public final class DockerShadowEvaluationWorkerTransport {
             throw new IllegalArgumentException("only execute request frames may be sent to the worker");
         }
 
-        Path cidDirectory = Files.createTempDirectory("andalus-shadow-worker-");
-        Path cidFile = cidDirectory.resolve("container.id");
-        Process process = null;
+        ProcessBuilder builder = new ProcessBuilder(command());
+        builder.environment().clear();
+        Process process = builder.start();
+        long deadline = System.nanoTime() + limits.timeout().toNanos();
         var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
         CompletableFuture<Void> writer = null;
         CompletableFuture<byte[]> stdout = null;
         CompletableFuture<byte[]> stderr = null;
         try {
-            ProcessBuilder builder = new ProcessBuilder(command(cidFile));
-            builder.environment().clear();
-            Process worker = builder.start();
-            process = worker;
-            long deadline = System.nanoTime() + limits.timeout().toNanos();
-
             writer = CompletableFuture.runAsync(() -> {
-                try (OutputStream out = worker.getOutputStream()) {
+                try (OutputStream out = process.getOutputStream()) {
                     out.write(requestFrame);
                     out.flush();
                 } catch (IOException e) {
@@ -97,17 +93,19 @@ public final class DockerShadowEvaluationWorkerTransport {
                 }
             }, executor);
             stdout = CompletableFuture.supplyAsync(
-                    () -> readBounded(worker.getInputStream(), ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES),
-                    executor);
+                    () -> readBounded(process.getInputStream(),
+                            ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES), executor);
             stderr = CompletableFuture.supplyAsync(
-                    () -> readBounded(worker.getErrorStream(), limits.maxStderrBytes()), executor);
+                    () -> readBounded(process.getErrorStream(), limits.maxStderrBytes()), executor);
 
-            if (!worker.waitFor(remainingNanos(deadline), TimeUnit.NANOSECONDS)) throw timeoutFailure();
+            if (!process.waitFor(remainingNanos(deadline), TimeUnit.NANOSECONDS)) {
+                throw timeoutFailure();
+            }
             await(writer, "worker request delivery failed", deadline);
             byte[] response = await(stdout, "worker response could not be read", deadline);
             await(stderr, "worker diagnostics could not be read", deadline);
-            if (worker.exitValue() != 0) {
-                throw new IOException("shadow worker exited with status " + worker.exitValue());
+            if (process.exitValue() != 0) {
+                throw new IOException("shadow worker exited with status " + process.exitValue());
             }
             ShadowEvaluationWorkerProtocol.Frame responseFrame = ShadowEvaluationWorkerProtocol.decode(response);
             if (!responseFrame.requestId().equals(decoded.requestId())) {

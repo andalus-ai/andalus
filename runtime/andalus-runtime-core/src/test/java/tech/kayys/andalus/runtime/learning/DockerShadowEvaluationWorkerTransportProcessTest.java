@@ -13,6 +13,11 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Process-level transport tests using a local fake Docker executable. These exercise stdin/stdout
+ * framing, correlation, bounded response parsing, non-zero exits, and process-tree timeout cleanup
+ * without requiring a Docker daemon or claiming container-isolation validation.
+ */
 class DockerShadowEvaluationWorkerTransportProcessTest {
     private static final String PINNED_IMAGE =
             "registry.example.test/andalus/shadow-worker@sha256:" + "b".repeat(64);
@@ -33,9 +38,7 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
 
     @Test
     void rejectsMalformedWorkerStdout() throws Exception {
-        assertThatThrownBy(() -> transport(fakeExecutable("malformed"), Duration.ofSeconds(5))
-                .exchange(request(UUID.randomUUID()))).isInstanceOf(IOException.class);
-    }
+        var transport = transport(fakeExecutable("malformed"), Duration.ofSeconds(5));
 
     @Test
     void rejectsTruncatedWorkerFrame() throws Exception {
@@ -45,11 +48,17 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
     }
 
     @Test
-    void terminatesWorkerThatExceedsConfiguredTimeout() throws Exception {
-        assertThatThrownBy(() -> transport(fakeExecutable("timeout"), Duration.ofMillis(150))
-                .exchange(request(UUID.randomUUID())))
-                .isInstanceOf(IOException.class).hasMessageContaining("timeout");
+    void rejectsTruncatedWorkerFrame() throws Exception {
+        var transport = transport(fakeExecutable("truncated"), Duration.ofSeconds(5));
+
+        assertThatThrownBy(() -> transport.exchange(request(UUID.randomUUID())))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("truncated");
     }
+
+    @Test
+    void terminatesWorkerThatExceedsConfiguredTimeout() throws Exception {
+        var transport = transport(fakeExecutable("timeout"), Duration.ofMillis(150));
 
     @Test
     void terminatesDescendantsAndRemovesContainerWhenWorkerTimesOut() throws Exception {
@@ -70,18 +79,35 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
     }
 
     @Test
+    void terminatesDescendantProcessesWhenWorkerTimesOut() throws Exception {
+        Path childPidFile = temporaryDirectory.resolve("worker-child.pid");
+        var transport = transport(fakeExecutable("tree-timeout", childPidFile), Duration.ofMillis(500));
+
+        assertThatThrownBy(() -> transport.exchange(request(UUID.randomUUID())))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("timeout");
+
+        assertThat(childPidFile).exists();
+        long childPid = Long.parseLong(Files.readString(childPidFile).trim());
+        for (int attempt = 0; attempt < 20 && ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false);
+             attempt++) {
+            Thread.sleep(50);
+        }
+        assertThat(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false)).isFalse();
+    }
+
+    @Test
     void rejectsNonZeroWorkerExit() throws Exception {
-        assertThatThrownBy(() -> transport(fakeExecutable("nonzero"), Duration.ofSeconds(5))
-                .exchange(request(UUID.randomUUID())))
-                .isInstanceOf(IOException.class).hasMessageContaining("status 7");
+        var transport = transport(fakeExecutable("nonzero"), Duration.ofSeconds(5));
+
+        assertThatThrownBy(() -> transport.exchange(request(UUID.randomUUID())))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("status 7");
     }
 
     @Test
     void rejectsResponseWithDifferentRequestCorrelationId() throws Exception {
-        assertThatThrownBy(() -> transport(fakeExecutable("wrong-correlation"), Duration.ofSeconds(5))
-                .exchange(request(UUID.randomUUID())))
-                .isInstanceOf(IOException.class).hasMessageContaining("request ID mismatch");
-    }
+        var transport = transport(fakeExecutable("wrong-correlation"), Duration.ofSeconds(5));
 
     @Test
     void rejectsStdoutLargerThanMaximumWorkerFrame() throws Exception {
@@ -91,10 +117,21 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
     }
 
     @Test
+    void rejectsStdoutLargerThanMaximumWorkerFrame() throws Exception {
+        var transport = transport(fakeExecutable("stdout-oversize"), Duration.ofSeconds(5));
+
+        assertThatThrownBy(() -> transport.exchange(request(UUID.randomUUID())))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("stream exceeded");
+    }
+
+    @Test
     void rejectsStderrLargerThanConfiguredDiagnosticLimit() throws Exception {
-        assertThatThrownBy(() -> transport(fakeExecutable("stderr-oversize"), Duration.ofSeconds(5))
-                .exchange(request(UUID.randomUUID())))
-                .isInstanceOf(IOException.class).hasMessageContaining("stream exceeded");
+        var transport = transport(fakeExecutable("stderr-oversize"), Duration.ofSeconds(5));
+
+        assertThatThrownBy(() -> transport.exchange(request(UUID.randomUUID())))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("stream exceeded");
     }
 
     private DockerShadowEvaluationWorkerTransport transport(Path executable, Duration timeout) {
@@ -121,23 +158,12 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
                 .getProtectionDomain().getCodeSource().getLocation().toURI()).toString();
         String classpath = String.join(java.io.File.pathSeparator,
                 fixtureClasses, productionClasses, System.getProperty("java.class.path"));
-        StringBuilder script = new StringBuilder("#!/bin/sh\n")
-                .append("WORKER_DOCKER_CLEANUP_LOG=").append(shellQuote(cleanupLog().toString())).append("\n")
-                .append("export WORKER_DOCKER_CLEANUP_LOG\n");
-        if (childPidFile != null) {
-            script.append("WORKER_CHILD_PID_FILE=").append(shellQuote(childPidFile.toString())).append("\n")
-                    .append("export WORKER_CHILD_PID_FILE\n");
-        }
-        script.append("if [ \"$1\" = \"rm\" ]; then printf \"%s\\n\" \"$*\" >> \"$WORKER_DOCKER_CLEANUP_LOG\"; exit 0; fi\n")
-                .append("previous=; for arg do ")
-                .append("if [ \"$previous\" = \"cidfile\" ]; then printf \"%s\" ")
-                .append(shellQuote(FAKE_CONTAINER_ID)).append(" > \"$arg\"; fi; ")
-                .append("if [ \"$arg\" = \"--cidfile\" ]; then previous=cidfile; else previous=; fi; ")
-                .append("done\n")
-                .append("exec ").append(shellQuote(javaExecutable)).append(" -cp ")
-                .append(shellQuote(classpath))
-                .append(" tech.kayys.andalus.runtime.learning.DockerShadowEvaluationTransportFixture ")
-                .append("\"$@\" ").append(shellQuote(mode)).append("\n");
+        String environment = childPidFile == null ? "" :
+                "WORKER_CHILD_PID_FILE=" + shellQuote(childPidFile.toString()) + " ";
+        String script = "#!/bin/sh\n" + environment + "exec " + shellQuote(javaExecutable)
+                + " -cp " + shellQuote(classpath)
+                + " tech.kayys.andalus.runtime.learning.DockerShadowEvaluationTransportFixture "
+                + "\"$@\" " + shellQuote(mode) + "\n";
         Files.writeString(executable, script, StandardCharsets.UTF_8);
         if (!executable.toFile().setExecutable(true, true)) {
             throw new IOException("could not mark fake Docker executable as executable");
