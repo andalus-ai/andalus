@@ -106,7 +106,11 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
      *         not requested, READY when desired availability was restored)
      */
     public synchronized boolean reconcile() {
-        if (closed) return false;
+        emit(AgentRuntimeRegistrationObserver.Event.RECONCILIATION_ATTEMPTED);
+        if (closed) {
+            emit(AgentRuntimeRegistrationObserver.Event.RECONCILIATION_FAILED);
+            return false;
+        }
         AgentRuntimeRegistrationSession current = session;
         if (current != null && !ownershipLost
                 && (!desiredAvailable || current.isRoutable())) {
@@ -282,7 +286,10 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
                 recoveryTask = null;
             }
             if (closed) return;
-            acquireAndRestore();
+            emit(AgentRuntimeRegistrationObserver.Event.RECOVERY_ATTEMPTED);
+            boolean recovered = acquireAndRestore();
+            emit(recovered ? AgentRuntimeRegistrationObserver.Event.RECOVERY_SUCCEEDED
+                    : AgentRuntimeRegistrationObserver.Event.RECOVERY_FAILED);
         }
     }
 

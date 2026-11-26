@@ -1,6 +1,7 @@
 package tech.kayys.andalus.execution;
 
 import java.util.Map;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -82,7 +83,7 @@ public final class SimpleGraphExecutionContext implements GraphExecutionContext 
     @Override public Optional<GraphExecutionContext> parent() { return Optional.empty(); }
 
     @Override public ExecutionMetadata metadata() {
-        return new ExecutionMetadata(null, null, null, null, null, Map.of(), Map.of());
+        return new ExecutionMetadata(executionId.toString(), null, null, Instant.now(), Map.of());
     }
 
     @Override
