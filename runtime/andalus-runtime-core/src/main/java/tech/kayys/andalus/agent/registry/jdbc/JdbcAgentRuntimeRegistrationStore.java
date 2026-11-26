@@ -257,8 +257,9 @@ public final class JdbcAgentRuntimeRegistrationStore implements AgentRuntimeRegi
         }
     }
 
-    private static Timestamp instant(ResultSet rows, String column) throws SQLException {
-        return rows.getTimestamp(column, utcCalendar());
+    private static Instant instant(ResultSet rows, String column) throws SQLException {
+        Timestamp timestamp = rows.getTimestamp(column, utcCalendar());
+        return timestamp == null ? null : timestamp.toInstant();
     }
 
     private static void setInstant(PreparedStatement statement, int index, Instant instant) throws SQLException {

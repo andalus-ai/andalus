@@ -27,10 +27,13 @@ public class AgentRuntimeRegistrationTelemetry implements AgentRuntimeRegistrati
         counters.get(event).increment();
         long now = Instant.now().toEpochMilli();
         switch (event) {
-            case ACQUIRED, AVAILABLE, UNAVAILABLE, RENEWED, REVOKED ->
+            case ACQUIRED, AVAILABLE, UNAVAILABLE, RENEWED, REVOKED,
+                    RECOVERY_SUCCEEDED, RECONCILIATION_SUCCEEDED ->
                     lastSuccessEpochMillis.set(now);
             case RENEWAL_REJECTED, STATUS_REJECTED, RENEWAL_ERROR,
-                    REVOCATION_REJECTED, OPERATION_ERROR, SCHEDULING_ERROR ->
+                    REVOCATION_REJECTED, OPERATION_ERROR, SCHEDULING_ERROR,
+                    RECOVERY_SCHEDULING_REJECTED, RECOVERY_FAILED,
+                    RECONCILIATION_FAILED ->
                     lastFailureEpochMillis.set(now);
         }
     }

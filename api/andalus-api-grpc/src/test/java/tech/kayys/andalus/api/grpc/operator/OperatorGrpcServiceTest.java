@@ -348,13 +348,58 @@ class OperatorGrpcServiceTest {
                 .setRequestId("r-456")
                 .putAttributes("tenantId", "tenant-xyz")
                 .putAttributes("userId", "user-abc")
+                .putAttributes("roles", "admin")
+                .putAttributes("principalId", "admin")
+                .putAttributes("principalType", "USER")
+                .putAttributes("permissions", "operator.plugins.enable")
                 .build();
 
         var ctx = resolver.resolve(protoCtx);
         assertEquals("c-123", ctx.correlationId());
         assertEquals("r-456", ctx.requestId());
-        assertEquals("tenant-xyz", ctx.tenantId());
-        assertEquals("user-abc", ctx.userId());
+        assertNull(ctx.tenantId(), "protobuf attributes must not establish tenant identity");
+        assertNull(ctx.userId(), "protobuf attributes must not establish user identity");
+        assertEquals(Boolean.FALSE, ctx.attributes().get("authenticated"));
+        assertEquals(java.util.Set.of(), ctx.attributes().get("roles"));
+        assertFalse(ctx.attributes().containsKey("tenantId"));
+        assertFalse(ctx.attributes().containsKey("userId"));
+        assertFalse(ctx.attributes().containsKey("principalId"));
+        assertFalse(ctx.attributes().containsKey("principalType"));
+        assertEquals(java.util.Set.of(), ctx.attributes().get("permissions"),
+                "protobuf attributes must not establish operator permissions");
+    }
+
+    @Test
+    void trustedSecurityIdentityOverridesForgedGrpcClaims() {
+        io.quarkus.security.identity.SecurityIdentity identity =
+                (io.quarkus.security.identity.SecurityIdentity) Proxy.newProxyInstance(
+                        getClass().getClassLoader(),
+                        new Class<?>[]{io.quarkus.security.identity.SecurityIdentity.class},
+                        (proxy, method, args) -> switch (method.getName()) {
+                            case "isAnonymous" -> false;
+                            case "getPrincipal" -> (java.security.Principal) () -> "verified-user";
+                            case "getRoles" -> java.util.Set.of("operator");
+                            case "getAttribute" -> switch ((String) args[0]) {
+                                case "tenantId" -> "verified-tenant";
+                                case "permissions" -> java.util.Set.of("operator.plugins.read");
+                                default -> null;
+                            };
+                            default -> null;
+                        });
+
+        OperatorRequestContext protoCtx = OperatorRequestContext.newBuilder()
+                .putAttributes("tenantId", "forged-tenant")
+                .putAttributes("userId", "forged-user")
+                .putAttributes("roles", "admin")
+                .build();
+
+        var context = new OperatorGrpcContextResolver().resolve(protoCtx, identity);
+
+        assertEquals("verified-tenant", context.tenantId());
+        assertEquals("verified-user", context.userId());
+        assertEquals(java.util.Set.of("operator"), context.attributes().get("roles"));
+        assertEquals(java.util.Set.of("operator.plugins.read"), context.attributes().get("permissions"));
+        assertEquals(Boolean.TRUE, context.attributes().get("authenticated"));
     }
 
     // Helper mock Instance implementation

@@ -25,6 +25,11 @@ jobs:
           java-version: "25"
           cache: maven
 
+      - name: Install FAISS native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenblas-dev
+
       - name: Checkout Andalus Framework schema contracts
         uses: actions/checkout@v4
         with:
@@ -114,6 +119,7 @@ jobs:
         run: |
           gradle \
             :gamelan-engine-spi:publishToMavenLocal \
+            :gamelan-sdk-client-core:publishToMavenLocal \
             :gamelan-plugin-spi:publishToMavenLocal \
             :gamelan-sdk-executor-core:publishToMavenLocal \
             --no-daemon -x test --parallel \
@@ -129,13 +135,25 @@ jobs:
           -am install
           -Dmaven.test.skip=true
 
+      # Runtime Core consumes Framework artifacts that are not published to Maven Central.
+      # Install the direct dependency closure from the Framework reactor before building Runtime.
+      - name: Install Runtime Core Framework dependency closure
+        working-directory: _andalus-framework
+        run: >-
+          ./mvnw -B -ntp
+          -f framework/pom.xml
+          -pl andalus-core,andalus-knowledge,andalus-agent,andalus-tool,andalus-execution-api,andalus-runtime-spi,andalus-observability,andalus-resilience,andalus-engine,andalus-anp,andalus-harness,andalus-a2a,andalus-memory
+          -am install
+          -Dmaven.test.skip=true
+
+
       # Exercise the isolated shadow-worker trust and transport path explicitly.
       # This runs after external repository contracts have been published to Maven Local.
       - name: Verify shadow worker protocol, codec, engine, and process transport
         run: >-
           ./mvnw -B -ntp -Pci
           -pl runtime/andalus-runtime-core -am
-          -Dtest=ShadowEvaluationWorkerProtocolTest,ShadowEvaluationWorkerCodecTest,ShadowEvaluationWorkerEngineTest,ShadowEvaluationWorkerManifestVerifierTest,DockerShadowEvaluationWorkerTransportTest,DockerShadowEvaluationWorkerTransportProcessTest
+          -Dtest=ShadowEvaluationWorkerProtocolTest,ShadowEvaluationWorkerCodecTest,ShadowEvaluationWorkerEngineTest,ShadowEvaluationWorkerManifestVerifierTest,ShadowEvaluationWorkerEntrypointTest,DockerShadowEvaluationWorkerTransportTest,DockerShadowEvaluationWorkerTransportProcessTest
           -Dsurefire.failIfNoSpecifiedTests=false
           test
 

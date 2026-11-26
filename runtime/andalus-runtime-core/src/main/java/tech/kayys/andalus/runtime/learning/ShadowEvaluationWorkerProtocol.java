@@ -7,7 +7,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -15,14 +14,17 @@ import java.util.UUID;
  * Small, versioned, bounded binary envelope for the isolated shadow worker transport.
  *
  * The digest detects truncation/corruption; it is not an authentication mechanism. Production
- * transports MUST additionally authenticate the worker endpoint (for example, mutually
- * authenticated local RPC) and independently verify evaluator artifact digests inside the worker.
- * Payloads are opaque version-specific JSON or CBOR bytes; this class does not deserialize them.
+ * transports MUST additionally authenticate the worker endpoint and independently verify
+ * evaluator artifact digests inside the worker. Payloads are opaque version-specific bytes;
+ * this class does not deserialize them.
  */
 public final class ShadowEvaluationWorkerProtocol {
     private static final int MAGIC = 0x414E4453; // ANDS
     public static final short VERSION = 1;
     public static final int MAX_PAYLOAD_BYTES = 16 * 1024 * 1024;
+    /** Fixed envelope size: magic + version + type + UUID + payload length + SHA-256 digest. */
+    public static final int FRAME_OVERHEAD_BYTES = 4 + 2 + 1 + 16 + 4 + 32;
+    public static final int MAX_FRAME_BYTES = MAX_PAYLOAD_BYTES + FRAME_OVERHEAD_BYTES;
     private static final int DIGEST_BYTES = 32;
 
     public enum MessageType {
@@ -55,7 +57,7 @@ public final class ShadowEvaluationWorkerProtocol {
         Objects.requireNonNull(frame, "frame");
         byte[] payload = frame.payload();
         try {
-            ByteArrayOutputStream bytes = new ByteArrayOutputStream(64 + payload.length);
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream(FRAME_OVERHEAD_BYTES + payload.length);
             DataOutputStream out = new DataOutputStream(bytes);
             out.writeInt(MAGIC);
             out.writeShort(VERSION);
@@ -74,8 +76,11 @@ public final class ShadowEvaluationWorkerProtocol {
 
     public static Frame decode(byte[] encoded) throws IOException {
         Objects.requireNonNull(encoded, "encoded");
-        if (encoded.length < 4 + 2 + 1 + 16 + 4 + DIGEST_BYTES) {
+        if (encoded.length < FRAME_OVERHEAD_BYTES) {
             throw new IOException("truncated shadow worker frame");
+        }
+        if (encoded.length > MAX_FRAME_BYTES) {
+            throw new IOException("shadow worker frame exceeds protocol limit");
         }
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(encoded))) {
             if (in.readInt() != MAGIC) throw new IOException("invalid shadow worker frame magic");

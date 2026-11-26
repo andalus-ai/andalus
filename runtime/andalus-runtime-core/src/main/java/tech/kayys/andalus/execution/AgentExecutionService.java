@@ -2,6 +2,11 @@ package tech.kayys.andalus.execution;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -35,6 +40,9 @@ import tech.kayys.andalus.provider.Provider;
 @ApplicationScoped
 public class AgentExecutionService {
 
+    private static final Logger LOG = Logger.getLogger(AgentExecutionService.class.getName());
+    private static final String WORKSPACE_ROOT = "andalus.workspace.root";
+
     @Inject
     CheckpointStore checkpointStore;
 
@@ -43,6 +51,10 @@ public class AgentExecutionService {
 
     @Inject
     ToolBudgetLedger toolBudgetLedger;
+
+    /** Optional application-owned identity-to-workspace resolver. */
+    @Inject
+    Instance<WorkspaceResolver> workspaceResolverInstances;
 
     /** All CDI-managed {@link Provider} beans discovered at startup. */
     @Inject
@@ -95,18 +107,22 @@ public class AgentExecutionService {
     // ------------------------------------------------------------------
 
     public AgentExecution create(AgentDefinition agent, AgentRequest request, ExecutionBudget budget) {
-        return create(agent, request, budget, null, null, java.util.Set.of());
+        return create(agent, request, budget, AgentCallerContext.anonymous(null));
     }
 
     /**
-     * Creates an execution with an explicit authenticated caller context.
-     * Roles are accepted only when a user identity is supplied.
+     * Backwards-compatible caller overload. New transport adapters should use
+     * {@link AgentCallerContext} so both roles and permissions remain explicit.
      */
     public AgentExecution create(AgentDefinition agent, AgentRequest request, ExecutionBudget budget,
                                  String tenantId, String userId, java.util.Set<String> roles) {
-        if ((userId == null || userId.isBlank()) && roles != null && !roles.isEmpty()) {
-            throw new IllegalArgumentException("roles require an authenticated userId");
-        }
+        return create(agent, request, budget, legacyCallerContext(tenantId, userId, roles));
+    }
+
+    /** Creates an execution with a trusted caller snapshot supplied by the transport boundary. */
+    public AgentExecution create(AgentDefinition agent, AgentRequest request, ExecutionBudget budget,
+                                 AgentCallerContext caller) {
+        AgentCallerContext trustedCaller = java.util.Objects.requireNonNull(caller, "caller");
         ExecutionIdentity identity = ExecutionIdentity.create();
 
         AgentContext agentContext = AgentContext.builder()
@@ -122,7 +138,8 @@ public class AgentExecutionService {
 
         ExecutionCache cache = resolveCache();
         ExecutionBudget effectiveBudget = budget != null ? budget : ExecutionBudget.balanced();
-        AgentToolExecutionContext toolContext = createToolExecutionContext(identity, agent, tenantId, userId, roles, effectiveBudget);
+        AgentToolExecutionContext toolContext = createToolExecutionContext(
+                identity, agent, trustedCaller, effectiveBudget);
 
         return new DefaultAgentExecution(
             identity.executionId(),
@@ -137,8 +154,8 @@ public class AgentExecutionService {
             resolveContextPlanner(),
             resolveMemoryManager(),
             cache,
-            tenantId,
-            userId,
+            trustedCaller.tenantId(),
+            trustedCaller.userId(),
             resolveEventLedger(),
             toolContext
         );
@@ -154,24 +171,28 @@ public class AgentExecutionService {
     // ------------------------------------------------------------------
 
     public AgentExecution resume(String executionId) {
-        return resume(executionId, null, null, java.util.Set.of());
+        return resume(executionId, AgentCallerContext.anonymous(null));
     }
 
-    /** Resumes an execution using the caller identity of the resuming request. */
+    /** Backwards-compatible resume overload; claims are supplied by the caller. */
     public AgentExecution resume(String executionId, String tenantId, String userId,
                                  java.util.Set<String> roles) {
-        if ((userId == null || userId.isBlank()) && roles != null && !roles.isEmpty()) {
-            throw new IllegalArgumentException("roles require an authenticated userId");
-        }
+        return resume(executionId, legacyCallerContext(tenantId, userId, roles));
+    }
+
+    /**
+     * Resumes an execution using current trusted caller claims. Ownership is
+     * checked against the checkpoint; roles and permissions are never loaded
+     * from checkpoint metadata.
+     */
+    public AgentExecution resume(String executionId, AgentCallerContext caller) {
+        AgentCallerContext trustedCaller = java.util.Objects.requireNonNull(caller, "caller");
         ExecutionCheckpointStore lifecycleStore = resolveExecutionCheckpointStore();
         java.util.Optional<ExecutionCheckpoint> lifecycleCheckpoint =
                 lifecycleStore != null
                         ? lifecycleStore.load(executionId)
                         : java.util.Optional.empty();
 
-        // The lifecycle checkpoint is the authoritative recovery record. The
-        // AgentContext-only store is consulted solely for executions written
-        // before lifecycle checkpoints were introduced.
         java.util.Optional<AgentContext> contextOpt = lifecycleCheckpoint
                 .map(ExecutionCheckpoint::context)
                 .or(() -> checkpointStore != null
@@ -184,26 +205,12 @@ public class AgentExecutionService {
                 .map(ExecutionCheckpoint::metadata)
                 .orElse(java.util.Map.of());
 
-        // Identity-aware resume is fail-closed: older checkpoints without owner
-        // metadata remain usable only through the legacy anonymous overload.
-        boolean authenticatedResume = (tenantId != null && !tenantId.isBlank())
-                || (userId != null && !userId.isBlank());
-        if (checkpointMetadata.isEmpty()) {
-            if (authenticatedResume) {
-                throw new SecurityException("Execution checkpoint has no ownership metadata");
-            }
-        } else if (!java.util.Objects.equals(tenantId, checkpointMetadata.get("tenantId"))
-                || !java.util.Objects.equals(userId, checkpointMetadata.get("userId"))
-                || !java.util.Objects.equals(
-                        userId != null && !userId.isBlank() ? "USER" : "ANONYMOUS",
-                        checkpointMetadata.get("principalType"))) {
-            throw new SecurityException("Execution belongs to a different caller or tenant");
-        }
+        verifyResumeIdentity(checkpointMetadata, trustedCaller);
 
         String checkpointAgentId = (String) checkpointMetadata.getOrDefault("agentId", "unknown-agent");
         ExecutionIdentity identity = new ExecutionIdentity(executionId, executionId, null);
         AgentToolExecutionContext toolContext = createToolExecutionContext(
-                identity, null, checkpointAgentId, tenantId, userId, roles, ExecutionBudget.balanced());
+                identity, null, checkpointAgentId, trustedCaller, ExecutionBudget.balanced());
         DefaultAgentExecution execution = new DefaultAgentExecution(
             executionId,
             null,
@@ -217,7 +224,7 @@ public class AgentExecutionService {
             resolveContextPlanner(),
             resolveMemoryManager(),
             resolveCache(),
-            tenantId, userId,
+            trustedCaller.tenantId(), trustedCaller.userId(),
             resolveEventLedger(),
             toolContext
         );
@@ -231,36 +238,122 @@ public class AgentExecutionService {
 
     public void approve(String executionId, AgentDecision decision, String tenantId,
                         String userId, java.util.Set<String> roles) {
-        AgentExecution execution = resume(executionId, tenantId, userId, roles);
-        if (decision instanceof AgentDecision.WaitForApproval) {
-            execution.execute();
+        requireApprovalLifecycle(decision);
+    }
+
+    /**
+     * Approval is deliberately fail-closed until a pending tool invocation can
+     * be durably suspended, authorized, audited, and resumed exactly once.
+     * A normal execution resume is not an approval operation.
+     */
+    static void requireApprovalLifecycle(AgentDecision decision) {
+        if (!(decision instanceof AgentDecision.WaitForApproval)) {
+            throw new IllegalArgumentException("Approval requires a WaitForApproval decision");
         }
+        throw new UnsupportedOperationException(
+                "Human approval lifecycle is not available; the pending tool invocation was not resumed or executed");
+    }
+
+    /**
+     * Verifies that a resume request presents the exact owner recorded by the
+     * authoritative lifecycle checkpoint. Legacy metadata-free checkpoints
+     * remain accessible only through the anonymous compatibility path.
+     */
+    static void verifyResumeIdentity(
+            java.util.Map<String, Object> checkpointMetadata, String tenantId, String userId) {
+        verifyResumeIdentity(checkpointMetadata, legacyCallerContext(tenantId, userId, java.util.Set.of()));
+    }
+
+    static void verifyResumeIdentity(
+            java.util.Map<String, Object> checkpointMetadata, AgentCallerContext caller) {
+        java.util.Map<String, Object> metadata = checkpointMetadata != null
+                ? checkpointMetadata : java.util.Map.of();
+        boolean authenticatedOrTenantScoped = caller.principalType() != AgentCallerContext.PrincipalType.ANONYMOUS
+                || (caller.tenantId() != null && !caller.tenantId().isBlank());
+
+        if (metadata.isEmpty()) {
+            if (authenticatedOrTenantScoped) {
+                throw new SecurityException("Execution checkpoint has no ownership metadata");
+            }
+            return;
+        }
+
+        String expectedPrincipalType = caller.principalType().name();
+        String expectedPrincipalId = caller.principalId();
+        if (!java.util.Objects.equals(caller.tenantId(), metadata.get("tenantId"))
+                || !java.util.Objects.equals(caller.userId(), metadata.get("userId"))
+                || !java.util.Objects.equals(expectedPrincipalType, metadata.get("principalType"))
+                || !java.util.Objects.equals(expectedPrincipalId, metadata.get("principalId"))) {
+            throw new SecurityException("Execution belongs to a different caller or tenant");
+        }
+    }
+
+    private static AgentCallerContext legacyCallerContext(
+            String tenantId, String userId, java.util.Set<String> roles) {
+        if (userId == null || userId.isBlank()) {
+            if (roles != null && !roles.isEmpty()) {
+                throw new IllegalArgumentException("roles require an authenticated userId");
+            }
+            return AgentCallerContext.anonymous(tenantId);
+        }
+        return AgentCallerContext.user(tenantId, userId, roles, java.util.Set.of());
     }
 
     AgentToolExecutionContext createToolExecutionContext(
             ExecutionIdentity identity, AgentDefinition agent, String tenantId,
             String userId, java.util.Set<String> roles, ExecutionBudget executionBudget) {
-        String agentId = agent != null ? agent.id().value().asString() : "unknown-agent";
-        return createToolExecutionContext(identity, agent, agentId, tenantId, userId, roles, executionBudget);
+        return createToolExecutionContext(identity, agent,
+                legacyCallerContext(tenantId, userId, roles), executionBudget);
     }
 
-    private AgentToolExecutionContext createToolExecutionContext(
-            ExecutionIdentity identity, AgentDefinition agent, String agentId, String tenantId,
-            String userId, java.util.Set<String> roles, ExecutionBudget executionBudget) {
-        PrincipalType principalType = userId != null && !userId.isBlank()
-                ? PrincipalType.USER : PrincipalType.ANONYMOUS;
+    AgentToolExecutionContext createToolExecutionContext(
+            ExecutionIdentity identity, AgentDefinition agent,
+            AgentCallerContext caller, ExecutionBudget executionBudget) {
+        String agentId = agent != null ? agent.id().value().asString() : "unknown-agent";
+        return createToolExecutionContext(identity, agent, agentId, caller, executionBudget);
+    }
+
+    AgentToolExecutionContext createToolExecutionContext(
+            ExecutionIdentity identity, AgentDefinition agent, String agentId,
+            AgentCallerContext caller, ExecutionBudget executionBudget) {
+        AgentToolExecutionContext.PrincipalType principalType =
+                AgentToolExecutionContext.PrincipalType.valueOf(caller.principalType().name());
         ToolBudget configured = toolBudgetLedger != null
-                ? toolBudgetLedger.budgetFor(tenantId, userId)
+                ? toolBudgetLedger.budgetFor(caller.tenantId(), caller.userId())
                 : ToolBudget.unlimited();
         ToolBudget executionBudgetForTools = new ToolBudget(
-                tenantId, userId, configured.maxCalls(), configured.maxCostUsd(), configured.maxDurationMs());
+                caller.tenantId(), caller.userId(), configured.maxCalls(),
+                configured.maxCostUsd(), configured.maxDurationMs());
+        java.util.Map<String, Object> constraints = new LinkedHashMap<>(
+                agent != null && agent.constraints() != null ? agent.constraints() : java.util.Map.of());
+
+        // The workspace resolver is the sole authority for runtime filesystem
+        // access. An agent definition or caller attribute cannot grant a path.
+        constraints.remove(WORKSPACE_ROOT);
+        resolveWorkspaceRoot(caller, agentId).ifPresent(path -> constraints.put(WORKSPACE_ROOT, path));
+
         return new AgentToolExecutionContext(
                 identity.executionId(), identity.correlationId(), identity.parentExecutionId(),
-                tenantId, userId, agentId, principalType,
-                principalType == PrincipalType.USER ? userId : null,
-                roles != null ? roles : java.util.Set.of(), executionBudget, executionBudgetForTools,
-                agent != null ? agent.constraints() : java.util.Map.of(),
-                java.util.Map.of(), java.time.Instant.now());
+                caller.tenantId(), caller.userId(), agentId, principalType,
+                caller.principalId(), caller.roles(), caller.permissions(),
+                executionBudget, executionBudgetForTools,
+                constraints, caller.attributes(), java.time.Instant.now());
+    }
+
+    private Optional<Path> resolveWorkspaceRoot(AgentCallerContext caller, String agentId) {
+        if (workspaceResolverInstances == null || workspaceResolverInstances.isUnsatisfied()) {
+            return Optional.empty();
+        }
+        try {
+            WorkspaceRequest request = new WorkspaceRequest(
+                    caller.principalType(), caller.tenantId(), caller.principalId(),
+                    caller.userId(), agentId);
+            return WorkspaceResolution.resolve(workspaceResolverInstances.get(), request);
+        } catch (RuntimeException e) {
+            // Workspace access is denied without taking down unrelated agent work.
+            LOG.log(Level.WARNING, "Workspace resolution failed; filesystem tools will remain unavailable", e);
+            return Optional.empty();
+        }
     }
 
     // ------------------------------------------------------------------

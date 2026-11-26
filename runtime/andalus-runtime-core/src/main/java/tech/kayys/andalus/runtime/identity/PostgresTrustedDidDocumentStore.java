@@ -73,6 +73,11 @@ public class PostgresTrustedDidDocumentStore implements TrustedDidDocumentStore 
 
     @Override
     public TrustedDidDocument register(TrustedDidDocument candidate) {
+        return register(candidate, null);
+    }
+
+    /** Registers a rotation snapshot only while its durable lease fence is current. */
+    public TrustedDidDocument register(TrustedDidDocument candidate, AnpKeyRotationFence fence) {
         Objects.requireNonNull(candidate, "candidate");
         String did = candidate.document().id();
         String documentJson = writeDocument(candidate.document());
@@ -81,6 +86,9 @@ public class PostgresTrustedDidDocumentStore implements TrustedDidDocumentStore 
             boolean previousAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
             try {
+                if (fence != null) {
+                    PostgresAnpKeyRotationFenceGuard.requireCurrent(connection, fence);
+                }
                 if (insertIfAbsent(connection, candidate, documentJson)) {
                     connection.commit();
                     return candidate;
@@ -113,6 +121,9 @@ public class PostgresTrustedDidDocumentStore implements TrustedDidDocumentStore 
                 }
                 connection.commit();
                 return candidate;
+            } catch (JsonProcessingException exception) {
+                rollbackQuietly(connection, exception);
+                throw new IllegalStateException("Unable to decode trusted DID document", exception);
             } catch (RuntimeException | SQLException exception) {
                 rollbackQuietly(connection, exception);
                 throw exception;

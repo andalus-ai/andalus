@@ -2,6 +2,7 @@ package tech.kayys.andalus.api.grpc.operator;
 
 import io.grpc.Status;
 import io.quarkus.grpc.GrpcService;
+import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -59,6 +60,9 @@ public class OperatorGrpcService implements OperatorService {
     @Inject
     OperatorGrpcContextResolver contextResolver;
 
+    @Inject
+    SecurityIdentity securityIdentity;
+
     public OperatorGrpcService() {
         this.contextResolver = new OperatorGrpcContextResolver();
     }
@@ -68,7 +72,9 @@ public class OperatorGrpcService implements OperatorService {
     }
 
     private OperatorContext toContext(OperatorRequestContext reqCtx) {
-        return contextResolver != null ? contextResolver.resolve(reqCtx) : new OperatorGrpcContextResolver().resolve(reqCtx);
+        return contextResolver != null
+                ? contextResolver.resolve(reqCtx, securityIdentity)
+                : new OperatorGrpcContextResolver().resolve(reqCtx, securityIdentity);
     }
 
     @SuppressWarnings("unchecked")
