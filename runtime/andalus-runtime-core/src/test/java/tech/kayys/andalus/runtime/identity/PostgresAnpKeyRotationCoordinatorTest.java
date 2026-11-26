@@ -223,6 +223,42 @@ class PostgresAnpKeyRotationCoordinatorTest {
         assertTrue(keyStore.getActiveKey(OLD_ID).isEmpty());
     }
 
+
+    @Test
+    void failedRecoveryIsBackedOffAndEventuallyDeadLettered() throws Exception {
+        journal.findOrPrepare(request("rotation-dead-letter"));
+        PostgresAnpKeyRotationCoordinator failing = new PostgresAnpKeyRotationCoordinator(
+                journal, didStore, keyStore, (actor, did) -> { },
+                ignored -> { throw new IllegalStateException("sensitive provider detail"); }, queue);
+
+        for (int attempt = 1; attempt <= 8; attempt++) {
+            var results = failing.recoverPending("retry-worker-" + attempt, Duration.ofMinutes(1), 1);
+            if (attempt == 1) {
+                assertEquals(1, results.size());
+                assertFalse(results.get(0).completed());
+                assertEquals("IllegalStateException", results.get(0).failureType());
+            }
+            try (Connection connection = dataSource.getConnection();
+                 var statement = connection.prepareStatement("""
+                         UPDATE andalus_anp_key_rotations
+                         SET next_attempt_at = CURRENT_TIMESTAMP - INTERVAL '1 second',
+                             lease_until = NULL
+                         WHERE operation_id = ?
+                         """)) {
+                statement.setString(1, "rotation-dead-letter");
+                statement.executeUpdate();
+            }
+        }
+
+        var status = queue.recoveryStatus();
+        assertEquals(1, status.deadLettered());
+        assertEquals(0, status.due());
+        assertTrue(queue.findPending(10).stream().anyMatch(r -> r.operationId().equals("rotation-dead-letter")));
+        assertTrue(queue.requeueDeadLetter("rotation-dead-letter"));
+        assertEquals(0, queue.recoveryStatus().deadLettered());
+        assertEquals(1, queue.recoveryStatus().due());
+    }
+
     private PostgresAnpKeyRotationCoordinator coordinator(AnpKeyStore store,
                                                            AnpKeyRotationAuthorizer authorizer) {
         return new PostgresAnpKeyRotationCoordinator(journal, didStore, store, authorizer,
@@ -274,7 +310,9 @@ class PostgresAnpKeyRotationCoordinatorTest {
                         updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         lease_owner VARCHAR(256), lease_until TIMESTAMPTZ,
                         recovery_attempts BIGINT NOT NULL DEFAULT 0,
-                        lease_generation BIGINT NOT NULL DEFAULT 0 CHECK (lease_generation >= 0))
+                        lease_generation BIGINT NOT NULL DEFAULT 0 CHECK (lease_generation >= 0),
+                        next_attempt_at TIMESTAMPTZ, last_failure_at TIMESTAMPTZ,
+                        last_failure_type VARCHAR(160), dead_lettered_at TIMESTAMPTZ)
                     """);
             sql.execute("""
                     CREATE TABLE andalus_anp_signing_keys (
