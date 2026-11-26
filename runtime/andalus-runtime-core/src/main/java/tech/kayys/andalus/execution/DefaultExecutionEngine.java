@@ -75,7 +75,11 @@ public class DefaultExecutionEngine extends BaseResource implements ExecutionEng
             AgentRequest request = extractRequest(context);
             ExecutionBudget budget = ExecutionBudget.defaults();
 
-            AgentExecution execution = executionService.create(agent, request, budget);
+            ExecutionCallerContext caller = context instanceof SimpleGraphExecutionContext simple
+                    ? simple.callerContext()
+                    : ExecutionCallerContext.anonymous();
+            AgentExecution execution = executionService.create(
+                    agent, request, budget, caller.tenantId(), caller.userId(), caller.roles());
             AgentResponse response   = execution.executeSync();
 
             Instant end = Instant.now();

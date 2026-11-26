@@ -28,6 +28,17 @@ class ShadowEvaluationWorkerProtocolTest {
     }
 
     @Test
+    void exposesExactFrameOverheadForTransportBounds() {
+        byte[] encoded = ShadowEvaluationWorkerProtocol.encode(new ShadowEvaluationWorkerProtocol.Frame(
+                UUID.randomUUID(), ShadowEvaluationWorkerProtocol.MessageType.EXECUTE_REQUEST, new byte[0]));
+
+        assertThat(ShadowEvaluationWorkerProtocol.FRAME_OVERHEAD_BYTES).isEqualTo(59);
+        assertThat(encoded).hasSize(ShadowEvaluationWorkerProtocol.FRAME_OVERHEAD_BYTES);
+        assertThat(ShadowEvaluationWorkerProtocol.MAX_FRAME_BYTES)
+                .isEqualTo(ShadowEvaluationWorkerProtocol.MAX_PAYLOAD_BYTES + 59);
+    }
+
+    @Test
     void rejectsTruncationCorruptionAndTrailingBytes() throws Exception {
         byte[] encoded = ShadowEvaluationWorkerProtocol.encode(new ShadowEvaluationWorkerProtocol.Frame(
                 UUID.randomUUID(), ShadowEvaluationWorkerProtocol.MessageType.EXECUTE_RESPONSE,

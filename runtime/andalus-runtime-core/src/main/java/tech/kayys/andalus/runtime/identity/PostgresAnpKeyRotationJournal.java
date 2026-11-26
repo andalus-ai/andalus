@@ -84,11 +84,23 @@ public class PostgresAnpKeyRotationJournal {
 
     /** Advances exactly one legal step; replaying the same target state is idempotent. */
     public Rotation advance(String operationId, RotationState expected, RotationState next) {
+        return advance(operationId, expected, next, null);
+    }
+
+    /** Advances a rotation only while its lease fence is current in this transaction. */
+    public Rotation advance(String operationId, RotationState expected, RotationState next,
+                            AnpKeyRotationFence fence) {
         Objects.requireNonNull(operationId, "operationId");
         requireNext(expected, next);
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
+                if (fence != null) {
+                    if (!operationId.equals(fence.operationId()) || !expected.name().equals(fence.expectedState())) {
+                        throw new IllegalArgumentException("Rotation fence does not match the requested state transition");
+                    }
+                    PostgresAnpKeyRotationFenceGuard.requireCurrent(connection, fence);
+                }
                 try (PreparedStatement update = connection.prepareStatement(ADVANCE)) {
                     update.setString(1, next.name());
                     update.setString(2, operationId);

@@ -79,7 +79,7 @@ public class ExecutionLeaseMetricsObserver implements ExecutionLeaseObserver {
             }
             case OWNERSHIP_LOST -> {
                 ownershipLosses.incrementAndGet();
-                lastHeartbeatObservedEpochMillis.set(now);
+                heartbeatExecutions.remove(observation.executionId());
                 recordCounter("ownership.loss", "reason", "fenced_or_expired");
             }
         }

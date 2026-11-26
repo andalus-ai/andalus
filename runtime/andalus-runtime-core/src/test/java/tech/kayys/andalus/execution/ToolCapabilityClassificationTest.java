@@ -17,16 +17,22 @@ import tech.kayys.andalus.resource.ResourceType;
 import tech.kayys.andalus.execution.governance.ToolCapabilityLevel;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.nio.file.Path;
+import java.util.Set;
+import tech.kayys.andalus.execution.governance.ToolBudget;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ToolCapabilityClassificationTest {
 
     @Test
     void unclassifiedDescriptorDefaultsToSystem() {
-        ToolDescriptor descriptor = SimpleToolDescriptor.of("custom", "custom", "Unclassified", Map.of());
+        ToolDescriptor descriptor = SimpleToolDescriptor.of("custom", "Unclassified", Map.of());
         assertEquals(ToolCapabilityLevel.SYSTEM,
                 DefaultAgentToolExecutor.resolveCapabilityLevel(tool(descriptor)));
     }
@@ -57,6 +63,41 @@ class ToolCapabilityClassificationTest {
         ToolDescriptor descriptor = descriptor(ToolKind.SHELL, false);
         assertEquals(ToolCapabilityLevel.SHELL,
                 DefaultAgentToolExecutor.resolveCapabilityLevel(tool(descriptor)));
+    }
+
+
+    @Test
+    void toolContextCarriesOnlyServerCreatedExecutionAttributesAndIdentity() {
+        Path workspace = Path.of("/srv/agents/workspace");
+        AgentToolExecutionContext execution = new AgentToolExecutionContext(
+                "exec-1", "corr-1", null, "tenant-1", "user-1",
+                "agent-1", AgentToolExecutionContext.PrincipalType.USER, "user-1",
+                Set.of("reader"), ExecutionBudget.balanced(), ToolBudget.unlimited(),
+                Map.of("andalus.workspace.root", workspace, "andalus.execution.id", "spoofed"),
+                Map.of("run.option", "trusted"), Instant.now());
+
+        var context = DefaultAgentToolExecutor.toolContextFor(execution);
+        assertEquals(workspace, context.getAttribute("andalus.workspace.root").orElseThrow());
+        assertEquals("exec-1", context.getAttribute("andalus.execution.id").orElseThrow());
+        assertEquals("agent-1", context.getAttribute("andalus.agent.id").orElseThrow());
+        assertEquals("tenant-1", context.getAttribute("andalus.tenant.id").orElseThrow());
+        assertEquals("user-1", context.getAttribute("andalus.user.id").orElseThrow());
+        assertEquals(Set.of("reader"), context.getAttribute("andalus.roles").orElseThrow());
+        assertEquals("trusted", context.getAttribute("run.option").orElseThrow());
+    }
+
+
+    @Test
+    void resultCacheRequiresExplicitDeterministicProfile() {
+        ToolDescriptor nonDeterministic = DefaultToolDescriptor.builder(ToolId.of("workspace"), "workspace.read")
+                .executionProfile(new ToolExecutionProfile(false, true, true, Duration.ZERO, ToolKind.READ))
+                .build();
+        ToolDescriptor deterministic = DefaultToolDescriptor.builder(ToolId.of("pure"), "pure.lookup")
+                .executionProfile(new ToolExecutionProfile(true, true, true, Duration.ZERO, ToolKind.READ))
+                .build();
+
+        assertFalse(DefaultAgentToolExecutor.isCacheable(tool(nonDeterministic)));
+        assertTrue(DefaultAgentToolExecutor.isCacheable(tool(deterministic)));
     }
 
     private ToolDescriptor descriptor(ToolKind kind, boolean readOnly) {
