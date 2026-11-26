@@ -10,16 +10,13 @@ import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Gates paired offline evaluator execution and records its evidence after re-checking the exact persisted approval.
- * Candidate execution remains disabled until the isolated execution SPI is fully wired to byte-only artifact
- * verification and an OS-enforced worker. The legacy RunRequest carries host-loaded Evaluator objects and is
- * therefore deliberately not executed by this service.
+ * Executes paired offline evaluations only through an OS-isolated worker and records
+ * evidence only after revalidating the exact proposal-specific approval.
  */
 @ApplicationScoped
 public class ShadowEvaluationService {
     @Inject Instance<DataSource> dataSources;
     @Inject FeedbackTrendReviewService reviewService;
-    @Inject Instance<ShadowEvaluationManifestVerifier> manifestVerifiers;
     @Inject Instance<ShadowEvaluationExecutionBoundary> executionBoundaries;
 
     ShadowEvaluationReport record(ShadowEvaluationReport report, String authenticatedReviewerId) {
@@ -39,15 +36,81 @@ public class ShadowEvaluationService {
     }
 
     /**
-     * Legacy compatibility entry point. It fails closed because RunRequest contains evaluator
-     * instances that may already have been loaded in the application process. Use the isolated
-     * manifest-based execution API once a deployment worker adapter is installed.
+     * Production execution entry point. Authorization is checked before spending worker
+     * resources, and the report is checked against the exact request before durable append.
+     */
+    public CompletionStage<ShadowEvaluationReport> evaluateAndRecord(
+            ShadowEvaluationExecutionBoundary.ExecutionRequest request, String authenticatedReviewerId) {
+        Objects.requireNonNull(request, "request");
+        if (authenticatedReviewerId == null || authenticatedReviewerId.isBlank()) {
+            throw new SecurityException("authenticated reviewer identity is required");
+        }
+
+        FeedbackAdaptationGate.Result approval =
+                reviewService.evaluateForShadow(request.proposal(), authenticatedReviewerId);
+        if (!approval.eligibleForShadowEvaluation()
+                || !request.approvalId().equals(approval.approvalId())
+                || !request.proposal().sourceSnapshotId().equals(approval.sourceSnapshotId())) {
+            throw new SecurityException("shadow execution is not authorized by the current proposal approval");
+        }
+
+        if (dataSources == null || !dataSources.isResolvable() || dataSources.isAmbiguous()) {
+            throw new IllegalStateException("a unique durable datasource is required before shadow execution");
+        }
+        if (executionBoundaries == null || !executionBoundaries.isResolvable()
+                || executionBoundaries.isAmbiguous()) {
+            throw new IllegalStateException("a unique isolated shadow execution boundary is required");
+        }
+        ShadowEvaluationExecutionBoundary boundary = executionBoundaries.get();
+        ShadowEvaluationExecutionBoundary.IsolationLevel isolation = boundary.isolationLevel();
+        if (isolation != ShadowEvaluationExecutionBoundary.IsolationLevel.CONTAINER
+                && isolation != ShadowEvaluationExecutionBoundary.IsolationLevel.MICRO_VM) {
+            throw new IllegalStateException("shadow execution boundary does not provide OS-enforced isolation");
+        }
+
+        return boundary.execute(request).thenApply(report -> {
+            validateReportBinding(request, report);
+            return record(report, authenticatedReviewerId);
+        });
+    }
+
+    /**
+     * Legacy compatibility entry point. RunRequest contains host-loaded Evaluator instances,
+     * so accepting it here would bypass the byte-only worker trust boundary.
      */
     public CompletionStage<ShadowEvaluationReport> evaluateAndRecord(
             ShadowEvaluationRunner.RunRequest request, String authenticatedReviewerId) {
         Objects.requireNonNull(request, "request");
         throw new IllegalStateException(
-                "host-process shadow evaluator execution is disabled; an OS-isolated worker is required");
+                "host-process shadow evaluator execution is disabled; use the manifest-based isolated execution API");
+    }
+
+    private static void validateReportBinding(
+            ShadowEvaluationExecutionBoundary.ExecutionRequest request, ShadowEvaluationReport report) {
+        Objects.requireNonNull(report, "isolated worker returned no report");
+        if (!report.runId().equals(request.runId())
+                || !report.proposalId().equals(request.proposal().id())
+                || !report.subject().equals(request.proposal().subject())
+                || !report.sourceSnapshotId().equals(request.proposal().sourceSnapshotId())
+                || !report.policyFingerprint().equals(request.proposal().policyFingerprint())
+                || !report.approvalId().equals(request.approvalId())
+                || !report.baselineCandidateId().equals(request.baselineCandidateId())
+                || !report.baselineCandidateVersion().equals(request.baselineCandidateVersion())
+                || !report.candidateId().equals(request.candidateId())
+                || !report.candidateVersion().equals(request.candidateVersion())
+                || !report.baselineEvaluatorId().equals(request.baselineDescriptor().id())
+                || !report.baselineEvaluatorVersion().equals(request.baselineDescriptor().version())
+                || !report.baselineEvaluatorConfigFingerprint().equals(
+                        request.baselineDescriptor().configurationFingerprint())
+                || !report.candidateEvaluatorId().equals(request.candidateDescriptor().id())
+                || !report.candidateEvaluatorVersion().equals(request.candidateDescriptor().version())
+                || !report.candidateEvaluatorConfigFingerprint().equals(
+                        request.candidateDescriptor().configurationFingerprint())
+                || !report.datasetId().equals(request.dataset().id())
+                || !report.datasetVersion().equals(request.dataset().version())
+                || !report.datasetFingerprint().equals(ShadowEvaluationRunner.fingerprint(request.dataset()))) {
+            throw new IllegalStateException("isolated worker report does not match the authorized execution request");
+        }
     }
 
     /** No reports are exposed when durable storage is unavailable or ambiguous. */

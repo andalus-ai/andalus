@@ -77,6 +77,65 @@ class OperatorAuthorizationAndAuditTest {
         assertEquals("OPERATOR_TENANT_REQUIRED", result.code());
     }
 
+
+    @Test
+    void testAnonymousContextReceivesNoImplicitRolesOrPermissions() {
+        var context = new OperatorContext(null, null, "c-1", "r-1", Map.of());
+
+        assertEquals(Set.of(), subjectResolver.roles(context));
+        assertEquals(Set.of(), subjectResolver.permissions(context));
+    }
+
+    @Test
+    void testTrustedContextClaimsAreUsedWithoutWildcardExpansion() {
+        var context = new OperatorContext(
+                "tenant-a",
+                "user-a",
+                "c-1",
+                "r-1",
+                Map.of(
+                        "roles", Set.of("tenant-operator"),
+                        "permissions", Set.of("operator.executions.read", "*")
+                )
+        );
+
+        assertEquals(Set.of("tenant-operator"), subjectResolver.roles(context));
+        assertEquals(Set.of("operator.executions.read"), subjectResolver.permissions(context));
+    }
+
+    @Test
+    void testMissingPermissionIsDeniedEvenForAuthenticatedTenantUser() {
+        var context = new OperatorContext("tenant-a", "user-a", "c-1", "r-1", Map.of());
+        var request = OperatorAuthorizationRequest.tenant(
+                context, "operator.executions.read", "execution", "exec-1");
+
+        var result = authorization.authorize(request);
+
+        assertFalse(result.allowed());
+        assertEquals("OPERATOR_PERMISSION_DENIED", result.code());
+    }
+
+    @Test
+    void testExplicitPermissionAndTenantContextAreRequired() {
+        var context = new OperatorContext(
+                "tenant-a",
+                "user-a",
+                "c-1",
+                "r-1",
+                Map.of("permissions", Set.of("operator.executions.read"))
+        );
+        var request = OperatorAuthorizationRequest.tenant(
+                context, "operator.executions.read", "execution", "exec-1");
+
+        assertTrue(authorization.authorize(request).allowed());
+    }
+
+    @Test
+    void testWildcardGrantCannotBeConfigured() {
+        assertThrows(IllegalArgumentException.class, () -> subjectResolver.grantPermission("*"));
+        assertThrows(IllegalArgumentException.class, () -> subjectResolver.grantRole("*"));
+    }
+
     @Test
     void testAuditRedactionAndIsolation() {
         var ctx = new OperatorContext("t-1", "u-1", "c-1", "r-1", Map.of());

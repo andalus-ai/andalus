@@ -17,6 +17,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-security</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>tech.kayys.andalus</groupId>
             <artifactId>andalus-aqli-sdk</artifactId>
             <version>${andalus-aqli-sdk.version}</version>

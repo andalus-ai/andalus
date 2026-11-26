@@ -10,8 +10,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Default permissive authorization guard for operators.
- * By default allows all operations, but allows explicitly denying specific permissions for tests and policy enforcement.
+ * Explicit permissive authorization guard for operators.
+ * Allows all operations unless a permission is explicitly denied. This implementation
+ * must be selected deliberately and must not be used as a production default.
  */
 public class PermissiveOperatorAuthorization implements OperatorAuthorization {
 

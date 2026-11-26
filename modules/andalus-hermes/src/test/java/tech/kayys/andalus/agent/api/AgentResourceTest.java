@@ -22,6 +22,9 @@ import tech.kayys.andalus.agent.spi.skills.SkillRegistry;
 
 import java.util.List;
 import java.util.Map;
+import java.security.Principal;
+import java.lang.reflect.Proxy;
+import io.quarkus.security.identity.SecurityIdentity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -148,7 +151,48 @@ class AgentResourceTest {
         AgentResource resource = new AgentResource();
         resource.agentClient = client;
         resource.skillRegistry = registry;
+        resource.securityIdentity = identity("tenant-a");
         return resource;
+    }
+
+
+    private SecurityIdentity identity(String tenantId) {
+        return (SecurityIdentity) Proxy.newProxyInstance(
+                SecurityIdentity.class.getClassLoader(),
+                new Class<?>[]{SecurityIdentity.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "isAnonymous" -> false;
+                    case "getPrincipal" -> (Principal) () -> "user-a";
+                    case "getAttribute" -> "tenantId".equals(args[0]) ? tenantId : null;
+                    case "getRoles" -> java.util.Set.of("agent:run");
+                    case "hasRole" -> false;
+                    default -> null;
+                });
+    }
+
+    @Test
+    void authenticatedIdentityOverridesClientTenantAndUserClaims() {
+        AgentResource resource = resource(new RecordingInferenceBackend("done"), registry());
+        AgentResource.AgentRunRequest trusted = resource.trustedRequest(new AgentResource.AgentRunRequest(
+                "hello", null, null, List.of(), 1, null,
+                "attacker-tenant", "attacker-user", null, null,
+                Map.of("tenantId", "attacker-tenant", "userId", "attacker-user",
+                        "roles", List.of("admin"), "traceId", "trace-1")));
+
+        assertThat(trusted.tenantId()).isEqualTo("tenant-a");
+        assertThat(trusted.userId()).isEqualTo("user-a");
+        assertThat(trusted.context()).containsOnlyKeys("traceId");
+    }
+
+    @Test
+    void authenticatedIdentityWithoutTenantIsRejected() {
+        AgentResource resource = resource(new RecordingInferenceBackend("unused"), registry());
+        resource.securityIdentity = identity(null);
+        Response response = resource.run(new AgentResource.AgentRunRequest(
+                "hello", null, null, null, 0, null, "forged-tenant", "forged-user",
+                null, null, null)).await().indefinitely();
+
+        assertThat(response.getStatus()).isEqualTo(403);
     }
 
     private AgentApiTestSkillRegistry registry() {
