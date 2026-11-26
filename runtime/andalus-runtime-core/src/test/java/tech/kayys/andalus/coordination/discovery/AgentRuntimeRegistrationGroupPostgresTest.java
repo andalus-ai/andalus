@@ -125,6 +125,72 @@ class AgentRuntimeRegistrationGroupPostgresTest {
     }
 
     @Test
+    void independentRuntimeInstancesFenceExpiredOwnerAndPreserveSuccessorOnShutdown() throws Exception {
+        PGSimpleDataSource secondDataSource = new PGSimpleDataSource();
+        secondDataSource.setURL(POSTGRES.getJdbcUrl());
+        secondDataSource.setUser(POSTGRES.getUsername());
+        secondDataSource.setPassword(POSTGRES.getPassword());
+        JdbcAgentRuntimeRegistrationStore secondStore =
+                new JdbcAgentRuntimeRegistrationStore(secondDataSource);
+
+        ScheduledExecutorService firstScheduler = Executors.newScheduledThreadPool(2);
+        ScheduledExecutorService secondScheduler = Executors.newScheduledThreadPool(2);
+        AgentRuntimeRegistrationGroup firstGroup = new AgentRuntimeRegistrationGroup(
+                new AgentRuntimeRegistrationLifecycle(store, Duration.ofSeconds(30)), firstScheduler);
+        AgentRuntimeRegistrationGroup secondGroup = new AgentRuntimeRegistrationGroup(
+                new AgentRuntimeRegistrationLifecycle(secondStore, Duration.ofSeconds(30)), secondScheduler);
+
+        AgentRuntimeRegistrationHost.Registration firstRegistration =
+                new AgentRuntimeRegistrationHost.Registration(
+                        "tenant-a", "checkout", "instance-a", "owner-old",
+                        Duration.ofSeconds(30), Duration.ofSeconds(5), Duration.ofSeconds(1));
+        AgentRuntimeRegistrationHost.Registration successorRegistration =
+                new AgentRuntimeRegistrationHost.Registration(
+                        "tenant-a", "checkout", "instance-a", "owner-new",
+                        Duration.ofSeconds(30), Duration.ofSeconds(5), Duration.ofSeconds(1));
+        try {
+            AgentRuntimeRegistrationGroup.Key oldKey = firstGroup.register(firstRegistration);
+            assertTrue(firstGroup.markAvailable(oldKey));
+            AgentRuntimeLease oldLease = active("checkout");
+
+            // Force expiry in PostgreSQL, then let a separate runtime/store take over.
+            try (Connection connection = dataSource.getConnection();
+                 Statement statement = connection.createStatement()) {
+                statement.executeUpdate("""
+                        UPDATE andalus_agent_runtime_registration
+                           SET expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second'
+                         WHERE tenant_id = 'tenant-a'
+                           AND agent_id = 'checkout'
+                           AND instance_id = 'instance-a'
+                        """);
+            }
+
+            AgentRuntimeRegistrationGroup.Key newKey = secondGroup.register(successorRegistration);
+            assertTrue(secondGroup.markAvailable(newKey));
+            AgentRuntimeLease successor = secondStore.findActive("tenant-a", "checkout").getFirst();
+
+            assertTrue(successor.token().generation() > oldLease.token().generation());
+            assertEquals("owner-new", successor.token().ownerId());
+            assertEquals(AgentRuntimeStatus.AVAILABLE, successor.status());
+
+            // Closing the stale runtime must not revoke the successor's generation.
+            firstGroup.close();
+            AgentRuntimeLease stillOwned = secondStore.findActive("tenant-a", "checkout").getFirst();
+            assertEquals(successor.token(), stillOwned.token());
+            assertEquals(AgentRuntimeStatus.AVAILABLE, stillOwned.status());
+            assertTrue(secondGroup.isReady());
+            assertEquals(1, secondGroup.diagnostics().ready());
+        } finally {
+            firstGroup.close();
+            secondGroup.close();
+            firstScheduler.shutdown();
+            secondScheduler.shutdown();
+            assertTrue(firstScheduler.awaitTermination(5, TimeUnit.SECONDS));
+            assertTrue(secondScheduler.awaitTermination(5, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
     void tenantAndAgentRegistrationsRemainDistinctInOneGroup() {
         AgentRuntimeRegistrationLifecycle lifecycle =
                 new AgentRuntimeRegistrationLifecycle(store, Duration.ofSeconds(30));
