@@ -40,7 +40,7 @@ class PostgresAnpKeyRotationCoordinatorTest {
     private PGSimpleDataSource dataSource;
     private PostgresAnpKeyRotationJournal journal;
     private PostgresAnpKeyRotationRecoveryQueue queue;
-    private TrustedDidDocumentStore didStore;
+    private PostgresTrustedDidDocumentStore didStore;
     private PostgresAnpKeyStore keyStore;
     private TrustedDidDocument initial;
     private TrustedDidDocument candidate;
@@ -125,6 +125,88 @@ class PostgresAnpKeyRotationCoordinatorTest {
     }
 
     @Test
+    void foregroundResumeCannotBypassAnExistingRecoveryLease() {
+        journal.findOrPrepare(request("rotation-lease-conflict"));
+        assertTrue(queue.claimOperation("rotation-lease-conflict", "recovery-owner", Duration.ofMinutes(2)));
+
+        PostgresAnpKeyRotationCoordinator coordinator = coordinator(keyStore, (actor, did) -> { });
+        assertThrows(IllegalStateException.class, () -> coordinator.resume("rotation-lease-conflict"));
+
+        assertEquals(PostgresAnpKeyRotationJournal.RotationState.PREPARED,
+                journal.find("rotation-lease-conflict").orElseThrow().state());
+        assertEquals(initial, didStore.find(DID).orElseThrow());
+        assertTrue(keyStore.getActiveKey(OLD_ID).isPresent());
+        assertFalse(queue.claimOperation("rotation-lease-conflict", "second-worker", Duration.ofMinutes(2)));
+        long generation = queue.leaseGeneration("rotation-lease-conflict", "recovery-owner");
+        assertTrue(queue.ownsLease("rotation-lease-conflict", "recovery-owner", generation));
+    }
+
+    @Test
+    void reclaimedLeaseAdvancesGenerationAndRejectsStaleWorker() throws Exception {
+        journal.findOrPrepare(request("rotation-fenced"));
+        assertTrue(queue.claimOperation("rotation-fenced", "worker-old", Duration.ofMinutes(1)));
+        long oldGeneration = queue.leaseGeneration("rotation-fenced", "worker-old");
+        try (Connection connection = dataSource.getConnection();
+             var statement = connection.prepareStatement("""
+                     UPDATE andalus_anp_key_rotations SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second'
+                     WHERE operation_id = ?
+                     """)) {
+            statement.setString(1, "rotation-fenced");
+            statement.executeUpdate();
+        }
+
+        assertTrue(queue.claimOperation("rotation-fenced", "worker-new", Duration.ofMinutes(1)));
+        long newGeneration = queue.leaseGeneration("rotation-fenced", "worker-new");
+
+        assertTrue(newGeneration > oldGeneration);
+        assertFalse(queue.renewLease("rotation-fenced", "worker-old", oldGeneration, Duration.ofMinutes(1)));
+        assertFalse(queue.ownsLease("rotation-fenced", "worker-old", oldGeneration));
+        assertTrue(queue.ownsLease("rotation-fenced", "worker-new", newGeneration));
+    }
+
+    @Test
+    void staleFenceCannotWriteTrustedDidOrSigningKeys() throws Exception {
+        journal.findOrPrepare(request("rotation-atomic-fence"));
+        assertTrue(queue.claimOperation("rotation-atomic-fence", "worker-old", Duration.ofMinutes(1)));
+        long oldGeneration = queue.leaseGeneration("rotation-atomic-fence", "worker-old");
+        try (Connection connection = dataSource.getConnection();
+             var statement = connection.prepareStatement("""
+                     UPDATE andalus_anp_key_rotations SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second'
+                     WHERE operation_id = ?
+                     """)) {
+            statement.setString(1, "rotation-atomic-fence");
+            statement.executeUpdate();
+        }
+        assertTrue(queue.claimOperation("rotation-atomic-fence", "worker-new", Duration.ofMinutes(1)));
+
+        AnpKeyRotationFence stalePrepared = new AnpKeyRotationFence(
+                "rotation-atomic-fence", "worker-old", oldGeneration, "PREPARED");
+        assertThrows(SecurityException.class, () -> didStore.register(candidate, stalePrepared));
+        assertEquals(initial, didStore.find(DID).orElseThrow());
+        assertThrows(SecurityException.class, () -> journal.advance("rotation-atomic-fence",
+                PostgresAnpKeyRotationJournal.RotationState.PREPARED,
+                PostgresAnpKeyRotationJournal.RotationState.DID_DOCUMENT_UPDATED, stalePrepared));
+
+        assertEquals(PostgresAnpKeyRotationJournal.RotationState.PREPARED,
+                journal.find("rotation-atomic-fence").orElseThrow().state());
+        journal.advance("rotation-atomic-fence",
+                PostgresAnpKeyRotationJournal.RotationState.PREPARED,
+                PostgresAnpKeyRotationJournal.RotationState.DID_DOCUMENT_UPDATED);
+        AnpKeyRotationFence staleActivation = new AnpKeyRotationFence(
+                "rotation-atomic-fence", "worker-old", oldGeneration, "DID_DOCUMENT_UPDATED");
+        assertThrows(SecurityException.class, () -> keyStore.storeKey(DID, newPair, staleActivation));
+        assertTrue(keyStore.getActiveKey(NEW_ID).isEmpty());
+
+        journal.advance("rotation-atomic-fence",
+                PostgresAnpKeyRotationJournal.RotationState.DID_DOCUMENT_UPDATED,
+                PostgresAnpKeyRotationJournal.RotationState.NEW_KEY_ACTIVATED);
+        AnpKeyRotationFence staleRevocation = new AnpKeyRotationFence(
+                "rotation-atomic-fence", "worker-old", oldGeneration, "NEW_KEY_ACTIVATED");
+        assertThrows(SecurityException.class, () -> keyStore.revokeKey(OLD_ID, staleRevocation));
+        assertTrue(keyStore.getActiveKey(OLD_ID).isPresent());
+    }
+
+    @Test
     void recoveryWorkerCompletesPreparedOperationUsingProtectedMaterialProvider() {
         journal.findOrPrepare(request("rotation-recovery"));
         AnpKeyRotationMaterialProvider provider = ignored ->
@@ -139,6 +221,42 @@ class PostgresAnpKeyRotationCoordinatorTest {
         assertEquals(PostgresAnpKeyRotationJournal.RotationState.COMPLETED,
                 journal.find("rotation-recovery").orElseThrow().state());
         assertTrue(keyStore.getActiveKey(OLD_ID).isEmpty());
+    }
+
+
+    @Test
+    void failedRecoveryIsBackedOffAndEventuallyDeadLettered() throws Exception {
+        journal.findOrPrepare(request("rotation-dead-letter"));
+        PostgresAnpKeyRotationCoordinator failing = new PostgresAnpKeyRotationCoordinator(
+                journal, didStore, keyStore, (actor, did) -> { },
+                ignored -> { throw new IllegalStateException("sensitive provider detail"); }, queue);
+
+        for (int attempt = 1; attempt <= 8; attempt++) {
+            var results = failing.recoverPending("retry-worker-" + attempt, Duration.ofMinutes(1), 1);
+            if (attempt == 1) {
+                assertEquals(1, results.size());
+                assertFalse(results.get(0).completed());
+                assertEquals("IllegalStateException", results.get(0).failureType());
+            }
+            try (Connection connection = dataSource.getConnection();
+                 var statement = connection.prepareStatement("""
+                         UPDATE andalus_anp_key_rotations
+                         SET next_attempt_at = CURRENT_TIMESTAMP - INTERVAL '1 second',
+                             lease_until = NULL
+                         WHERE operation_id = ?
+                         """)) {
+                statement.setString(1, "rotation-dead-letter");
+                statement.executeUpdate();
+            }
+        }
+
+        var status = queue.recoveryStatus();
+        assertEquals(1, status.deadLettered());
+        assertEquals(0, status.due());
+        assertTrue(queue.findPending(10).stream().anyMatch(r -> r.operationId().equals("rotation-dead-letter")));
+        assertTrue(queue.requeueDeadLetter("rotation-dead-letter"));
+        assertEquals(0, queue.recoveryStatus().deadLettered());
+        assertEquals(1, queue.recoveryStatus().due());
     }
 
     private PostgresAnpKeyRotationCoordinator coordinator(AnpKeyStore store,
@@ -191,7 +309,10 @@ class PostgresAnpKeyRotationCoordinatorTest {
                         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         lease_owner VARCHAR(256), lease_until TIMESTAMPTZ,
-                        recovery_attempts BIGINT NOT NULL DEFAULT 0)
+                        recovery_attempts BIGINT NOT NULL DEFAULT 0,
+                        lease_generation BIGINT NOT NULL DEFAULT 0 CHECK (lease_generation >= 0),
+                        next_attempt_at TIMESTAMPTZ, last_failure_at TIMESTAMPTZ,
+                        last_failure_type VARCHAR(160), dead_lettered_at TIMESTAMPTZ)
                     """);
             sql.execute("""
                     CREATE TABLE andalus_anp_signing_keys (

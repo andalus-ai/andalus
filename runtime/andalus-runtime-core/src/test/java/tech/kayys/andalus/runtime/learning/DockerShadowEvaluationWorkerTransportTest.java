@@ -39,6 +39,16 @@ class DockerShadowEvaluationWorkerTransportTest {
     }
 
     @Test
+    void includesContainerIdFileForDaemonSideTimeoutCleanup() {
+        var transport = new DockerShadowEvaluationWorkerTransport(
+                "/usr/bin/docker", PINNED_IMAGE,
+                DockerShadowEvaluationWorkerTransport.Limits.conservativeDefaults());
+
+        assertThat(transport.command(java.nio.file.Path.of("/tmp/worker-container.id")))
+                .contains("--cidfile", "/tmp/worker-container.id");
+    }
+
+    @Test
     void refusesNonRequestFramesBeforeStartingDocker() {
         var transport = new DockerShadowEvaluationWorkerTransport(
                 "/usr/bin/docker", PINNED_IMAGE,

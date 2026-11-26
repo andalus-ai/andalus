@@ -44,7 +44,7 @@ class ObservationDeadLetterParkingFlowTest {
         assertEquals(ObservationDeadLetterParkingRecovery.Status.QUEUE_CAPACITY_REACHED,
                 result.status());
         assertEquals(1, store.size());
-        assertEquals("occupy", queue.poll().event().eventId());
+        assertEquals("occupy", queue.poll().event().id());
     }
 
     @Test
