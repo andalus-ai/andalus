@@ -313,7 +313,7 @@ public class AgentExecutionService {
         return createToolExecutionContext(identity, agent, agentId, caller, executionBudget);
     }
 
-    private AgentToolExecutionContext createToolExecutionContext(
+    AgentToolExecutionContext createToolExecutionContext(
             ExecutionIdentity identity, AgentDefinition agent, String agentId,
             AgentCallerContext caller, ExecutionBudget executionBudget) {
         AgentToolExecutionContext.PrincipalType principalType =

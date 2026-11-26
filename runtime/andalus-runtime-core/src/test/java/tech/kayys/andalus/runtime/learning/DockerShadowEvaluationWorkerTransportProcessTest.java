@@ -21,18 +21,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class DockerShadowEvaluationWorkerTransportProcessTest {
     private static final String PINNED_IMAGE =
             "registry.example.test/andalus/shadow-worker@sha256:" + "b".repeat(64);
+    private static final String FAKE_CONTAINER_ID = "c".repeat(64);
 
     @TempDir Path temporaryDirectory;
 
     @Test
     void exchangesCorrelatedWorkerFailureFrameThroughChildProcess() throws Exception {
-        Path executable = fakeExecutable("valid");
         UUID requestId = UUID.randomUUID();
-        var transport = transport(executable, Duration.ofSeconds(5));
+        byte[] response = transport(fakeExecutable("valid"), Duration.ofSeconds(5))
+                .exchange(request(requestId));
 
-        byte[] response = transport.exchange(request(requestId));
         var failure = ShadowEvaluationWorkerCodec.decodeFailureFrame(response, requestId);
-
         assertThat(failure.code()).isEqualTo("FIXTURE_FAILURE");
         assertThat(failure.message()).isEqualTo("synthetic worker response");
     }
@@ -41,8 +40,11 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
     void rejectsMalformedWorkerStdout() throws Exception {
         var transport = transport(fakeExecutable("malformed"), Duration.ofSeconds(5));
 
-        assertThatThrownBy(() -> transport.exchange(request(UUID.randomUUID())))
-                .isInstanceOf(IOException.class);
+    @Test
+    void rejectsTruncatedWorkerFrame() throws Exception {
+        assertThatThrownBy(() -> transport(fakeExecutable("truncated"), Duration.ofSeconds(5))
+                .exchange(request(UUID.randomUUID())))
+                .isInstanceOf(IOException.class).hasMessageContaining("truncated");
     }
 
     @Test
@@ -58,9 +60,22 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
     void terminatesWorkerThatExceedsConfiguredTimeout() throws Exception {
         var transport = transport(fakeExecutable("timeout"), Duration.ofMillis(150));
 
-        assertThatThrownBy(() -> transport.exchange(request(UUID.randomUUID())))
-                .isInstanceOf(IOException.class)
-                .hasMessageContaining("timeout");
+    @Test
+    void terminatesDescendantsAndRemovesContainerWhenWorkerTimesOut() throws Exception {
+        Path childPidFile = temporaryDirectory.resolve("worker-child.pid");
+        var worker = transport(fakeExecutable("tree-timeout", childPidFile), Duration.ofMillis(500));
+
+        assertThatThrownBy(() -> worker.exchange(request(UUID.randomUUID())))
+                .isInstanceOf(IOException.class).hasMessageContaining("timeout");
+
+        assertThat(childPidFile).exists();
+        assertThat(Files.readString(cleanupLog())).contains("rm --force " + FAKE_CONTAINER_ID);
+        long childPid = Long.parseLong(Files.readString(childPidFile).trim());
+        for (int attempt = 0; attempt < 20 && ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false);
+             attempt++) {
+            Thread.sleep(50);
+        }
+        assertThat(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false)).isFalse();
     }
 
     @Test
@@ -94,9 +109,11 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
     void rejectsResponseWithDifferentRequestCorrelationId() throws Exception {
         var transport = transport(fakeExecutable("wrong-correlation"), Duration.ofSeconds(5));
 
-        assertThatThrownBy(() -> transport.exchange(request(UUID.randomUUID())))
-                .isInstanceOf(IOException.class)
-                .hasMessageContaining("request ID mismatch");
+    @Test
+    void rejectsStdoutLargerThanMaximumWorkerFrame() throws Exception {
+        assertThatThrownBy(() -> transport(fakeExecutable("stdout-oversize"), Duration.ofSeconds(5))
+                .exchange(request(UUID.randomUUID())))
+                .isInstanceOf(IOException.class).hasMessageContaining("stream exceeded");
     }
 
     @Test
@@ -119,8 +136,7 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
 
     private DockerShadowEvaluationWorkerTransport transport(Path executable, Duration timeout) {
         return new DockerShadowEvaluationWorkerTransport(executable.toString(), PINNED_IMAGE,
-                new DockerShadowEvaluationWorkerTransport.Limits(
-                        256, 1.0, 32, 16, timeout, 4096));
+                new DockerShadowEvaluationWorkerTransport.Limits(256, 1.0, 32, 16, timeout, 4096));
     }
 
     private byte[] request(UUID requestId) {
@@ -153,6 +169,10 @@ class DockerShadowEvaluationWorkerTransportProcessTest {
             throw new IOException("could not mark fake Docker executable as executable");
         }
         return executable;
+    }
+
+    private Path cleanupLog() {
+        return temporaryDirectory.resolve("docker-cleanup.log");
     }
 
     private static String shellQuote(String value) {
