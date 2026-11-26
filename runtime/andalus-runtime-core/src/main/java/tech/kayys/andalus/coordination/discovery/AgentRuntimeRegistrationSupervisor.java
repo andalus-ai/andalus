@@ -95,6 +95,35 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
         return acquireAndRestore();
     }
 
+    /**
+     * Reconciles registration after the host has restored its scheduler or persistence path.
+     *
+     * <p>A healthy session is left untouched. If ownership was lost, reconciliation
+     * performs a fresh acquire and therefore obtains a new fenced generation. This
+     * operation is serialized with scheduled recovery, start, and close.</p>
+     *
+     * @return true when a current registration exists (STARTING if availability was
+     *         not requested, READY when desired availability was restored)
+     */
+    public synchronized boolean reconcile() {
+        emit(AgentRuntimeRegistrationObserver.Event.RECONCILIATION_ATTEMPTED);
+        if (closed) {
+            emit(AgentRuntimeRegistrationObserver.Event.RECONCILIATION_FAILED);
+            return false;
+        }
+        AgentRuntimeRegistrationSession current = session;
+        if (current != null && !ownershipLost
+                && (!desiredAvailable || current.isRoutable())) {
+            emit(AgentRuntimeRegistrationObserver.Event.RECONCILIATION_SUCCEEDED);
+            return true;
+        }
+        readiness.starting();
+        boolean reconciled = acquireAndRestore();
+        emit(reconciled ? AgentRuntimeRegistrationObserver.Event.RECONCILIATION_SUCCEEDED
+                : AgentRuntimeRegistrationObserver.Event.RECONCILIATION_FAILED);
+        return reconciled;
+    }
+
     /** Publishes AVAILABLE after host-local startup checks have succeeded. */
     public synchronized boolean markAvailable() {
         if (closed) return false;
@@ -225,6 +254,14 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
         }
     }
 
+    private void emit(AgentRuntimeRegistrationObserver.Event event) {
+        try {
+            downstreamObserver.onEvent(event);
+        } catch (RuntimeException ignored) {
+            // Host telemetry must not affect registration ownership.
+        }
+    }
+
     private void scheduleRecovery() {
         synchronized (recoveryLock) {
             if (closed || (recoveryTask != null && !recoveryTask.isDone())) return;
@@ -249,7 +286,10 @@ public final class AgentRuntimeRegistrationSupervisor implements AutoCloseable {
                 recoveryTask = null;
             }
             if (closed) return;
-            acquireAndRestore();
+            emit(AgentRuntimeRegistrationObserver.Event.RECOVERY_ATTEMPTED);
+            boolean recovered = acquireAndRestore();
+            emit(recovered ? AgentRuntimeRegistrationObserver.Event.RECOVERY_SUCCEEDED
+                    : AgentRuntimeRegistrationObserver.Event.RECOVERY_FAILED);
         }
     }
 

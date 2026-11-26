@@ -141,4 +141,53 @@ class AgentExecutionServiceToolContextTest {
         assertFalse(resumed.permissions().contains("tools:write"));
     }
 
+
+    @Test
+    void resolvesWorkspaceFromAuthenticatedCallerAndAgentIdentity() throws Exception {
+        java.nio.file.Path workspace = java.nio.file.Files.createTempDirectory("andalus-resolved-workspace");
+        @SuppressWarnings("unchecked")
+        jakarta.enterprise.inject.Instance<WorkspaceResolver> resolvers =
+                org.mockito.Mockito.mock(jakarta.enterprise.inject.Instance.class);
+        org.mockito.Mockito.when(resolvers.isUnsatisfied()).thenReturn(false);
+        org.mockito.Mockito.when(resolvers.get()).thenReturn(request -> {
+            assertEquals(AgentCallerContext.PrincipalType.USER, request.principalType());
+            assertEquals("tenant-a", request.tenantId());
+            assertEquals("user-a", request.principalId());
+            assertEquals("agent-a", request.agentId());
+            return java.util.Optional.of(workspace);
+        });
+
+        AgentExecutionService service = new AgentExecutionService();
+        service.workspaceResolverInstances = resolvers;
+        AgentCallerContext caller = AgentCallerContext.user(
+                "tenant-a", "user-a", java.util.Set.of("agent:run"), java.util.Set.of("workspace:read"));
+
+        AgentToolExecutionContext context = service.createToolExecutionContext(
+                new ExecutionIdentity("exec-workspace-resolver", "corr-workspace-resolver", null),
+                null, "agent-a", caller, ExecutionBudget.balanced());
+
+        assertEquals(workspace.toRealPath(), context.constraints().get("andalus.workspace.root"));
+    }
+
+    @Test
+    void workspaceResolutionFailureDoesNotGrantAnUntrustedFallback() throws Exception {
+        java.nio.file.Path notDirectory = java.nio.file.Files.createTempFile("andalus-workspace", ".txt");
+        @SuppressWarnings("unchecked")
+        jakarta.enterprise.inject.Instance<WorkspaceResolver> resolvers =
+                org.mockito.Mockito.mock(jakarta.enterprise.inject.Instance.class);
+        org.mockito.Mockito.when(resolvers.isUnsatisfied()).thenReturn(false);
+        org.mockito.Mockito.when(resolvers.get()).thenReturn(request -> java.util.Optional.of(notDirectory));
+
+        AgentExecutionService service = new AgentExecutionService();
+        service.workspaceResolverInstances = resolvers;
+        AgentCallerContext caller = AgentCallerContext.user(
+                "tenant-a", "user-a", java.util.Set.of(), java.util.Set.of());
+
+        AgentToolExecutionContext context = service.createToolExecutionContext(
+                new ExecutionIdentity("exec-workspace-denied", "corr-workspace-denied", null),
+                null, "agent-a", caller, ExecutionBudget.balanced());
+
+        assertFalse(context.constraints().containsKey("andalus.workspace.root"));
+    }
+
 }

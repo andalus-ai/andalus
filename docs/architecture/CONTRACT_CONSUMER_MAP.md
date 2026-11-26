@@ -1,24 +1,24 @@
 # Contract Consumer and Implementation Map — Runtime
 
-Status: first-pass map from the `docs/development-guidelines-and-agents` branch. This is a source-level map, not a complete compiled dependency graph. Entries below distinguish directly inspected call sites from inferred/transitive relationships.
+Status: refreshed targeted source map as of 2026-11-25. This is a source-level map, not a complete compiled dependency graph. Entries distinguish directly inspected call sites from inferred/transitive relationships. See the Framework [M0 Foundation Audit](https://github.com/andalus-ai/andalus-framework/blob/main/docs/architecture/M0-FOUNDATION-AUDIT.md) for the cross-repository evidence log.
 
 ## 1. ExecutionContext
 
 | Role | Source | Observed use | Confidence |
 |---|---|---|---|
-| Runtime entry point | `runtime/andalus-runtime-core/.../core/DefaultAndalusRuntime.java` | Creates `SimpleExecutionContext.fromRequest(request)` and passes it to `ExecutionEngine.executeAgent` | Direct |
-| Graph context implementation | `runtime/andalus-runtime-core/.../execution/SimpleExecutionContext.java` | Implements graph-style `tech.kayys.andalus.execution.ExecutionContext`; returns null for graph/currentNode on linear path | Direct |
-| Engine implementation | `runtime/andalus-runtime-core/.../execution/DefaultExecutionEngine.java` | Implements `ExecutionEngine` and accepts `ExecutionContext` in agent/workflow/skill methods | Direct |
-| Framework engine contract | Framework `andalus-engine/.../execution/ExecutionEngine.java` | Method signatures refer to the engine module's same-package `ExecutionContext` | Direct |
+| Runtime entry point | `runtime/andalus-runtime-core/.../core/DefaultAndalusRuntime.java` | Creates `SimpleGraphExecutionContext.fromRequest(request)` and passes it to `ExecutionEngine.executeAgent` | Direct |
+| Graph context implementation | `runtime/andalus-runtime-core/.../execution/SimpleGraphExecutionContext.java` | Implements Framework `GraphExecutionContext`; returns null for graph/currentNode on linear path | Direct |
+| Engine implementation | `runtime/andalus-runtime-core/.../execution/DefaultExecutionEngine.java` | Implements `ExecutionEngine` and accepts `GraphExecutionContext` in agent/workflow/skill methods | Direct |
+| Framework engine contract | Framework `andalus-engine/.../execution/ExecutionEngine.java` | Method signatures use the engine module's `GraphExecutionContext` | Direct |
 | Framework invocation context | Framework `andalus-execution-api/.../execution/ExecutionContext.java` | Separate interface with same FQN but invocation metadata/cancellation/security/lifecycle methods | Definition confirmed; runtime call-site binding not yet verified |
 
 ### Dependency/classpath concern
 
-Runtime-core directly declares dependencies on both `andalus-execution-api` and `andalus-engine`. Both artifacts contain a class named `tech.kayys.andalus.execution.ExecutionContext`, with different method sets. Runtime source methods and framework `ExecutionEngine` bytecode therefore need an explicit classpath-resolution check. A Maven dependency tree and actual reactor compile are required to determine whether this manifests as a compile error, linkage issue or dependency-order-sensitive behavior.
+Runtime-core directly declares dependencies on both `andalus-execution-api` and `andalus-engine`, but current Framework source now gives the graph contract the distinct FQN `tech.kayys.andalus.execution.GraphExecutionContext`. The earlier duplicate-FQN claim is historical and must not be treated as a current source defect. A resolved Maven dependency tree and clean compile are still needed to verify the full artifact graph and binary compatibility.
 
 ### Migration implications
 
-- Preserve the current graph execution contract while renaming it to a graph/workflow-specific FQN.
+- Preserve the existing `GraphExecutionContext` contract; the graph-specific rename is already present in current Framework source.
 - Make runtime's top-level invocation context explicit; do not silently make a linear agent request pretend to have a graph.
 - Add tests proving the runtime entry point and workflow execution each bind to the intended contract.
 - Do not change the method signature until the resolved dependency graph and all implementations are mapped.
@@ -31,7 +31,7 @@ Runtime-core directly declares dependencies on both `andalus-execution-api` and 
 | Runtime `ExecutionCheckpointStore` | Runtime `InMemoryExecutionCheckpointStore`, `AgentExecutionService`, `DefaultAgentExecution`, `DefaultExecutionStateStore` | Stores execution state snapshots; `DefaultExecutionStateStore.checkpoint` creates and saves runtime `ExecutionCheckpoint` values | Direct |
 | Framework `execution.checkpoint.CheckpointStore` | No direct runtime implementation/call site confirmed in inspected runtime files | Uses framework `ExecutionCheckpoint` (attempt/sequence/payload/manifest) | Not yet mapped |
 | Framework `state.checkpoint.CheckpointStore` | No direct runtime implementation/call site confirmed in inspected runtime files | Stores state API `Checkpoint` (state/context/artifact/provenance envelope) | Not yet mapped |
-| Framework `tech.kayys.andalus.execution.CheckpointStore` from `andalus-engine` | No runtime consumer/implementation confirmed | Stores engine `ExecutionSnapshot`; default `getLatest` returns null | Not yet mapped |
+| Framework `EngineSnapshotStore` from `andalus-engine` | No runtime consumer/implementation confirmed | Stores graph `ExecutionSnapshot`; default `getLatest` derives an Optional from `list()` | Not yet mapped |
 
 ### Confirmed runtime checkpoint flow
 
@@ -64,12 +64,20 @@ Do not merge processing phase and lifecycle status. The runtime's phase records 
 
 ## 5. Confirmed risks worth addressing
 
-1. **Duplicate FQN:** two incompatible framework `ExecutionContext` interfaces are both reachable from runtime-core's declared dependency graph.
-2. **Parallel recovery paths:** runtime stores both AgentContext snapshots and runtime lifecycle checkpoints; their roles and retention policy need explicit documentation.
-3. **Linear context returns null graph objects:** runtime's `SimpleExecutionContext` implements the graph-oriented context and returns null for graph/currentNode. A typed linear context would be safer.
-4. **Lifecycle transition enforcement:** framework `DefaultExecutionContext.transition` currently writes the new enum value directly via `AtomicReference.set`; it does not enforce the legal transition rule described by the interface documentation.
-5. **In-memory store consistency:** framework execution checkpoint in-memory store checks sequence monotonicity but its read-check-add sequence is not atomic across concurrent writers. Add a concurrency test or synchronize per execution before relying on ordering.
+1. **Parallel recovery paths:** Runtime stores both AgentContext snapshots and lifecycle checkpoints. The resume path still reads the AgentContext store; the lifecycle checkpoint is not yet the single authoritative recovery source.
+2. **Runtime checkpoint guarantees:** Runtime `InMemoryExecutionCheckpointStore` appends without enforcing the Framework checkpoint API's monotonic sequence and duplicate-ID guarantees. Both Runtime default stores are process-local.
+3. **Linear context shape:** `SimpleGraphExecutionContext` implements the graph contract for a linear AgentRequest path and returns null for graph/currentNode. Consider a typed linear invocation context or explicit graph capability after consumer mapping.
+4. **Pause/resume semantics:** pause changes status and checkpoints without proving that active work has reached a safe point; resume changes status without demonstrating continuation from a resumable checkpoint.
+5. **Cancellation:** a cancellation token is now passed into the ReAct agent and governed tool bridge, and cancellation completes the caller future. Verify provider-stream interruption, tool cooperation, cancellation races and absence of post-cancel side effects.
+6. **Lifecycle hydration:** Runtime `complete` and `fail` now arbitrate terminal outcomes through the per-execution state map and transition rules. `changeStatus` remains an unguarded status restoration/mutation method and should be restricted to explicit hydration semantics.
+7. **Framework improvements:** invocation transition validation is atomic in `DefaultExecutionContext`; Framework in-memory checkpoint sequence validation and append are synchronized per execution. These are source-level improvements, not durability guarantees.
 
-## Scope and limitations
+## 6. Current verification snapshot — 2026-11-25
+
+Inspected current source paths include Runtime `SimpleGraphExecutionContext`, `AgentExecutionService`, `DefaultAgentExecution`, `DefaultExecutionStateStore`, `ExecutionCheckpointStore`, `InMemoryExecutionCheckpointStore` and `InMemoryCheckpointStore`, plus Framework `GraphExecutionContext`, `DefaultExecutionContext`, `ExecutionLifecycleTransitions`, `CheckpointStore` and `InMemoryExecutionCheckpointStore`.
+
+No clean Maven build, effective dependency tree, cross-repository integration test or process-restart recovery test was run. The source findings must not be represented as build-verified behavior.
+
+## 7. Scope and limitations
 
 The map is grounded in the listed source files and POMs on this branch. It is not a full import/reference index, a Maven effective dependency tree, or a test/build report. "Not yet mapped" means no direct consumer was confirmed in this pass, not proof that none exists.

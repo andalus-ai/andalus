@@ -94,7 +94,7 @@ public final class AwsKmsAnpKeyMaterialProtector implements AnpKeyMaterialProtec
                 output.write(encrypted);
             }
             return bytes.toByteArray();
-        } catch (GeneralSecurityException exception) {
+        } catch (GeneralSecurityException | java.io.IOException exception) {
             throw new IllegalStateException("Unable to encrypt ANP private key material", exception);
         } finally {
             if (dataKey != null) Arrays.fill(dataKey, (byte) 0);
