@@ -37,6 +37,9 @@ public class PostgresAnpKeyRotationRecoveryQueue {
                 FROM andalus_anp_key_rotations
                 WHERE state <> 'COMPLETED'
                   AND (lease_until IS NULL OR lease_until <= CURRENT_TIMESTAMP)
+                  AND (next_attempt_at IS NULL OR next_attempt_at <= CURRENT_TIMESTAMP)
+                  AND dead_lettered_at IS NULL
+                  AND recovery_attempts < 8
                 ORDER BY updated_at ASC, operation_id ASC
                 FOR UPDATE SKIP LOCKED
                 LIMIT ?
@@ -235,6 +238,117 @@ public class PostgresAnpKeyRotationRecoveryQueue {
             throw new IllegalStateException("Unable to release ANP key rotation lease", exception);
         }
     }
+
+
+    /**
+     * Records a failed recovery attempt and schedules bounded exponential backoff.
+     * Only the current lease owner and fencing generation may report the failure.
+     * Exception messages are deliberately not persisted because they may contain secrets.
+     */
+    public boolean recordFailure(String operationId, String workerId, long generation, String failureType) {
+        if (operationId == null || operationId.isBlank() || workerId == null || workerId.isBlank()) {
+            throw new IllegalArgumentException("operationId and workerId must not be blank");
+        }
+        if (failureType == null || !failureType.matches("[A-Za-z0-9_$]{1,160}")) {
+            throw new IllegalArgumentException("failureType must be a safe exception type name");
+        }
+        String sql = """
+                UPDATE andalus_anp_key_rotations
+                SET last_failure_at = CURRENT_TIMESTAMP,
+                    last_failure_type = ?,
+                    next_attempt_at = CASE
+                        WHEN recovery_attempts >= 8 THEN NULL
+                        ELSE CURRENT_TIMESTAMP + (
+                            LEAST(300, (5 * POWER(2, GREATEST(0, recovery_attempts - 1)))) * INTERVAL '1 second'
+                        )
+                    END,
+                    dead_lettered_at = CASE
+                        WHEN recovery_attempts >= 8 THEN CURRENT_TIMESTAMP
+                        ELSE NULL
+                    END,
+                    lease_owner = NULL, lease_until = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE operation_id = ? AND lease_owner = ? AND lease_generation = ?
+                  AND state <> 'COMPLETED'
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, failureType);
+            statement.setString(2, operationId);
+            statement.setString(3, workerId);
+            statement.setLong(4, generation);
+            return statement.executeUpdate() == 1;
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Unable to schedule ANP key rotation retry", exception);
+        }
+    }
+
+    /** Clears retry metadata after successful progress without changing the durable attempt count. */
+    public boolean recordSuccess(String operationId, String workerId, long generation) {
+        String sql = """
+                UPDATE andalus_anp_key_rotations
+                SET next_attempt_at = NULL, last_failure_at = NULL, last_failure_type = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE operation_id = ? AND lease_owner = ? AND lease_generation = ?
+                  AND lease_until > CURRENT_TIMESTAMP AND state <> 'COMPLETED'
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, operationId);
+            statement.setString(2, workerId);
+            statement.setLong(3, generation);
+            return statement.executeUpdate() == 1;
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Unable to clear ANP key rotation retry metadata", exception);
+        }
+    }
+
+    /** Explicit operator replay clears dead-letter state; normal recovery never does this implicitly. */
+    public boolean requeueDeadLetter(String operationId) {
+        String sql = """
+                UPDATE andalus_anp_key_rotations
+                SET dead_lettered_at = NULL, recovery_attempts = 0,
+                    next_attempt_at = CURRENT_TIMESTAMP,
+                    last_failure_at = NULL, last_failure_type = NULL,
+                    lease_owner = NULL, lease_until = NULL, updated_at = CURRENT_TIMESTAMP
+                WHERE operation_id = ? AND state <> 'COMPLETED' AND dead_lettered_at IS NOT NULL
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, operationId);
+            return statement.executeUpdate() == 1;
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Unable to requeue dead-lettered ANP key rotation", exception);
+        }
+    }
+
+    /** Operational counters; all values are computed from the durable journal. */
+    public RecoveryStatus recoveryStatus() {
+        String sql = """
+                SELECT COUNT(*) FILTER (WHERE state <> 'COMPLETED' AND dead_lettered_at IS NULL) AS pending,
+                       COUNT(*) FILTER (WHERE state <> 'COMPLETED' AND lease_until > CURRENT_TIMESTAMP) AS leased,
+                       COUNT(*) FILTER (WHERE state <> 'COMPLETED' AND dead_lettered_at IS NULL
+                           AND (next_attempt_at IS NULL OR next_attempt_at <= CURRENT_TIMESTAMP)
+                           AND (lease_until IS NULL OR lease_until <= CURRENT_TIMESTAMP)) AS due,
+                       COUNT(*) FILTER (WHERE state <> 'COMPLETED' AND dead_lettered_at IS NOT NULL) AS dead_lettered,
+                       MIN(created_at) FILTER (WHERE state <> 'COMPLETED') AS oldest_pending_at
+                FROM andalus_anp_key_rotations
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet rows = statement.executeQuery()) {
+            rows.next();
+            java.sql.Timestamp oldest = rows.getTimestamp("oldest_pending_at");
+            return new RecoveryStatus(rows.getLong("pending"), rows.getLong("leased"),
+                    rows.getLong("due"), rows.getLong("dead_lettered"),
+                    oldest == null ? null : oldest.toInstant());
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Unable to read ANP key rotation recovery status", exception);
+        }
+    }
+
+    public record RecoveryStatus(long pending, long leased, long due, long deadLettered,
+                                 java.time.Instant oldestPendingAt) { }
 
     private static List<PostgresAnpKeyRotationJournal.Rotation> readRows(ResultSet rows)
             throws SQLException {

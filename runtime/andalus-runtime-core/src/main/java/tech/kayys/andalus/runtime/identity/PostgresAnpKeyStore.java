@@ -9,6 +9,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -74,15 +75,22 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
                         return Optional.empty();
                     }
                     String agentId = result.getString("agent_id");
-                    byte[] privateKey = protector.unprotect(agentId, keyId,
-                            result.getBytes("private_key_ciphertext"));
-                    if (privateKey == null || privateKey.length == 0) {
-                        throw new IllegalStateException("KMS returned empty ANP private key material");
+                    byte[] ciphertext = result.getBytes("private_key_ciphertext");
+                    byte[] privateKey = null;
+                    try {
+                        privateKey = protector.unprotect(agentId, keyId, ciphertext);
+                        if (privateKey == null || privateKey.length == 0) {
+                            throw new IllegalStateException("KMS returned empty ANP private key material");
+                        }
+                        // Give the returned value its own copy, then wipe the KMS plaintext buffer.
+                        AnpIdentityKeyPair pair = new AnpIdentityKeyPair(keyId, result.getString("algorithm"),
+                                Arrays.copyOf(privateKey, privateKey.length), result.getBytes("public_key_bytes"));
+                        connection.commit();
+                        return Optional.of(pair);
+                    } finally {
+                        wipe(ciphertext);
+                        wipe(privateKey);
                     }
-                    AnpIdentityKeyPair pair = new AnpIdentityKeyPair(keyId, result.getString("algorithm"),
-                            privateKey, result.getBytes("public_key_bytes"));
-                    connection.commit();
-                    return Optional.of(pair);
                 }
             } catch (RuntimeException | SQLException exception) {
                 rollbackQuietly(connection, exception);
@@ -133,11 +141,10 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
             throw new IllegalArgumentException("A complete Ed25519 key pair is required");
         }
 
-        byte[] privateKey = keyPair.privateKeyBytes();
-        byte[] ciphertext = protector.protect(agentId, keyPair.keyId(), privateKey);
-        if (ciphertext == null || ciphertext.length == 0) {
-            throw new IllegalStateException("KMS returned empty protected ANP key material");
-        }
+        byte[] suppliedPrivateKey = keyPair.privateKeyBytes();
+        byte[] privateKey = suppliedPrivateKey == null ? null
+                : Arrays.copyOf(suppliedPrivateKey, suppliedPrivateKey.length);
+        byte[] ciphertext = null;
         try (Connection connection = dataSource.getConnection()) {
             boolean previousAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
@@ -149,6 +156,11 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
                 if (isRevoked(connection, keyPair.keyId())) {
                     throw new IllegalStateException("A revoked ANP key identifier cannot be reactivated: "
                             + keyPair.keyId());
+                }
+                // Do not invoke KMS for a permanently revoked key identifier.
+                ciphertext = protector.protect(agentId, keyPair.keyId(), privateKey);
+                if (ciphertext == null || ciphertext.length == 0) {
+                    throw new IllegalStateException("KMS returned empty protected ANP key material");
                 }
                 try (PreparedStatement insert = connection.prepareStatement(INSERT_KEY)) {
                     insert.setString(1, keyPair.keyId());
@@ -172,10 +184,16 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
                                 || !MessageDigest.isEqual(keyPair.publicKeyBytes(), result.getBytes("public_key_bytes"))) {
                             throw new SecurityException("ANP key ID is already bound to different key material");
                         }
-                        byte[] existingPrivate = protector.unprotect(agentId, keyPair.keyId(),
-                                result.getBytes("private_key_ciphertext"));
-                        if (!MessageDigest.isEqual(privateKey, existingPrivate)) {
-                            throw new SecurityException("ANP key ID is already bound to different private material");
+                        byte[] existingCiphertext = result.getBytes("private_key_ciphertext");
+                        byte[] existingPrivate = null;
+                        try {
+                            existingPrivate = protector.unprotect(agentId, keyPair.keyId(), existingCiphertext);
+                            if (existingPrivate == null || !MessageDigest.isEqual(privateKey, existingPrivate)) {
+                                throw new SecurityException("ANP key ID is already bound to different private material");
+                            }
+                        } finally {
+                            wipe(existingCiphertext);
+                            wipe(existingPrivate);
                         }
                     }
                 }
@@ -194,6 +212,9 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
             }
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to persist ANP signing key", exception);
+        } finally {
+            wipe(privateKey);
+            wipe(ciphertext);
         }
     }
 
@@ -242,6 +263,12 @@ public class PostgresAnpKeyStore implements AnpKeyStore {
             }
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to revoke ANP signing key", exception);
+        }
+    }
+
+    private static void wipe(byte[] value) {
+        if (value != null) {
+            Arrays.fill(value, (byte) 0);
         }
     }
 

@@ -121,6 +121,9 @@ public class PostgresTrustedDidDocumentStore implements TrustedDidDocumentStore 
                 }
                 connection.commit();
                 return candidate;
+            } catch (JsonProcessingException exception) {
+                rollbackQuietly(connection, exception);
+                throw new IllegalStateException("Unable to decode trusted DID document", exception);
             } catch (RuntimeException | SQLException exception) {
                 rollbackQuietly(connection, exception);
                 throw exception;

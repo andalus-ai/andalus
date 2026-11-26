@@ -25,12 +25,14 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ToolCapabilityClassificationTest {
 
     @Test
     void unclassifiedDescriptorDefaultsToSystem() {
-        ToolDescriptor descriptor = SimpleToolDescriptor.of("custom", "custom", "Unclassified", Map.of());
+        ToolDescriptor descriptor = SimpleToolDescriptor.of("custom", "Unclassified", Map.of());
         assertEquals(ToolCapabilityLevel.SYSTEM,
                 DefaultAgentToolExecutor.resolveCapabilityLevel(tool(descriptor)));
     }

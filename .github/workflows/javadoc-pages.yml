@@ -32,6 +32,113 @@ jobs:
           java-version: "25"
           cache: maven
 
+      # The framework is a separate Maven reactor. Install the artifacts used by
+      # this repository before asking the root reactor to resolve Javadoc classpaths.
+      - name: Checkout Andalus Framework
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/andalus-framework
+          path: _andalus-framework
+          ref: main
+
+      - name: Install FAISS native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenblas-dev
+
+      # Framework provider modules consume AQLI/Aljabr and Gamelan artifacts
+      # that are not published to Maven Central. Reproduce the same source bootstrap
+      # used by the main CI workflow before installing the Framework reactor.
+      - name: Checkout Aljabr (AQLI composite dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/aljabr
+          path: aljabr
+          ref: main
+
+      - name: Checkout AQLI
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/aqli
+          path: _aqli
+          ref: main
+
+      - name: Checkout Suling (AQLI audio dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: bhangun/suling
+          path: _aqli/suling
+          ref: main
+
+      - name: Install Suling audio API to Maven Local
+        run: mvn --batch-mode --no-transfer-progress -f _aqli/suling/pom.xml -DskipTests install
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.4.0"
+
+      - name: Publish Framework schema contracts to Maven Local
+        working-directory: _andalus-framework
+        run: ./mvnw -B -pl framework/andalus-schema-core -am install -DskipTests -q
+
+      - name: Publish AQLI SPI and SDK dependencies to Maven Local
+        working-directory: _aqli
+        env:
+          GRADLE_OPTS: "-Xmx2G -Dorg.gradle.daemon=false"
+        run: |
+          TASKS=(
+            :spi:aqli-spi:publishToMavenLocal
+            :spi:aqli-spi-audio:publishToMavenLocal
+            :spi:aqli-spi-image:publishToMavenLocal
+            :spi:aqli-spi-inference:publishToMavenLocal
+            :spi:aqli-spi-multimodal:publishToMavenLocal
+            :spi:aqli-spi-plugin:publishToMavenLocal
+            :spi:aqli-spi-runtime:publishToMavenLocal
+            :sdk:aqli-sdk-api:publishToMavenLocal
+            :sdk:aqli-sdk-protobuf:publishToMavenLocal
+            :sdk:aqli-sdk-core:publishToMavenLocal
+            :sdk:aqli-sdk:publishToMavenLocal
+            :sdk:aqli-sdk-local:publishToMavenLocal
+            :core:aqli-core:publishToMavenLocal
+            :tokenizer:aqli-tokenizer-core:publishToMavenLocal
+            :repository:aqli-model-repo-common:publishToMavenLocal
+            :repository:aqli-model-repo-local:publishToMavenLocal
+            :repository:aqli-model-database:publishToMavenLocal
+            :plugin:aqli-plugin-kernel-core:publishToMavenLocal
+          )
+          gradle "${TASKS[@]}" --no-daemon -x test --parallel
+
+      - name: Checkout Gamelan
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/gamelan
+          path: gamelan
+          ref: main
+
+      - name: Publish Gamelan SPI and executor SDK dependencies to Maven Local
+        working-directory: gamelan
+        env:
+          GRADLE_OPTS: "-Xmx2G -Dorg.gradle.daemon=false"
+        run: |
+          gradle \
+            :gamelan-engine-spi:publishToMavenLocal \
+            :gamelan-sdk-client-core:publishToMavenLocal \
+            :gamelan-plugin-spi:publishToMavenLocal \
+            :gamelan-sdk-executor-core:publishToMavenLocal \
+            --no-daemon -x test --parallel \
+            -Pgamelan.publish.enabled=true \
+            -Pgamelan.version=1.0.0-SNAPSHOT
+
+      - name: Install Framework dependency closure
+        working-directory: _andalus-framework
+        run: >-
+          ./mvnw -B -ntp
+          -f framework/pom.xml
+          -pl andalus-core,andalus-knowledge,andalus-agent,andalus-tool,andalus-execution-api,andalus-runtime-spi,andalus-observability,andalus-resilience,andalus-engine,andalus-anp,andalus-harness,andalus-a2a,andalus-memory,andalus-embedding,andalus-provider
+          -am install
+          -Dmaven.test.skip=true
+
       - name: Generate aggregate Javadoc
         run: |
           ./mvnw -B -ntp \

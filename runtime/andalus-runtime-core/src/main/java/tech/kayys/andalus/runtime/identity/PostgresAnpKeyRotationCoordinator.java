@@ -77,23 +77,29 @@ public class PostgresAnpKeyRotationCoordinator {
 
     /**
      * Claims a bounded batch and resumes each operation independently.
-     * Failed operations retain their lease until expiry to avoid a tight retry loop.
+     * Failed operations are durably rescheduled with bounded backoff and eventually dead-lettered.
      */
     public List<RecoveryResult> recoverPending(String workerId, Duration leaseDuration, int limit) {
         List<PostgresAnpKeyRotationJournal.Rotation> claimed =
                 recoveryQueue.claimPending(workerId, leaseDuration, limit);
         List<RecoveryResult> results = new ArrayList<>(claimed.size());
         for (PostgresAnpKeyRotationJournal.Rotation rotation : claimed) {
+            long generation = recoveryQueue.leaseGeneration(rotation.operationId(), workerId);
             try {
-                PostgresAnpKeyRotationJournal.Rotation completed = resumeWithProviderLease(rotation.operationId(), workerId,
-                        recoveryQueue.leaseGeneration(rotation.operationId(), workerId));
+                PostgresAnpKeyRotationJournal.Rotation completed = resumeWithProviderLease(
+                        rotation.operationId(), workerId, generation);
                 results.add(new RecoveryResult(rotation.operationId(), true,
                         completed.state().name(), null));
                 recoveryQueue.release(rotation.operationId(), workerId);
             } catch (RuntimeException failure) {
+                String failureType = failure.getClass().getSimpleName();
+                try {
+                    recoveryQueue.recordFailure(rotation.operationId(), workerId, generation, failureType);
+                } catch (RuntimeException persistenceFailure) {
+                    failure.addSuppressed(persistenceFailure);
+                }
                 results.add(new RecoveryResult(rotation.operationId(), false,
-                        rotation.state().name(), failure.getClass().getSimpleName()));
-                // Keep the lease until expiry; the next worker attempt is naturally back-pressured.
+                        rotation.state().name(), failureType));
             }
         }
         return List.copyOf(results);
