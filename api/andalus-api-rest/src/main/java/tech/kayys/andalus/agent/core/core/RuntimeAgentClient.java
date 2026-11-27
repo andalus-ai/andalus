@@ -65,7 +65,7 @@ public class RuntimeAgentClient implements AgentClient {
 
         try {
             Optional<tech.kayys.andalus.core.AgentDefinition> resolved =
-                    definitionResolvers.get().resolve(agentId, caller);
+                    definitionResolvers.get().resolve(agentId, request, caller);
             if (resolved == null || resolved.isEmpty()) {
                 return Uni.createFrom().failure(new NotFoundException(
                         "Agent not found or caller is not authorized"));
