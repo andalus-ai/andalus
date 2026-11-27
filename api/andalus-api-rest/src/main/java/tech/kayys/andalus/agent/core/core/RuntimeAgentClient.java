@@ -5,6 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.NotFoundException;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -72,7 +73,7 @@ public class RuntimeAgentClient implements AgentClient {
 
             tech.kayys.andalus.agent.AgentRequest runtimeRequest = toRuntimeRequest(request, caller);
             AgentExecution execution = executions.create(
-                    resolved.get(), runtimeRequest, ExecutionBudget.balanced(), caller);
+                    resolved.get(), runtimeRequest, executionBudget(request), caller);
             CompletionStage<tech.kayys.andalus.agent.AgentResponse> completion = execution.execute();
 
             return Uni.createFrom().completionStage(completion)
@@ -81,6 +82,37 @@ public class RuntimeAgentClient implements AgentClient {
         } catch (RuntimeException error) {
             return Uni.createFrom().failure(error);
         }
+    }
+
+    /**
+     * Caller-provided limits may tighten the balanced profile but cannot raise
+     * the deployment's default step or duration ceilings.
+     */
+    private ExecutionBudget executionBudget(AgentRequest request) {
+        ExecutionBudget base = ExecutionBudget.balanced();
+        Duration requestedDuration = request.timeout();
+        Duration maxDuration = requestedDuration != null && !requestedDuration.isNegative()
+                && !requestedDuration.isZero() && requestedDuration.compareTo(base.maxDuration()) < 0
+                        ? requestedDuration : base.maxDuration();
+        int maxSteps = request.maxSteps() > 0
+                ? Math.min(request.maxSteps(), base.maxSteps()) : base.maxSteps();
+        return new ExecutionBudget(
+                maxDuration,
+                maxSteps,
+                base.maxToolCalls(),
+                base.maxInputTokens(),
+                base.maxOutputTokens(),
+                base.contextTokens(),
+                base.maxRetries(),
+                base.maxConcurrentTools(),
+                base.toolCacheEnabled(),
+                base.toolCacheTtl(),
+                base.retrievalCacheEnabled(),
+                base.retrievalCacheTtl(),
+                base.researchCacheEnabled(),
+                base.researchCacheTtl(),
+                base.maxA2ARequests(),
+                base.maxResearchSources());
     }
 
     private tech.kayys.andalus.agent.AgentRequest toRuntimeRequest(
