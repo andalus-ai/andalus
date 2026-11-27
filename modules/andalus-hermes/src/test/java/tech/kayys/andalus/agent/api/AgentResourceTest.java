@@ -68,7 +68,7 @@ class AgentResourceTest {
                 "forged-tenant", "forged-user", "session-a", null, null, "agent-a"))
                 .collect().asList().await().indefinitely();
 
-        assertThat(events).containsExactly("data: done\\n\\n");
+        assertThat(events).containsExactly("data: done\n\n");
         assertThat(client.agentId).isEqualTo("agent-a");
         assertThat(client.caller.tenantId()).isEqualTo("tenant-a");
         assertThat(client.caller.userId()).isEqualTo("user-a");
