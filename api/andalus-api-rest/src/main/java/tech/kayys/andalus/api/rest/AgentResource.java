@@ -6,6 +6,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import java.security.Principal;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.ForbiddenException;
@@ -20,6 +21,7 @@ import jakarta.ws.rs.core.Response;
 import tech.kayys.andalus.agent.core.core.AgentClient;
 import tech.kayys.andalus.agent.spi.AgentRequest;
 import tech.kayys.andalus.agent.spi.skills.SkillRegistry;
+import tech.kayys.andalus.execution.AgentCallerContext;
 
 import java.util.List;
 import java.util.Map;
@@ -49,9 +51,13 @@ public class AgentResource {
     @Path("/run")
     public Uni<Response> run(AgentRunRequest request) {
         try {
-            AgentRequest agentRequest = runRequestMapper.toAgentRequest(trustedRequest(request), false);
-            return agentClient.execute(agentRequest)
+            TrustedAgentRequest trusted = trustedCall(request);
+            AgentRequest agentRequest = runRequestMapper.toAgentRequest(trusted.request(), false);
+            return agentClient.execute(agentRequest, trusted.caller())
                     .map(runResponseMapper::ok)
+                    .onFailure(UnsupportedOperationException.class).recoverWithItem(error ->
+                            Response.status(Response.Status.NOT_IMPLEMENTED)
+                                    .entity(Map.of("error", error.getMessage())).build())
                     .onFailure().recoverWithItem(runResponseMapper::serverError);
         } catch (ForbiddenException error) {
             return Uni.createFrom().item(Response.status(Response.Status.FORBIDDEN)
@@ -66,7 +72,9 @@ public class AgentResource {
     @Produces(MediaType.SERVER_SENT_EVENTS)
     public Multi<String> stream(AgentRunRequest request) {
         try {
-            return agentClient.execute(runRequestMapper.toAgentRequest(trustedRequest(request), true))
+            TrustedAgentRequest trusted = trustedCall(request);
+            AgentRequest agentRequest = runRequestMapper.toAgentRequest(trusted.request(), true);
+            return agentClient.execute(agentRequest, trusted.caller())
                     .onItem().transform(runResponseMapper::streamData)
                     .onFailure().recoverWithItem(runResponseMapper::streamError)
                     .toMulti();
@@ -77,20 +85,28 @@ public class AgentResource {
         }
     }
 
-
     /**
-     * Client-supplied tenant/user fields are never identity sources. Bind them
-     * to the verified Quarkus identity and discard identity-shaped context
-     * attributes before passing the request to an agent implementation.
+     * Compatibility helper retained for request-mapping tests. Identity is
+     * derived from SecurityIdentity, never from the request body.
      */
     AgentRunRequest trustedRequest(AgentRunRequest request) {
+        return trustedCall(request).request();
+    }
+
+    /**
+     * Creates the sanitized request and the caller snapshot together so both
+     * values are derived from the same verified SecurityIdentity instance.
+     */
+    TrustedAgentRequest trustedCall(AgentRunRequest request) {
         AgentRunRequest safe = request != null ? request : new AgentRunRequest(
                 null, null, null, null, 0, null, null, null, null, null, null);
         SecurityIdentity identity = securityIdentity;
         boolean authenticated = identity != null && !identity.isAnonymous()
                 && identity.getPrincipal() != null;
+
         String tenantId = null;
         String userId = null;
+        AgentCallerContext caller;
         if (authenticated) {
             Principal principal = identity.getPrincipal();
             userId = principal.getName();
@@ -99,6 +115,15 @@ public class AgentResource {
                 throw new ForbiddenException("Authenticated agent requests require a trusted tenantId");
             }
             tenantId = value;
+            try {
+                Set<String> roles = identity.getRoles() == null ? Set.of() : Set.copyOf(identity.getRoles());
+                Set<String> permissions = trustedClaims(identity.getAttribute("permissions"), "permissions");
+                caller = AgentCallerContext.user(tenantId, userId, roles, permissions);
+            } catch (IllegalArgumentException error) {
+                throw new ForbiddenException("Authenticated agent identity contains invalid authorization claims");
+            }
+        } else {
+            caller = AgentCallerContext.anonymous(null);
         }
 
         Map<String, Object> context = new HashMap<>();
@@ -106,9 +131,30 @@ public class AgentResource {
         for (String key : Set.of("tenantId", "userId", "roles", "permissions", "principalId", "principalType")) {
             context.remove(key);
         }
-        return new AgentRunRequest(safe.prompt(), safe.systemPrompt(), safe.strategy(), safe.skills(),
-                safe.maxSteps(), safe.timeout(), tenantId, userId, safe.sessionId(),
+        AgentRunRequest sanitized = new AgentRunRequest(safe.prompt(), safe.systemPrompt(), safe.strategy(),
+                safe.skills(), safe.maxSteps(), safe.timeout(), tenantId, userId, safe.sessionId(),
                 safe.modelId(), context);
+        return new TrustedAgentRequest(sanitized, caller);
+    }
+
+    private Set<String> trustedClaims(Object value, String name) {
+        if (value == null) {
+            return Set.of();
+        }
+        if (!(value instanceof Set<?> values)) {
+            throw new IllegalArgumentException(name + " must be a Set of concrete strings");
+        }
+        Set<String> claims = new LinkedHashSet<>();
+        for (Object item : values) {
+            if (!(item instanceof String claim) || claim.isBlank() || "*".equals(claim.trim())) {
+                throw new IllegalArgumentException(name + " must contain only concrete, non-blank strings");
+            }
+            claims.add(claim);
+        }
+        return Set.copyOf(claims);
+    }
+
+    record TrustedAgentRequest(AgentRunRequest request, AgentCallerContext caller) {
     }
 
     @GET
