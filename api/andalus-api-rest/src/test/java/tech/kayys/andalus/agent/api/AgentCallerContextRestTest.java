@@ -7,6 +7,7 @@ import java.lang.reflect.Proxy;
 import java.security.Principal;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import tech.kayys.andalus.agent.core.core.AgentClient;
 import tech.kayys.andalus.agent.spi.AgentRequest;
@@ -39,6 +40,38 @@ class AgentCallerContextRestTest {
         assertThat(trusted.caller().roles()).containsExactly("agent:run");
         assertThat(trusted.caller().permissions()).containsExactlyInAnyOrder("tool:read", "tool:invoke");
         assertThat(trusted.caller().principalType()).isEqualTo(AgentCallerContext.PrincipalType.USER);
+    }
+
+    @Test
+    void runPassesCallerContextToTheContextAwareClientMethod() {
+        AgentResource resource = new AgentResource();
+        resource.securityIdentity = identity(false, "tenant-a", Set.of("agent:run"), Set.of("tool:read"));
+        AtomicReference<AgentCallerContext> captured = new AtomicReference<>();
+        resource.agentClient = new AgentClient() {
+            @Override
+            public Uni<AgentResponse> execute(AgentRequest request) {
+                throw new AssertionError("REST must not call the identity-dropping legacy overload");
+            }
+
+            @Override
+            public Uni<AgentResponse> execute(AgentRequest request, AgentCallerContext caller) {
+                captured.set(caller);
+                return Uni.createFrom().item(AgentResponse.builder()
+                        .requestId(request.requestId())
+                        .answer("accepted")
+                        .successful(true)
+                        .build());
+            }
+        };
+
+        var response = resource.run(request()).await().indefinitely();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(captured.get()).isNotNull();
+        assertThat(captured.get().tenantId()).isEqualTo("tenant-a");
+        assertThat(captured.get().userId()).isEqualTo("user-a");
+        assertThat(captured.get().roles()).containsExactly("agent:run");
+        assertThat(captured.get().permissions()).containsExactly("tool:read");
     }
 
     @Test
