@@ -130,7 +130,7 @@ class AgentCallerContextRestTest {
 
     private AgentResource.AgentRunRequest request() {
         return new AgentResource.AgentRunRequest("hello", null, null, null, 0, null,
-                "body-tenant", "body-user", null, null, null);
+                "body-tenant", "body-user", null, null, null, "agent-a");
     }
 
     private SecurityIdentity identity(boolean anonymous, String tenantId,
