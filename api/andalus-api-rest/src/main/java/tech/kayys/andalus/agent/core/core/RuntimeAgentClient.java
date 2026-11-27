@@ -4,6 +4,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.NotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -65,8 +66,8 @@ public class RuntimeAgentClient implements AgentClient {
             Optional<tech.kayys.andalus.core.AgentDefinition> resolved =
                     definitionResolvers.get().resolve(agentId, caller);
             if (resolved == null || resolved.isEmpty()) {
-                return Uni.createFrom().failure(new IllegalArgumentException(
-                        "Agent not found or caller is not authorized: " + agentId));
+                return Uni.createFrom().failure(new NotFoundException(
+                        "Agent not found or caller is not authorized"));
             }
 
             tech.kayys.andalus.agent.AgentRequest runtimeRequest = toRuntimeRequest(request, caller);
