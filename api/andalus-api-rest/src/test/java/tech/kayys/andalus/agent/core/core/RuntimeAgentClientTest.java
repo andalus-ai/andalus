@@ -29,9 +29,11 @@ class RuntimeAgentClientTest {
     void resolvesAgentForCallerAndPassesTrustedContextIntoExecutionService() {
         AtomicReference<String> resolvedAgentId = new AtomicReference<>();
         AtomicReference<AgentCallerContext> resolvedCaller = new AtomicReference<>();
+        AtomicReference<AgentRequest> resolvedRequest = new AtomicReference<>();
         AgentDefinition definition = AgentDefinition.builder().build();
-        AgentDefinitionResolver resolver = (agentId, caller) -> {
+        AgentDefinitionResolver resolver = (agentId, request, caller) -> {
             resolvedAgentId.set(agentId);
+            resolvedRequest.set(request);
             resolvedCaller.set(caller);
             return Optional.of(definition);
         };
@@ -75,6 +77,7 @@ class RuntimeAgentClientTest {
 
         assertThat(resolvedAgentId.get()).isEqualTo("agent-a");
         assertThat(resolvedCaller.get()).isSameAs(caller);
+        assertThat(resolvedRequest.get()).isSameAs(request);
         assertThat(executionCaller.get()).isSameAs(caller);
         assertThat(runtimeRequest.get().tenantId()).isEqualTo("tenant-a");
         assertThat(runtimeRequest.get().userId()).isEqualTo("user-a");
@@ -112,7 +115,7 @@ class RuntimeAgentClientTest {
     void hidesMissingOrUnauthorizedAgentAsNotFound() {
         RuntimeAgentClient client = new RuntimeAgentClient();
         client.executions = new AgentExecutionService() { };
-        client.definitionResolvers = resolverInstance((agentId, caller) -> Optional.empty());
+        client.definitionResolvers = resolverInstance((agentId, request, caller) -> Optional.empty());
 
         assertThatThrownBy(() -> client.execute(
                 AgentRequest.builder().prompt("hello").build(),
