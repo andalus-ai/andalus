@@ -2,6 +2,7 @@ package tech.kayys.andalus.agent.core.core;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
+import jakarta.ws.rs.NotFoundException;
 import java.lang.reflect.Proxy;
 import java.util.Map;
 import java.util.Optional;
@@ -99,6 +100,20 @@ class RuntimeAgentClientTest {
                 "agent-a").await().indefinitely())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("No AgentDefinitionResolver");
+    }
+
+    @Test
+    void hidesMissingOrUnauthorizedAgentAsNotFound() {
+        RuntimeAgentClient client = new RuntimeAgentClient();
+        client.executions = new AgentExecutionService() { };
+        client.definitionResolvers = resolverInstance((agentId, caller) -> Optional.empty());
+
+        assertThatThrownBy(() -> client.execute(
+                AgentRequest.builder().prompt("hello").build(),
+                AgentCallerContext.user("tenant-a", "user-a", Set.of(), Set.of()),
+                "private-agent").await().indefinitely())
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Agent not found or caller is not authorized");
     }
 
     @Test
