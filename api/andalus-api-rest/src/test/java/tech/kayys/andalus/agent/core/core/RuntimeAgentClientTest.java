@@ -15,6 +15,7 @@ import tech.kayys.andalus.agent.spi.AgentRequest;
 import tech.kayys.andalus.agent.spi.AgentResponse;
 import tech.kayys.andalus.agent.spi.OrchestrationStrategy;
 import tech.kayys.andalus.core.AgentDefinition;
+import tech.kayys.andalus.spi.agent.AgentIdentity;
 import tech.kayys.andalus.execution.AgentCallerContext;
 import tech.kayys.andalus.execution.AgentExecution;
 import tech.kayys.andalus.execution.AgentExecutionService;
@@ -30,7 +31,7 @@ class RuntimeAgentClientTest {
         AtomicReference<String> resolvedAgentId = new AtomicReference<>();
         AtomicReference<AgentCallerContext> resolvedCaller = new AtomicReference<>();
         AtomicReference<AgentRequest> resolvedRequest = new AtomicReference<>();
-        AgentDefinition definition = AgentDefinition.builder().build();
+        AgentDefinition definition = AgentDefinition.builder().identity(AgentIdentity.of("agent-a")).build();
         AgentDefinitionResolver resolver = (agentId, request, caller) -> {
             resolvedAgentId.set(agentId);
             resolvedRequest.set(request);
