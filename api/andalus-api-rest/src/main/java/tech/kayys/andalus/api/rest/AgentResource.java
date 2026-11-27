@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -100,6 +101,9 @@ public class AgentResource {
     TrustedAgentRequest trustedCall(AgentRunRequest request) {
         AgentRunRequest safe = request != null ? request : new AgentRunRequest(
                 null, null, null, null, 0, null, null, null, null, null, null);
+        if (safe.agentId() == null || safe.agentId().isBlank()) {
+            throw new BadRequestException("agentId is required");
+        }
         SecurityIdentity identity = securityIdentity;
         boolean authenticated = identity != null && !identity.isAnonymous()
                 && identity.getPrincipal() != null;
