@@ -75,6 +75,7 @@ public class RuntimeAgentClient implements AgentClient {
             CompletionStage<tech.kayys.andalus.agent.AgentResponse> completion = execution.execute();
 
             return Uni.createFrom().completionStage(completion)
+                    .onCancellation().invoke(execution::cancel)
                     .map(response -> toTransportResponse(request, execution.id(), response));
         } catch (RuntimeException error) {
             return Uni.createFrom().failure(error);
