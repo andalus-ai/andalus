@@ -53,7 +53,7 @@ public class AgentResource {
         try {
             TrustedAgentRequest trusted = trustedCall(request);
             AgentRequest agentRequest = runRequestMapper.toAgentRequest(trusted.request(), false);
-            return agentClient.execute(agentRequest, trusted.caller())
+            return agentClient.execute(agentRequest, trusted.caller(), trusted.request().agentId())
                     .map(runResponseMapper::ok)
                     .onFailure(UnsupportedOperationException.class).recoverWithItem(error ->
                             Response.status(Response.Status.NOT_IMPLEMENTED)
@@ -133,7 +133,7 @@ public class AgentResource {
         }
         AgentRunRequest sanitized = new AgentRunRequest(safe.prompt(), safe.systemPrompt(), safe.strategy(),
                 safe.skills(), safe.maxSteps(), safe.timeout(), tenantId, userId, safe.sessionId(),
-                safe.modelId(), context);
+                safe.modelId(), context, safe.agentId());
         return new TrustedAgentRequest(sanitized, caller);
     }
 
@@ -190,7 +190,14 @@ public class AgentResource {
             String userId,
             String sessionId,
             String modelId,
-            Map<String, Object> context) {
+            Map<String, Object> context,
+            String agentId) {
+        public AgentRunRequest(String prompt, String systemPrompt, String strategy, List<String> skills,
+                int maxSteps, String timeout, String tenantId, String userId, String sessionId,
+                String modelId, Map<String, Object> context) {
+            this(prompt, systemPrompt, strategy, skills, maxSteps, timeout, tenantId, userId,
+                    sessionId, modelId, context, null);
+        }
     }
 
     public record SkillSummary(
