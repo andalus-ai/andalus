@@ -96,6 +96,12 @@
             <artifactId>andalus-execution-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Runtime execution service used by the trusted REST-to-runtime adapter. -->
+        <dependency>
+            <groupId>tech.kayys.andalus</groupId>
+            <artifactId>andalus-runtime-core</artifactId>
+            <version>0.0.1</version>
+        </dependency>
         <dependency>
             <groupId>tech.kayys.andalus</groupId>
             <artifactId>andalus-state-api</artifactId>
