@@ -77,7 +77,7 @@ public class AgentResource {
             requireAgentId(request);
             TrustedAgentRequest trusted = trustedCall(request);
             AgentRequest agentRequest = runRequestMapper.toAgentRequest(trusted.request(), true);
-            return agentClient.execute(agentRequest, trusted.caller())
+            return agentClient.execute(agentRequest, trusted.caller(), trusted.request().agentId())
                     .onItem().transform(runResponseMapper::streamData)
                     .onFailure().recoverWithItem(runResponseMapper::streamError)
                     .toMulti();
