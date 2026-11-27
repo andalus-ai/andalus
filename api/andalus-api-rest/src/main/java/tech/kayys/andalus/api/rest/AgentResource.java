@@ -9,10 +9,12 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.BeanParam;
@@ -51,10 +53,14 @@ public class AgentResource {
     @Path("/run")
     public Uni<Response> run(AgentRunRequest request) {
         try {
+            requireAgentId(request);
             TrustedAgentRequest trusted = trustedCall(request);
             AgentRequest agentRequest = runRequestMapper.toAgentRequest(trusted.request(), false);
-            return agentClient.execute(agentRequest, trusted.caller())
+            return agentClient.execute(agentRequest, trusted.caller(), trusted.request().agentId())
                     .map(runResponseMapper::ok)
+                    .onFailure(NotFoundException.class).recoverWithItem(error ->
+                            Response.status(Response.Status.NOT_FOUND)
+                                    .entity(Map.of("error", error.getMessage())).build())
                     .onFailure(UnsupportedOperationException.class).recoverWithItem(error ->
                             Response.status(Response.Status.NOT_IMPLEMENTED)
                                     .entity(Map.of("error", error.getMessage())).build())
@@ -67,18 +73,26 @@ public class AgentResource {
         }
     }
 
+    /**
+     * Emits the completed runtime response as an SSE message. The current
+     * AgentExecution contract exposes completion-stage results, not incremental
+     * token events; true token streaming requires a separate runtime event API.
+     */
     @POST
     @Path("/stream")
     @Produces(MediaType.SERVER_SENT_EVENTS)
     public Multi<String> stream(AgentRunRequest request) {
         try {
+            requireAgentId(request);
             TrustedAgentRequest trusted = trustedCall(request);
             AgentRequest agentRequest = runRequestMapper.toAgentRequest(trusted.request(), true);
-            return agentClient.execute(agentRequest, trusted.caller())
+            return agentClient.execute(agentRequest, trusted.caller(), trusted.request().agentId())
                     .onItem().transform(runResponseMapper::streamData)
                     .onFailure().recoverWithItem(runResponseMapper::streamError)
                     .toMulti();
         } catch (ForbiddenException error) {
+            throw error;
+        } catch (BadRequestException error) {
             throw error;
         } catch (RuntimeException error) {
             return Multi.createFrom().item(runResponseMapper.streamError(error));
@@ -133,8 +147,14 @@ public class AgentResource {
         }
         AgentRunRequest sanitized = new AgentRunRequest(safe.prompt(), safe.systemPrompt(), safe.strategy(),
                 safe.skills(), safe.maxSteps(), safe.timeout(), tenantId, userId, safe.sessionId(),
-                safe.modelId(), context);
+                safe.modelId(), context, safe.agentId());
         return new TrustedAgentRequest(sanitized, caller);
+    }
+
+    private void requireAgentId(AgentRunRequest request) {
+        if (request == null || request.agentId() == null || request.agentId().isBlank()) {
+            throw new BadRequestException("agentId is required");
+        }
     }
 
     private Set<String> trustedClaims(Object value, String name) {
@@ -190,7 +210,14 @@ public class AgentResource {
             String userId,
             String sessionId,
             String modelId,
-            Map<String, Object> context) {
+            Map<String, Object> context,
+            String agentId) {
+        public AgentRunRequest(String prompt, String systemPrompt, String strategy, List<String> skills,
+                int maxSteps, String timeout, String tenantId, String userId, String sessionId,
+                String modelId, Map<String, Object> context) {
+            this(prompt, systemPrompt, strategy, skills, maxSteps, timeout, tenantId, userId,
+                    sessionId, modelId, context, null);
+        }
     }
 
     public record SkillSummary(

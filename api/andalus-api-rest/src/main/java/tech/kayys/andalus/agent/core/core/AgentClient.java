@@ -37,4 +37,16 @@ public interface AgentClient {
         return Uni.createFrom().failure(new UnsupportedOperationException(
                 "AgentClient implementation does not support trusted caller context; refusing to drop identity"));
     }
+    
+    /**
+     * Executes a request against an explicitly selected logical agent.
+     * Implementations must resolve the definition within the caller's tenant
+     * and enforce agent-level invocation authorization.
+     */
+    default Uni<AgentResponse> execute(AgentRequest request, AgentCallerContext caller, String agentId) {
+        if (agentId == null || agentId.isBlank()) {
+            return Uni.createFrom().failure(new IllegalArgumentException("agentId is required"));
+        }
+        return execute(request, caller);
+    }
 }
