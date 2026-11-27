@@ -59,6 +59,22 @@ class AgentResourceTest {
     }
 
     @Test
+    void streamPassesExplicitAgentAndCallerContext() {
+        RecordingAgentClient client = new RecordingAgentClient();
+        AgentResource resource = resource(client, registry());
+
+        List<String> events = resource.stream(new AgentResource.AgentRunRequest(
+                "hello", null, "react", List.of(), 0, null,
+                "forged-tenant", "forged-user", "session-a", null, null, "agent-a"))
+                .collect().asList().await().indefinitely();
+
+        assertThat(events).containsExactly("data: done\\n\\n");
+        assertThat(client.agentId).isEqualTo("agent-a");
+        assertThat(client.caller.tenantId()).isEqualTo("tenant-a");
+        assertThat(client.caller.userId()).isEqualTo("user-a");
+    }
+
+    @Test
     void runRequiresExplicitAgentId() {
         AgentResource resource = resource(new RecordingAgentClient(), registry());
 
