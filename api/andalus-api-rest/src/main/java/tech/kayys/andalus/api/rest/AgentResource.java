@@ -73,6 +73,11 @@ public class AgentResource {
         }
     }
 
+    /**
+     * Emits the completed runtime response as an SSE message. The current
+     * AgentExecution contract exposes completion-stage results, not incremental
+     * token events; true token streaming requires a separate runtime event API.
+     */
     @POST
     @Path("/stream")
     @Produces(MediaType.SERVER_SENT_EVENTS)
