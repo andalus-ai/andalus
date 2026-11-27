@@ -83,6 +83,8 @@ public class AgentResource {
                     .toMulti();
         } catch (ForbiddenException error) {
             throw error;
+        } catch (BadRequestException error) {
+            throw error;
         } catch (RuntimeException error) {
             return Multi.createFrom().item(runResponseMapper.streamError(error));
         }
