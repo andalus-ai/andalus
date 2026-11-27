@@ -52,6 +52,7 @@ public class AgentResource {
     @Path("/run")
     public Uni<Response> run(AgentRunRequest request) {
         try {
+            requireAgentId(request);
             TrustedAgentRequest trusted = trustedCall(request);
             AgentRequest agentRequest = runRequestMapper.toAgentRequest(trusted.request(), false);
             return agentClient.execute(agentRequest, trusted.caller(), trusted.request().agentId())
@@ -73,6 +74,7 @@ public class AgentResource {
     @Produces(MediaType.SERVER_SENT_EVENTS)
     public Multi<String> stream(AgentRunRequest request) {
         try {
+            requireAgentId(request);
             TrustedAgentRequest trusted = trustedCall(request);
             AgentRequest agentRequest = runRequestMapper.toAgentRequest(trusted.request(), true);
             return agentClient.execute(agentRequest, trusted.caller())
@@ -101,9 +103,6 @@ public class AgentResource {
     TrustedAgentRequest trustedCall(AgentRunRequest request) {
         AgentRunRequest safe = request != null ? request : new AgentRunRequest(
                 null, null, null, null, 0, null, null, null, null, null, null);
-        if (safe.agentId() == null || safe.agentId().isBlank()) {
-            throw new BadRequestException("agentId is required");
-        }
         SecurityIdentity identity = securityIdentity;
         boolean authenticated = identity != null && !identity.isAnonymous()
                 && identity.getPrincipal() != null;
@@ -139,6 +138,12 @@ public class AgentResource {
                 safe.skills(), safe.maxSteps(), safe.timeout(), tenantId, userId, safe.sessionId(),
                 safe.modelId(), context, safe.agentId());
         return new TrustedAgentRequest(sanitized, caller);
+    }
+
+    private void requireAgentId(AgentRunRequest request) {
+        if (request == null || request.agentId() == null || request.agentId().isBlank()) {
+            throw new BadRequestException("agentId is required");
+        }
     }
 
     private Set<String> trustedClaims(Object value, String name) {
