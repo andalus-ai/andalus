@@ -4,6 +4,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
 import jakarta.ws.rs.NotFoundException;
 import java.lang.reflect.Proxy;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -37,6 +38,7 @@ class RuntimeAgentClientTest {
 
         AtomicReference<AgentCallerContext> executionCaller = new AtomicReference<>();
         AtomicReference<tech.kayys.andalus.agent.AgentRequest> runtimeRequest = new AtomicReference<>();
+        AtomicReference<ExecutionBudget> runtimeBudget = new AtomicReference<>();
         AgentExecutionService service = new AgentExecutionService() {
             @Override
             public AgentExecution create(AgentDefinition agent,
@@ -46,6 +48,7 @@ class RuntimeAgentClientTest {
                 assertThat(agent).isSameAs(definition);
                 executionCaller.set(caller);
                 runtimeRequest.set(request);
+                runtimeBudget.set(budget);
                 return execution("execution-123");
             }
         };
@@ -64,6 +67,7 @@ class RuntimeAgentClientTest {
                 .sessionId("session-a")
                 .modelId("model-a")
                 .maxSteps(7)
+                .timeout(Duration.ofSeconds(30))
                 .context(Map.of("traceId", "trace-a"))
                 .build();
 
@@ -77,6 +81,8 @@ class RuntimeAgentClientTest {
         assertThat(runtimeRequest.get().sessionId()).isEqualTo("session-a");
         assertThat(runtimeRequest.get().content()).isEqualTo("summarize this");
         assertThat(runtimeRequest.get().parameters()).containsEntry("traceId", "trace-a");
+        assertThat(runtimeBudget.get().maxSteps()).isEqualTo(7);
+        assertThat(runtimeBudget.get().maxDuration()).isEqualTo(Duration.ofSeconds(30));
         assertThat(runtimeRequest.get().metadata())
                 .containsEntry("strategy", "REACT")
                 .containsEntry("modelId", "model-a")
