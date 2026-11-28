@@ -7,6 +7,9 @@ import static org.mockito.Mockito.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -229,6 +232,103 @@ class AgentRuntimeRegistrationSupervisorTest {
         assertFalse(supervisor.reconcile());
         assertTrue(supervisor.token().isEmpty());
         verify(store, never()).acquire(any());
+    }
+
+
+    @Test
+    void startupDatabaseOutageRecoversWithFreshAcquisitionAfterStoreReturns() {
+        AgentRuntimeRegistrationStore store = mock(AgentRuntimeRegistrationStore.class);
+        AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
+        ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        ScheduledFuture<?> heartbeat = mock(ScheduledFuture.class);
+        ScheduledFuture<?> retry = mock(ScheduledFuture.class);
+        ArgumentCaptor<Runnable> retryTask = ArgumentCaptor.forClass(Runnable.class);
+
+        when(store.acquire(any()))
+                .thenThrow(new IllegalStateException("database unavailable"))
+                .thenReturn(Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING)));
+        doReturn(heartbeat).when(scheduler).scheduleWithFixedDelay(
+                any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class));
+        doReturn(retry).when(scheduler).schedule(
+                retryTask.capture(), anyLong(), any(TimeUnit.class));
+
+        AgentRuntimeRegistrationReadiness readiness = new AgentRuntimeRegistrationReadiness();
+        AgentRuntimeRegistrationSupervisor supervisor = new AgentRuntimeRegistrationSupervisor(
+                lifecycle, scheduler, readiness, "tenant-a", "agent-a", "instance-a", "owner-a",
+                HEARTBEAT, Duration.ofMillis(100), Duration.ofSeconds(2));
+
+        assertFalse(supervisor.start());
+        assertEquals(AgentRuntimeRegistrationReadiness.State.DEGRADED, readiness.state());
+        assertTrue(supervisor.token().isEmpty());
+
+        // The host's scheduler invokes the bounded retry after persistence recovers.
+        retryTask.getValue().run();
+
+        assertEquals(FIRST, supervisor.token().orElseThrow());
+        assertEquals(AgentRuntimeRegistrationReadiness.State.STARTING, readiness.state());
+        assertFalse(supervisor.isReady());
+        verify(store, times(2)).acquire(any());
+        supervisor.close();
+    }
+
+    @Test
+    void shutdownWaitsForInFlightRecoveryAndPreventsPostCloseOwnership() throws Exception {
+        AgentRuntimeRegistrationStore store = mock(AgentRuntimeRegistrationStore.class);
+        AgentRuntimeRegistrationLifecycle lifecycle = new AgentRuntimeRegistrationLifecycle(store, TTL);
+        ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        ScheduledFuture<?> heartbeat = mock(ScheduledFuture.class);
+        ScheduledFuture<?> retry = mock(ScheduledFuture.class);
+        ArgumentCaptor<Runnable> retryTask = ArgumentCaptor.forClass(Runnable.class);
+        CountDownLatch recoveryEntered = new CountDownLatch(1);
+        CountDownLatch releaseRecovery = new CountDownLatch(1);
+
+        java.util.concurrent.atomic.AtomicInteger acquisitions = new java.util.concurrent.atomic.AtomicInteger();
+        when(store.acquire(any())).thenAnswer(invocation -> {
+            if (acquisitions.incrementAndGet() == 1) {
+                throw new IllegalStateException("database unavailable during startup");
+            }
+            recoveryEntered.countDown();
+            try {
+                if (!releaseRecovery.await(5, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("test timed out waiting to release recovery");
+                }
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("recovery interrupted", interrupted);
+            }
+            return Optional.of(lease(FIRST, AgentRuntimeStatus.STARTING));
+        });
+        doReturn(heartbeat).when(scheduler).scheduleWithFixedDelay(
+                any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class));
+        doReturn(retry).when(scheduler).schedule(
+                retryTask.capture(), anyLong(), any(TimeUnit.class));
+
+        AgentRuntimeRegistrationReadiness readiness = new AgentRuntimeRegistrationReadiness();
+        AgentRuntimeRegistrationSupervisor supervisor = new AgentRuntimeRegistrationSupervisor(
+                lifecycle, scheduler, readiness, "tenant-a", "agent-a", "instance-a", "owner-a",
+                HEARTBEAT, Duration.ofMillis(100), Duration.ofSeconds(2));
+
+        assertFalse(supervisor.start());
+        ExecutorService callers = Executors.newFixedThreadPool(2);
+        try {
+            var recovery = callers.submit(retryTask.getValue());
+            assertTrue(recoveryEntered.await(2, TimeUnit.SECONDS));
+            var shutdown = callers.submit(supervisor::close);
+
+            releaseRecovery.countDown();
+            recovery.get(5, TimeUnit.SECONDS);
+            shutdown.get(5, TimeUnit.SECONDS);
+
+            assertEquals(AgentRuntimeRegistrationReadiness.State.STOPPED, readiness.state());
+            assertTrue(supervisor.token().isEmpty());
+            verify(store, times(1)).acquire(any());
+            verify(store).revoke(FIRST);
+            assertFalse(supervisor.reconcile());
+            verify(store, times(1)).acquire(any());
+        } finally {
+            releaseRecovery.countDown();
+            callers.shutdownNow();
+        }
     }
 
     private static AgentRuntimeLease lease(AgentRuntimeLeaseToken token, AgentRuntimeStatus status) {
