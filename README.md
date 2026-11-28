@@ -918,3 +918,13 @@ This complements the existing multi-agent recovery test, which validates selecti
 expiry and recovery while a healthy sibling retains its generation, and the tenant
 isolation test. The integration suite is Docker-dependent and is skipped when Docker
 is unavailable; CI must provide a Docker-capable runner to execute these scenarios.
+
+
+## Registration failure-injection coverage (Phase 5.1.21)
+
+The supervisor unit suite now exercises two additional infrastructure-failure boundaries:
+
+- **Startup persistence outage:** an acquisition exception leaves readiness DEGRADED and exposes no token; once the host scheduler runs the bounded retry after the store recovers, the supervisor performs a fresh acquire and remains STARTING until the host explicitly publishes AVAILABLE.
+- **Shutdown during recovery:** a latch-controlled test blocks the recovery acquisition while shutdown races it. Shutdown waits for the in-flight supervisor operation, revokes the acquired lease, reaches STOPPED, and prevents later reconciliation from acquiring another generation.
+
+These are deterministic unit tests using a mocked registration store and the host-supplied scheduler. They do not add production failure hooks, fallback threads, or automatic readiness promotion. PostgreSQL Testcontainers coverage from Phase 5.1.20 remains responsible for database-backed cross-instance fencing.
