@@ -64,7 +64,11 @@ public class PostgresAnpKeyRotationJournal {
                     insert.setString(5, request.newKeyId());
                     insert.setLong(6, request.expectedRevision());
                     insert.setLong(7, request.targetRevision());
-                    insert.executeUpdate();
+                    int inserted = insert.executeUpdate();
+                    if (inserted == 1) {
+                        PostgresAnpKeyRotationAuditLog.append(connection, request.operationId(),
+                                "ROTATION_PREPARED", request.actorId(), null, null, "PREPARED", null);
+                    }
                 }
                 Rotation existing = find(connection, request.operationId())
                         .orElseThrow(() -> new IllegalStateException("Rotation journal row missing after prepare"));
@@ -106,6 +110,10 @@ public class PostgresAnpKeyRotationJournal {
                     update.setString(2, operationId);
                     update.setString(3, expected.name());
                     int changed = update.executeUpdate();
+                    if (changed == 1) {
+                        PostgresAnpKeyRotationAuditLog.append(connection, operationId,
+                                "STATE_TRANSITIONED", null, null, expected.name(), next.name(), null);
+                    }
                     if (changed == 0) {
                         Rotation current = find(connection, operationId)
                                 .orElseThrow(() -> new IllegalArgumentException("Unknown rotation: " + operationId));

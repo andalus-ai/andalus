@@ -40,6 +40,7 @@ class PostgresAnpKeyRotationCoordinatorTest {
     private PGSimpleDataSource dataSource;
     private PostgresAnpKeyRotationJournal journal;
     private PostgresAnpKeyRotationRecoveryQueue queue;
+    private PostgresAnpKeyRotationAuditLog auditLog;
     private PostgresTrustedDidDocumentStore didStore;
     private PostgresAnpKeyStore keyStore;
     private TrustedDidDocument initial;
@@ -56,6 +57,7 @@ class PostgresAnpKeyRotationCoordinatorTest {
         createSchema();
         journal = new PostgresAnpKeyRotationJournal(dataSource);
         queue = new PostgresAnpKeyRotationRecoveryQueue(dataSource);
+        auditLog = new PostgresAnpKeyRotationAuditLog(dataSource);
         didStore = new PostgresTrustedDidDocumentStore(dataSource, new ObjectMapper());
         keyStore = new PostgresAnpKeyStore(dataSource, new TestProtector());
 
@@ -77,6 +79,10 @@ class PostgresAnpKeyRotationCoordinatorTest {
         assertTrue(keyStore.getActiveKey(NEW_ID).isPresent());
         assertTrue(keyStore.getActiveKey(OLD_ID).isEmpty());
         assertEquals(NEW_ID, keyStore.getAgentKeyId(DID).orElseThrow());
+        var events = auditLog.history("rotation-success", 20);
+        assertEquals("ROTATION_PREPARED", events.get(events.size() - 1).eventType());
+        assertTrue(events.stream().anyMatch(event -> "STATE_TRANSITIONED".equals(event.eventType())
+                && "COMPLETED".equals(event.toState())));
     }
 
     @Test
@@ -257,6 +263,11 @@ class PostgresAnpKeyRotationCoordinatorTest {
         assertTrue(queue.requeueDeadLetter("rotation-dead-letter"));
         assertEquals(0, queue.recoveryStatus().deadLettered());
         assertEquals(1, queue.recoveryStatus().due());
+        var events = auditLog.history("rotation-dead-letter", 50);
+        assertTrue(events.stream().anyMatch(event -> "RECOVERY_FAILED".equals(event.eventType())
+                && "IllegalStateException".equals(event.failureType())));
+        assertTrue(events.stream().anyMatch(event -> "DEAD_LETTER_REQUEUED".equals(event.eventType())));
+        assertFalse(events.stream().anyMatch(event -> "sensitive provider detail".equals(event.failureType())));
     }
 
     private PostgresAnpKeyRotationCoordinator coordinator(AnpKeyStore store,
@@ -293,6 +304,7 @@ class PostgresAnpKeyRotationCoordinatorTest {
             sql.execute("DROP TABLE IF EXISTS andalus_anp_agent_signing_keys");
             sql.execute("DROP TABLE IF EXISTS andalus_anp_revoked_key_ids");
             sql.execute("DROP TABLE IF EXISTS andalus_anp_signing_keys");
+            sql.execute("DROP TABLE IF EXISTS andalus_anp_key_rotation_audit");
             sql.execute("DROP TABLE IF EXISTS andalus_anp_key_rotations");
             sql.execute("DROP TABLE IF EXISTS andalus_trusted_did_documents");
             sql.execute("""
@@ -313,6 +325,14 @@ class PostgresAnpKeyRotationCoordinatorTest {
                         lease_generation BIGINT NOT NULL DEFAULT 0 CHECK (lease_generation >= 0),
                         next_attempt_at TIMESTAMPTZ, last_failure_at TIMESTAMPTZ,
                         last_failure_type VARCHAR(160), dead_lettered_at TIMESTAMPTZ)
+                    """);
+            sql.execute("""
+                    CREATE TABLE andalus_anp_key_rotation_audit (
+                        event_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                        operation_id VARCHAR(128) NOT NULL REFERENCES andalus_anp_key_rotations(operation_id),
+                        event_type VARCHAR(48) NOT NULL, actor_id VARCHAR(256), worker_id VARCHAR(256),
+                        from_state VARCHAR(32), to_state VARCHAR(32), failure_type VARCHAR(160),
+                        occurred_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)
                     """);
             sql.execute("""
                     CREATE TABLE andalus_anp_signing_keys (

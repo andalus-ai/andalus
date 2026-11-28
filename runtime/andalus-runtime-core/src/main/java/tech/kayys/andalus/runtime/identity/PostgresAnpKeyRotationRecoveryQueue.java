@@ -271,13 +271,24 @@ public class PostgresAnpKeyRotationRecoveryQueue {
                 WHERE operation_id = ? AND lease_owner = ? AND lease_generation = ?
                   AND state <> 'COMPLETED'
                 """;
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, failureType);
-            statement.setString(2, operationId);
-            statement.setString(3, workerId);
-            statement.setLong(4, generation);
-            return statement.executeUpdate() == 1;
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, failureType);
+                statement.setString(2, operationId);
+                statement.setString(3, workerId);
+                statement.setLong(4, generation);
+                int changed = statement.executeUpdate();
+                if (changed == 1) {
+                    PostgresAnpKeyRotationAuditLog.append(connection, operationId, "RECOVERY_FAILED",
+                            null, workerId, null, null, failureType);
+                }
+                connection.commit();
+                return changed == 1;
+            } catch (SQLException | RuntimeException exception) {
+                try { connection.rollback(); } catch (SQLException rollback) { exception.addSuppressed(rollback); }
+                throw exception;
+            }
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to schedule ANP key rotation retry", exception);
         }
@@ -313,10 +324,21 @@ public class PostgresAnpKeyRotationRecoveryQueue {
                     lease_owner = NULL, lease_until = NULL, updated_at = CURRENT_TIMESTAMP
                 WHERE operation_id = ? AND state <> 'COMPLETED' AND dead_lettered_at IS NOT NULL
                 """;
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, operationId);
-            return statement.executeUpdate() == 1;
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, operationId);
+                int changed = statement.executeUpdate();
+                if (changed == 1) {
+                    PostgresAnpKeyRotationAuditLog.append(connection, operationId, "DEAD_LETTER_REQUEUED",
+                            null, "operator", null, null, null);
+                }
+                connection.commit();
+                return changed == 1;
+            } catch (SQLException | RuntimeException exception) {
+                try { connection.rollback(); } catch (SQLException rollback) { exception.addSuppressed(rollback); }
+                throw exception;
+            }
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to requeue dead-lettered ANP key rotation", exception);
         }
