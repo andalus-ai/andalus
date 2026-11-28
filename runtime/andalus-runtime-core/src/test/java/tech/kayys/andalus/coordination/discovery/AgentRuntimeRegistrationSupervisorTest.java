@@ -282,7 +282,11 @@ class AgentRuntimeRegistrationSupervisorTest {
         CountDownLatch recoveryEntered = new CountDownLatch(1);
         CountDownLatch releaseRecovery = new CountDownLatch(1);
 
+        java.util.concurrent.atomic.AtomicInteger acquisitions = new java.util.concurrent.atomic.AtomicInteger();
         when(store.acquire(any())).thenAnswer(invocation -> {
+            if (acquisitions.incrementAndGet() == 1) {
+                throw new IllegalStateException("database unavailable during startup");
+            }
             recoveryEntered.countDown();
             try {
                 if (!releaseRecovery.await(5, TimeUnit.SECONDS)) {
